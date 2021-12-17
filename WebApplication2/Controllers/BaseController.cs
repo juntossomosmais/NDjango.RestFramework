@@ -26,14 +26,21 @@ namespace WebApplication2.Controllers
     //}
 
 
-    public abstract class BackendFilter
+    public abstract class BackendFilter<TContext> where TContext:DbContext
     {
-        public virtual Expression<Func<TDestination, bool>> FilterQuerySet<TDestination>(HttpRequest request, Expression<Func<TDestination, bool>> filter)
+        public TContext Context { get; set; }
+
+        public BackendFilter(TContext context)
         {
-            return filter;
+            Context = context;
         }
 
-        public virtual Dictionary<string, string> Filter<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
+        public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest request)
+        {
+            return null;
+        }
+
+        public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
         {
             return null;
         }
@@ -60,7 +67,7 @@ namespace WebApplication2.Controllers
 
 
         #region .:: Constructors ::.
-        public BaseController(ISerializer<TOrigin, TDestination, TContext> serializer, ActionOptions actionOptions)
+        public BaseController(ISerializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
         {
             _serializer = serializer;
             _actionOptions = actionOptions == null ? new ActionOptions() : actionOptions;
@@ -75,6 +82,7 @@ namespace WebApplication2.Controllers
         #endregion
 
 
+        [ApiExplorerSettings(IgnoreApi = true)]
         public Dictionary<string, string> FilterQuerySet()
         {
             var request = HttpContext.Request;
@@ -89,7 +97,6 @@ namespace WebApplication2.Controllers
 
             return filters;
         }
-
 
         [HttpGet]
         public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
