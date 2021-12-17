@@ -13,9 +13,10 @@ namespace WebApplication2.Controllers
     {
         public CustomersController(ISerializer<CustomerDTO, Customer, ApplicationDbContext> serializer) : base(serializer)
         {
-            this.FilterFields.Add("Name");
-            this.Filters.Add(() => new QueryStringFilter().Filter<Customer>(HttpContext.Request, FilterFields));
-            //this.Filters.Add(() => new FilterCustomerName())
+            FilterFields.Add("Name");
+            FilterFields.Add("CNPJ");
+            Filters.Add(() => new QueryStringFilter().FilterQuerySet<Customer>(HttpContext.Request, FilterFields));
+            Filters.Add(() => new DocumentFilter().FilterQuerySet<Customer>(HttpContext.Request));
         }
     }
 }

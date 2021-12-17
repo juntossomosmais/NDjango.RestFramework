@@ -17,11 +17,13 @@ namespace WebApplication2.Context
 
         public Customer Customer { get; set; }
         public Seller Seller { get; set; }
+        public CustomerDocument CustomerDocument { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfiguration(new CustomerConfig());
             modelBuilder.ApplyConfiguration(new SellerConfig());
+            modelBuilder.ApplyConfiguration(new CustomerDocumentConfig());
         }
     }
 }

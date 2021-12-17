@@ -92,7 +92,71 @@ namespace TestProject1
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
                 // Act
-                var response = await _client.GetAsync("api/Customers?Name=ghi");
+                var response = await _client.GetAsync("api/Customers?Name=ghi&CNPJ=456");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
+                customers.Count.Should().Be(1);
+                customers.FirstOrDefault().Name.Should().Be("ghi");
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+
+
+        [Fact]
+        public async Task Get_WithQueryStringDocumentParameter_ShouldReturnSingleRecord()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "123",
+                    Name = "abc",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "XYZ"
+                    }, new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cpf",
+                        Document = "1234"
+                    }}
+
+                });
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "456",
+                    Name = "def",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "LHA"
+                    }}
+                });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?cpf=ghi");
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);

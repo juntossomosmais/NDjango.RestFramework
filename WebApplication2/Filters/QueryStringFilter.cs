@@ -8,7 +8,7 @@ namespace WebApplication2.Filters
 {
     public class QueryStringFilter : BackendFilter
     {
-        public override Dictionary<string, string> Filter<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
+        public override Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
         {
             Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
 
