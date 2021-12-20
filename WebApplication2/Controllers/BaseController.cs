@@ -16,16 +16,6 @@ using WebApplication2.Serializers;
 namespace WebApplication2.Controllers
 {
 
-
-    //public class QuerySet<TDestination>
-    //{
-    //    Expression<Func<TDestination, bool>> filter
-    //    public dynamic BuildQuery<TDestination>(HttpRequest request)
-    //    {
-    //        string queryString = request.QueryString.Value;
-    //    }
-    //}
-
     public class BaseFilter<TContext, TEntity> where TContext : DbContext
                                                     where TEntity : BaseEntity
     {
@@ -38,30 +28,6 @@ namespace WebApplication2.Controllers
             DbSet = context.Set<TEntity>();
         }
     }
-
-    //public abstract class BackendFilter<TContext, TDestination> where TContext : DbContext
-    //                                                            where TDestination : BaseEntity
-    //{
-    //    public TContext Context { get; set; }
-    //    public DbSet<TDestination> DbSet { get; set; }
-
-
-    //    //public BackendFilter(TContext context)
-    //    //{
-    //    //    Context = context;
-    //    //    DbSet = Context.Set<TDestination>();
-    //    //}
-
-    //    //public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest request)
-    //    //{
-    //    //    return null;
-    //    //}
-
-    //    //public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
-    //    //{
-    //    //    return null;
-    //    //}
-    //}
 
     public class ActionOptions
     {
@@ -99,22 +65,6 @@ namespace WebApplication2.Controllers
 
         #endregion
 
-
-        //[ApiExplorerSettings(IgnoreApi = true)]
-        //public Dictionary<string, string> FilterQuerySet()
-        //{
-        //    var request = HttpContext.Request;
-        //    Dictionary<string, string> filters = new Dictionary<string, string>();
-
-        //    foreach (var item in Filters)
-        //    {
-        //        var filterItems = item.Invoke();
-        //        foreach (var dictEntry in filterItems)
-        //            filters.Add(dictEntry.Key, dictEntry.Value);
-        //    }
-
-        //    return filters;
-        //}
 
 
         [HttpGet]
