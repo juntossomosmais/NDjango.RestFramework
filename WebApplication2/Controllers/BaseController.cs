@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using WebApplication2.Base;
 using WebApplication2.DTO;
 using WebApplication2.Filters;
 using WebApplication2.Models;
@@ -115,20 +116,16 @@ namespace WebApplication2.Controllers
         //    return filters;
         //}
 
-        [HttpGet]
-        public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
-        {
-
-            var responseBody = await _serializer.List(Query);
-            return Ok(responseBody);
-        }
 
         [HttpGet]
-        [Route("Paged")]
         public async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
-            var responseBody = await _serializer.List(page, pageSize);
-            return Ok(responseBody);
+            var responseBody = await _serializer.List(page, pageSize, Query);
+            return Ok(new PagedBaseResponse<TDestination>()
+            {
+                Data = responseBody.Data,
+                Pages = responseBody.Pages
+            });
         }
 
         [HttpPost]

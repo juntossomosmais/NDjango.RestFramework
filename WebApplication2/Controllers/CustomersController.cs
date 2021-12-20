@@ -6,6 +6,11 @@ using WebApplication2.Models;
 using WebApplication2.Serializers;
 using System.Web;
 using Microsoft.AspNetCore.Http;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Linq.Expressions;
+using System;
 
 namespace WebApplication2.Controllers
 {
@@ -19,7 +24,9 @@ namespace WebApplication2.Controllers
                                    IHttpContextAccessor _contextAccessor) : base(serializer)
         {
             var query = new FilterBuilder<ApplicationDbContext, Customer>(dbContext).DbSet;
-            this.Query = new DocumentFilter().AddFilter(query, _contextAccessor.HttpContext.Request);
+            query = new DocumentFilter().AddFilter(query, _contextAccessor.HttpContext.Request);
+            query = new QueryStringFilter<ApplicationDbContext, Customer>(new string[] { "Name", "CNPJ", "Age" }).AddFilter(query, _contextAccessor.HttpContext.Request);
+            this.Query = query;
         }
     }
 }

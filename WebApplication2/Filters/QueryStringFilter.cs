@@ -9,11 +9,51 @@ using WebApplication2.Models;
 
 namespace WebApplication2.Filters
 {
-    public class QueryStringFilter<Tcontext>  : Filter<Customer>
+    public class QueryStringFilter<Tcontext, TEntity> : Filter<TEntity>
     {
-        public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
+        private string[] _allowedFields;
+
+        public QueryStringFilter(string[] allowedFilters)
         {
+            _allowedFields = allowedFilters;
+        }
+
+        public override IQueryable<TEntity> AddFilter(IQueryable<TEntity> query, HttpRequest request)
+        {
+            return Builder(query, request);
+        }
+
+
+        private IQueryable<T> Builder<T>(IQueryable<T> query, HttpRequest httpRequest)
+        {
+            Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
+
+            foreach (var item in httpRequest.Query)
+                if (_allowedFields.Contains(item.Key))
+                    fieldsToFilter.Add(item.Key, item.Value);
+
+            List<Expression<Func<T, bool>>> lst = new List<Expression<Func<T, bool>>>();
+
+            foreach (var queryItem in fieldsToFilter)
+            {
+                query = query.Where(GetColumnEquality<T>(queryItem.Key, queryItem.Value));
+            }
+
             return query;
+        }
+
+
+        private static Expression<Func<T, bool>> GetColumnEquality<T>(string property, string term)
+        {
+            var obj = Expression.Parameter(typeof(T), "obj");
+            
+            var objProperty = Expression.PropertyOrField(obj, property);
+            var converted = Convert.ChangeType(term, objProperty.Type);
+            var objEquality = Expression.Equal(objProperty, Expression.Constant(converted));
+
+            var lambda = Expression.Lambda<Func<T, bool>>(objEquality, obj);
+
+            return lambda;
         }
     }
 }

@@ -6,6 +6,7 @@ namespace WebApplication2.Models
     {
         public string Name { get; set; }
         public string CNPJ { get; set; }
+        public int Age { get; set; }
 
         public ICollection<CustomerDocument> CustomerDocuments { get; set; }
     }

@@ -28,7 +28,6 @@ namespace WebApplication2.Filters
             if (string.IsNullOrWhiteSpace(document))
                 return query;
 
-
             return query.Where(x => x.CustomerDocuments.Any(x => x.DocumentType == documentType && x.Document == document.Value.ToString()));
         }
     }
