@@ -19,13 +19,8 @@ namespace WebApplication2.Serializers
                                                         where TContext : DbContext
                 
     {
-        Task<List<TDestination>> List();
-        //Task<List<TDestination>> List(Dictionary<string, string> keyPairValue);
-        Task<List<TDestination>> List(IQueryable<TDestination> query);
 
-
-        Task<PagedBaseResponse<TDestination>> List(int page, int pageSize, Expression<Func<TDestination, bool>> filter = null);
-        Task<List<TResult>> List<TResult>(int page, int pageSize, Expression<Func<TDestination, TResult>> selector, Expression<Func<TDestination, bool>> filter = null);
+        Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query);
         Task Save();
         Task Post(TOrigin origin);
         void Patch(PartialJsonObject<TOrigin> originObject);
@@ -48,6 +43,46 @@ namespace WebApplication2.Serializers
             await _applicationDbContext.SaveChangesAsync();
         }
 
+       
+                    
+
+        public async Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query)
+        {
+            
+            if (pageSize < 1)
+                throw new Exception("pageSize should be greater than 0");
+
+            if (page < 1)
+                throw new Exception("page should be greater than 0");
+
+           
+            int totalRecords = query.Count();
+
+            int skip = page - 1;
+            query = query.Skip(skip * pageSize).Take(pageSize);
+
+            var data = await query.ToListAsync();
+            var pages = (int)Math.Ceiling((decimal)totalRecords / (decimal)pageSize);
+
+            return (pages, data);
+        }
+
+
+        public void Update(TOrigin originObject)
+        {
+            TDestination destinationObject = GetFromDB(originObject.Id);
+            var stringDeserialized = JsonConvert.SerializeObject(originObject);
+            JsonConvert.PopulateObject(stringDeserialized, destinationObject);
+            _applicationDbContext.Update(destinationObject);
+        }
+
+        public async Task Post(TOrigin originObject)
+        {
+            var stringDeserialized = JsonConvert.SerializeObject(originObject);
+            var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
+            await _applicationDbContext.Set<TDestination>().AddAsync(destinationObject);
+        }
+
         public void Patch(PartialJsonObject<TOrigin> originObject)
         {
             TDestination destinationObject = GetFromDB(originObject.Instance.Id);
@@ -66,99 +101,12 @@ namespace WebApplication2.Serializers
                 }
             }
         }
-                    
-        public async Task<List<TDestination>> List()
-        {
-            return await _applicationDbContext.Set<TDestination>().ToListAsync();
-        }
 
-        public async Task<PagedBaseResponse<TDestination>> List(int page, int pageSize, Expression<Func<TDestination, bool>> filter = null)
-        {
-            if (pageSize < 1)
-                throw new Exception("pageSize should be greater than 0");
 
-            if (page < 1)
-                throw new Exception("page should be greater than 0");
-
-            var response = new PagedBaseResponse<TDestination>();
-            var dbSet = _applicationDbContext.Set<TDestination>();
-            var query = dbSet.AsQueryable();
-
-            int totalRecords;
-
-            if (filter != null)
-                query = query.Where(filter).AsQueryable();
-
-            totalRecords = filter != null ? dbSet.Count(filter) : dbSet.Count();
-
-            var skip = page == 1 ? 0 : (page - 1) * pageSize;
-
-            response.Data = await query.Skip(skip).Take(pageSize).ToListAsync();
-            response.Pages = (int)Math.Ceiling((decimal)totalRecords / (decimal)pageSize);
-
-            return response;
-        }
-
-        public async Task<List<TResult>> List<TResult>(int page, int pageSize, Expression<Func<TDestination, TResult>> selector, Expression<Func<TDestination, bool>> filter = null)
-        {
-            if (filter == null)
-            {
-                var query = _applicationDbContext.Set<TDestination>().Where(filter).Select(selector);
-
-                if (page == 1)
-                    return await query.Take(pageSize).ToListAsync();
-
-                return await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-            }
-            else
-            {
-                var query = _applicationDbContext.Set<TDestination>().Select(selector);
-
-                if (page == 1)
-                    return await query.Take(pageSize).ToListAsync();
-
-                return await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-            }
-        }
 
         private TDestination GetFromDB(Guid guid)
         {
             return _applicationDbContext.Set<TDestination>().FirstOrDefault(x => x.Id == guid);
-        }
-
-        public void Update(TOrigin originObject)
-        {
-            TDestination destinationObject = GetFromDB(originObject.Id);
-            var stringDeserialized = JsonConvert.SerializeObject(originObject);
-            JsonConvert.PopulateObject(stringDeserialized, destinationObject);
-            _applicationDbContext.Update(destinationObject);
-        }
-
-        public async Task Post(TOrigin originObject)
-        {
-            var stringDeserialized = JsonConvert.SerializeObject(originObject);
-            var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
-            await _applicationDbContext.Set<TDestination>().AddAsync(destinationObject);
-        }
-
-        
-
-        public async Task<List<TDestination>> List(Dictionary<string, string> keyPairValue)
-        {
-            var query = _applicationDbContext.Set<TDestination>().AsQueryable();
-
-            var counter = 0;
-            foreach(var dictEntry in keyPairValue)
-            {
-                query = query.Where($"{dictEntry.Key} = @{counter}", dictEntry.Value);
-            }
-
-            return await query.ToListAsync();
-        }
-
-        public async Task<List<TDestination>> List(IQueryable<TDestination> query)
-        {
-            return await query.ToListAsync();
         }
     }
 }

@@ -61,8 +61,8 @@ namespace TestProject1
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
-                customers.Count.Should().Be(3);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(3);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -92,14 +92,14 @@ namespace TestProject1
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
                 // Act
-                var response = await _client.GetAsync("api/Customers?Name=ghi&CNPJ=456");
+                var response = await _client.GetAsync("api/Customers?Name=ghi&CNPJ=789");
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
-                customers.Count.Should().Be(1);
-                customers.FirstOrDefault().Name.Should().Be("ghi");
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(1);
+                customers.Data.FirstOrDefault().Name.Should().Be("ghi");
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -113,6 +113,40 @@ namespace TestProject1
             }
         }
 
+        [Fact]
+        public async Task Get_WithIntegerQueryString_ShouldReturnSingleRecord()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer() { CNPJ = "123", Name = "abc", Age = 20 });
+                dbSet.Add(new Customer() { CNPJ = "456", Name = "def", Age = 20 });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi", Age = 25 });
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?Age=20");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(2);
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
 
         [Fact]
         public async Task Get_WithQueryStringDocumentParameter_ShouldReturnSingleRecord()
@@ -161,9 +195,9 @@ namespace TestProject1
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
-                customers.Count.Should().Be(1);
-                customers.FirstOrDefault().Name.Should().Be("abc");
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(1);
+                customers.Data.FirstOrDefault().Name.Should().Be("abc");
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -176,6 +210,131 @@ namespace TestProject1
                 throw;
             }
         }
+
+        [Fact]
+        public async Task Get_WithQueryStringDocumentParameterAndName_ShouldReturnSingleRecord()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "123",
+                    Name = "abc",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "XYZ"
+                    }, new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cpf",
+                        Document = "1234"
+                    }}
+
+                });
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "456",
+                    Name = "def",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "LHA"
+                    }}
+                });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?cpf=1234&Name=abc");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(1);
+                customers.Data.FirstOrDefault().Name.Should().Be("abc");
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+
+        public async Task Get_WithQueryStringDocumentParameterAndName_ShouldReturnNoRecord()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "123",
+                    Name = "abc",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "XYZ"
+                    }, new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cpf",
+                        Document = "1234"
+                    }}
+
+                });
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "456",
+                    Name = "def",
+                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "LHA"
+                    }}
+                });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?cpf=1234&Name=ghi");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
+                customers.Should().BeEmpty();
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+
 
         [Fact]
         public async Task Patch_WithFullObject_ShouldUpdateFullObject()
@@ -297,7 +456,6 @@ namespace TestProject1
 
         }
 
-
         [Fact]
         public async Task Get_WithPageSize1AndPageSize3_ShouldReturn1RecordAnd3Pages()
         {
@@ -313,14 +471,14 @@ namespace TestProject1
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
                 // Act
-                var response = await _client.GetAsync("api/Customers/Paged?pageSize=1&page=1");
+                var response = await _client.GetAsync("api/Customers?pageSize=3&page=1");
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
                 var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
-                customers.Data.Count.Should().Be(1);
-                customers.Pages.Should().Be(3);
+                customers.Data.Count.Should().Be(3);
+                customers.Pages.Should().Be(1);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -334,6 +492,43 @@ namespace TestProject1
             }
         }
 
+        [Fact]
+        public async Task Get_WithPageSize1AndPageSize3_ShouldReturn1RecordAnd1Pages()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
+                dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?pageSize=1&page=3");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                customers.Data.Count.Should().Be(1);
+                customers.Pages.Should().Be(3);
+                customers.Data.First().Name.Should().Be("ghi");
+
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
 
         [Fact]
         public async Task Patch_WithPartialObject_ShouldReturnMethodNowAllowed()
