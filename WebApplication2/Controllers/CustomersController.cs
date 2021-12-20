@@ -4,6 +4,8 @@ using WebApplication2.DTO;
 using WebApplication2.Filters;
 using WebApplication2.Models;
 using WebApplication2.Serializers;
+using System.Web;
+using Microsoft.AspNetCore.Http;
 
 namespace WebApplication2.Controllers
 {
@@ -11,12 +13,13 @@ namespace WebApplication2.Controllers
     [ApiController]
     public class CustomersController : BaseController<CustomerDTO, Customer, ApplicationDbContext>
     {
-        public CustomersController(ISerializer<CustomerDTO, Customer, ApplicationDbContext> serializer) : base(serializer)
+
+        public CustomersController(ISerializer<CustomerDTO, Customer, ApplicationDbContext> serializer,
+                                   ApplicationDbContext dbContext,
+                                   IHttpContextAccessor _contextAccessor) : base(serializer)
         {
-            FilterFields.Add("Name");
-            FilterFields.Add("CNPJ");
-            Filters.Add(() => new QueryStringFilter().FilterQuerySet<Customer>(HttpContext.Request, FilterFields));
-            Filters.Add(() => new DocumentFilter().FilterQuerySet<Customer>(HttpContext.Request));
+            var query = new FilterBuilder<ApplicationDbContext, Customer>(dbContext).DbSet;
+            this.Query = new DocumentFilter().AddFilter(query, _contextAccessor.HttpContext.Request);
         }
     }
 }

@@ -25,26 +25,42 @@ namespace WebApplication2.Controllers
     //    }
     //}
 
-
-    public abstract class BackendFilter<TContext> where TContext:DbContext
+    public class BaseFilter<TContext, TEntity> where TContext : DbContext
+                                                    where TEntity : BaseEntity
     {
-        public TContext Context { get; set; }
+        private TContext _context;
+        public IQueryable<TEntity> DbSet { get; set; }
 
-        public BackendFilter(TContext context)
+        public BaseFilter(TContext context)
         {
-            Context = context;
-        }
-
-        public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest request)
-        {
-            return null;
-        }
-
-        public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
-        {
-            return null;
+            _context = context;
+            DbSet = context.Set<TEntity>();
         }
     }
+
+    //public abstract class BackendFilter<TContext, TDestination> where TContext : DbContext
+    //                                                            where TDestination : BaseEntity
+    //{
+    //    public TContext Context { get; set; }
+    //    public DbSet<TDestination> DbSet { get; set; }
+
+
+    //    //public BackendFilter(TContext context)
+    //    //{
+    //    //    Context = context;
+    //    //    DbSet = Context.Set<TDestination>();
+    //    //}
+
+    //    //public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest request)
+    //    //{
+    //    //    return null;
+    //    //}
+
+    //    //public virtual Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
+    //    //{
+    //    //    return null;
+    //    //}
+    //}
 
     public class ActionOptions
     {
@@ -61,6 +77,7 @@ namespace WebApplication2.Controllers
     {
         private readonly ISerializer<TOrigin, TDestination, TContext> _serializer;
         private ActionOptions _actionOptions;
+        public IQueryable<TDestination> Query { get; set; }
         public List<string> FilterFields { get; set; } = new List<string>();
 
         public List<Func<Dictionary<string, string>>> Filters { get; set; } = new List<Func<Dictionary<string, string>>>();
@@ -82,27 +99,27 @@ namespace WebApplication2.Controllers
         #endregion
 
 
-        [ApiExplorerSettings(IgnoreApi = true)]
-        public Dictionary<string, string> FilterQuerySet()
-        {
-            var request = HttpContext.Request;
-            Dictionary<string, string> filters = new Dictionary<string, string>();
+        //[ApiExplorerSettings(IgnoreApi = true)]
+        //public Dictionary<string, string> FilterQuerySet()
+        //{
+        //    var request = HttpContext.Request;
+        //    Dictionary<string, string> filters = new Dictionary<string, string>();
 
-            foreach (var item in Filters)
-            {
-                var filterItems = item.Invoke();
-                foreach (var dictEntry in filterItems)
-                    filters.Add(dictEntry.Key, dictEntry.Value);
-            }
+        //    foreach (var item in Filters)
+        //    {
+        //        var filterItems = item.Invoke();
+        //        foreach (var dictEntry in filterItems)
+        //            filters.Add(dictEntry.Key, dictEntry.Value);
+        //    }
 
-            return filters;
-        }
+        //    return filters;
+        //}
 
         [HttpGet]
         public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
-            
-            var responseBody = await _serializer.List(FilterQuerySet());
+
+            var responseBody = await _serializer.List(Query);
             return Ok(responseBody);
         }
 

@@ -20,7 +20,9 @@ namespace WebApplication2.Serializers
                 
     {
         Task<List<TDestination>> List();
-        Task<List<TDestination>> List(Dictionary<string, string> keyPairValue);
+        //Task<List<TDestination>> List(Dictionary<string, string> keyPairValue);
+        Task<List<TDestination>> List(IQueryable<TDestination> query);
+
 
         Task<PagedBaseResponse<TDestination>> List(int page, int pageSize, Expression<Func<TDestination, bool>> filter = null);
         Task<List<TResult>> List<TResult>(int page, int pageSize, Expression<Func<TDestination, TResult>> selector, Expression<Func<TDestination, bool>> filter = null);
@@ -151,6 +153,11 @@ namespace WebApplication2.Serializers
                 query = query.Where($"{dictEntry.Key} = @{counter}", dictEntry.Value);
             }
 
+            return await query.ToListAsync();
+        }
+
+        public async Task<List<TDestination>> List(IQueryable<TDestination> query)
+        {
             return await query.ToListAsync();
         }
     }

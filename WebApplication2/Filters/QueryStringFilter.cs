@@ -1,23 +1,19 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using WebApplication2.Controllers;
+using WebApplication2.Models;
 
 namespace WebApplication2.Filters
 {
-    public class QueryStringFilter : BackendFilter
+    public class QueryStringFilter<Tcontext>  : Filter<Customer>
     {
-        public override Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest httpRequest, List<string> allowedFields)
+        public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
         {
-            Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
-
-            foreach (var item in httpRequest.Query)
-                if (allowedFields.Contains(item.Key))
-                    fieldsToFilter.Add(item.Key, item.Value);
-
-            return fieldsToFilter;
-
+            return query;
         }
     }
 }
