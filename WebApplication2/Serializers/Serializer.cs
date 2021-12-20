@@ -43,9 +43,6 @@ namespace WebApplication2.Serializers
             await _applicationDbContext.SaveChangesAsync();
         }
 
-       
-                    
-
         public async Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query)
         {
             
@@ -66,7 +63,6 @@ namespace WebApplication2.Serializers
 
             return (pages, data);
         }
-
 
         public void Update(TOrigin originObject)
         {
@@ -101,8 +97,6 @@ namespace WebApplication2.Serializers
                 }
             }
         }
-
-
 
         private TDestination GetFromDB(Guid guid)
         {

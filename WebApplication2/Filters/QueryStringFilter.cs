@@ -45,6 +45,8 @@ namespace WebApplication2.Filters
 
         private static Expression<Func<T, bool>> GetColumnEquality<T>(string property, string term)
         {
+            #region .:: Stackoverflow ::.
+            // https://stackoverflow.com/questions/17832989/linq-iqueryable-generic-filter/17833880#17833880
             var obj = Expression.Parameter(typeof(T), "obj");
             
             var objProperty = Expression.PropertyOrField(obj, property);
@@ -54,6 +56,7 @@ namespace WebApplication2.Filters
             var lambda = Expression.Lambda<Func<T, bool>>(objEquality, obj);
 
             return lambda;
+#endregion
         }
     }
 }
