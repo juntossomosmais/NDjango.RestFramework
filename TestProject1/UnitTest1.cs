@@ -1,3 +1,4 @@
+using CSharpRestFramework.Base;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -12,7 +13,6 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using WebApplication2;
-using WebApplication2.Base;
 using WebApplication2.Context;
 using WebApplication2.Models;
 using Xunit;

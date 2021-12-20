@@ -1,19 +1,14 @@
-﻿using JSM.PartialJsonObject;
+﻿using CSharpRestFramework.Serializer;
+using JSM.PartialJsonObject;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
-using WebApplication2.Base;
-using WebApplication2.DTO;
-using WebApplication2.Filters;
-using WebApplication2.Models;
-using WebApplication2.Serializers;
 
-namespace WebApplication2.Controllers
+namespace CSharpRestFramework.Base
 {
 
     public class BaseFilter<TContext, TEntity> where TContext : DbContext

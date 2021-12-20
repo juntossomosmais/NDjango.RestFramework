@@ -1,18 +1,13 @@
-﻿using JSM.PartialJsonObject;
+﻿using CSharpRestFramework.Base;
+using JSM.PartialJsonObject;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Dynamic.Core;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
-using WebApplication2.Base;
-using WebApplication2.Context;
-using WebApplication2.DTO;
-using WebApplication2.Models;
 
-namespace WebApplication2.Serializers
+namespace CSharpRestFramework.Serializer
 {
     public interface ISerializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
                                                         where TOrigin : BaseDto
