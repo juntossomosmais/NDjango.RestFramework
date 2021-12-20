@@ -1,25 +1,35 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using WebApplication2.Controllers;
+using WebApplication2.Models;
 
 namespace WebApplication2.Filters
 {
-    public class DocumentFilter : BackendFilter
+    public class DocumentFilter : Filter<Customer>
     {
-        public override Dictionary<string, string> FilterQuerySet<TDestination>(HttpRequest request)
+        public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
         {
+            var queryString = request.Query.Select(x => new { x.Key, x.Value}).ToList();
+            
+            var documentType = "";
 
-            Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
-            if(!request.Query.Keys.Contains("cpf"))
-                return fieldsToFilter;
+            if (queryString.Any(x => x.Key == "cpf"))
+                documentType = "cpf";
 
-            fieldsToFilter.Add("Customer.CustomerDocuments.Type", "cpf");
-            fieldsToFilter.Add("Customer.CustomerDocuments.Document", "1234");
-            return fieldsToFilter;
+            if (queryString.Any(x => x.Key == "cnpj"))
+                documentType = "cnpj";
+
+            var document = queryString.FirstOrDefault(x => x.Key == documentType)?.Value;
+            if (string.IsNullOrWhiteSpace(document))
+                return query;
+
+
+            return query.Where(x => x.CustomerDocuments.Any(x => x.DocumentType == documentType && x.Document == document.Value.ToString()));
         }
     }
 }

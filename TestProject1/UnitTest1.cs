@@ -156,14 +156,14 @@ namespace TestProject1
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
                 // Act
-                var response = await _client.GetAsync("api/Customers?cpf=ghi");
+                var response = await _client.GetAsync("api/Customers?cpf=1234");
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
                 List<Customer> customers = JsonConvert.DeserializeObject<List<Customer>>(responseData);
                 customers.Count.Should().Be(1);
-                customers.FirstOrDefault().Name.Should().Be("ghi");
+                customers.FirstOrDefault().Name.Should().Be("abc");
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
