@@ -18,4 +18,12 @@
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.2.14" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Base\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpRestFramework\CSharpRestFramework.csproj" />
+  </ItemGroup>
+
 </Project>

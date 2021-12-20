@@ -5,7 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
-namespace WebApplication2.Filters
+namespace CSharpRestFramework.Filters
 {
     public class SortFilter<TEntity>
     {

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using CSharpRestFramework.Base;
+using System.Collections.Generic;
 
 namespace WebApplication2.Models
 {

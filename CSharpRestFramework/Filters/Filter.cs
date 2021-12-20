@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace WebApplication2.Filters
+namespace CSharpRestFramework.Filters
 {
     public abstract class Filter<TEntity>
     {

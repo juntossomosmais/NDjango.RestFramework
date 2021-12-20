@@ -1,16 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using CSharpRestFramework.Base;
+using CSharpRestFramework.Filters;
+using CSharpRestFramework.Serializer;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using WebApplication2.Context;
 using WebApplication2.DTO;
 using WebApplication2.Filters;
 using WebApplication2.Models;
-using WebApplication2.Serializers;
-using System.Web;
-using Microsoft.AspNetCore.Http;
-using System.Linq;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Linq.Expressions;
-using System;
 
 namespace WebApplication2.Controllers
 {
@@ -28,7 +24,7 @@ namespace WebApplication2.Controllers
 
             var query = new FilterBuilder<ApplicationDbContext, Customer>(dbContext).DbSet;
             query = new DocumentFilter().AddFilter(query, request);
-            query = new QueryStringFilter<ApplicationDbContext, Customer>(_allowedFields).AddFilter(query, _contextAccessor.HttpContext.Request);
+            query = new QueryStringFilter<ApplicationDbContext, Models.Customer>(_allowedFields).AddFilter(query, _contextAccessor.HttpContext.Request);
             query = new SortFilter<Customer>().Sort(query, request, _allowedFields);
 
             this.Query = query;

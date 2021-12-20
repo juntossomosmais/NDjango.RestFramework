@@ -1,4 +1,6 @@
-﻿namespace WebApplication2.DTO
+﻿using CSharpRestFramework.Base;
+
+namespace WebApplication2.DTO
 {
     public class SellerDto : BaseDto
     {

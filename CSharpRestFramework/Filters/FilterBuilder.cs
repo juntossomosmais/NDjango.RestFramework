@@ -1,12 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
+﻿using CSharpRestFramework.Base;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
-using System.Threading.Tasks;
-using WebApplication2.Controllers;
-using WebApplication2.Models;
 
-namespace WebApplication2.Filters
+namespace CSharpRestFramework.Filters
 {
     public class FilterBuilder<Tcontext, TEntity> : BaseFilter<Tcontext, TEntity> where Tcontext : DbContext
                                                                                   where TEntity : BaseEntity
