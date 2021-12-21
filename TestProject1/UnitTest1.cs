@@ -562,7 +562,7 @@ namespace TestProject1
 
             try
             {
-                var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "ac" };
+                var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "567", Name = "ac" };
                 dbSet.Add(customer);
 
                 var _client = _server.CreateClient();
@@ -578,7 +578,7 @@ namespace TestProject1
                 var responseMessages = JsonConvert.DeserializeObject<string[]>(responseData);
 
                 responseMessages.Should().Contain("Name should have at least 3 chars");
-                responseMessages.Should().Contain("CNPJ cannot be 123");
+                responseMessages.Should().Contain("CNPJ cannot be 567");
 
 
                 var updatedCustomer = dbSet.AsNoTracking().ToList();
