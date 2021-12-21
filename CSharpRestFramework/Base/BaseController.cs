@@ -37,7 +37,7 @@ namespace CSharpRestFramework.Base
                                                                                   where TContext : DbContext
 
     {
-        private readonly ISerializer<TOrigin, TDestination, TContext> _serializer;
+        private readonly Serializer<TOrigin, TDestination, TContext> _serializer;
         private ActionOptions _actionOptions;
         public IQueryable<TDestination> Query { get; set; }
         public List<string> FilterFields { get; set; } = new List<string>();
@@ -46,13 +46,13 @@ namespace CSharpRestFramework.Base
 
 
         #region .:: Constructors ::.
-        public BaseController(ISerializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
+        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
         {
             _serializer = serializer;
             _actionOptions = actionOptions == null ? new ActionOptions() : actionOptions;
         }
 
-        public BaseController(ISerializer<TOrigin, TDestination, TContext> serializer)
+        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer)
         {
             _serializer = serializer;
             _actionOptions = new ActionOptions();
@@ -76,8 +76,11 @@ namespace CSharpRestFramework.Base
         [HttpPost]
         public async Task<IActionResult> Post(TOrigin entity)
         {
-            await _serializer.Post(entity);
-            await _serializer.Save();
+            var isSaved = await _serializer.Save(entity, OperationType.Create);
+
+            if (!isSaved)
+                return BadRequest(_serializer.Errors);
+           
             return Created("", new { });
         }
 
@@ -87,8 +90,7 @@ namespace CSharpRestFramework.Base
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            _serializer.Patch(entity);
-            await _serializer.Save();
+            await _serializer.Patch(entity);
             return Ok();
         }
     }

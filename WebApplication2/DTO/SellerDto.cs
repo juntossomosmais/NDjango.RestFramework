@@ -1,4 +1,5 @@
 ﻿using CSharpRestFramework.Base;
+using System.Collections.Generic;
 
 namespace WebApplication2.DTO
 {
@@ -6,9 +7,9 @@ namespace WebApplication2.DTO
     {
         public string Name { get; set; }
 
-        public override bool IsValid()
+        public override IEnumerable<string> Validate()
         {
-            return true;
+            return new List<string>();
         }
     }
 }

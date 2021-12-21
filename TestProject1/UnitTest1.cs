@@ -517,7 +517,7 @@ namespace TestProject1
         }
 
         [Fact]
-        public async Task Add_WithValidData_ShouldInsertObject()
+        public async Task Post_WithValidData_ShouldInsertObject()
         {
             // Arrange
             var dbSet = _context.Set<Customer>();
@@ -542,6 +542,48 @@ namespace TestProject1
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
+            }
+            catch (Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+
+
+        }
+
+
+        [Fact]
+        public async Task Post_WithInvalidData_ShouldNotInsertObjectAndReturn400Error()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+
+            try
+            {
+                var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "ac" };
+                dbSet.Add(customer);
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+
+                var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json-patch+json");
+                // Act
+                var response = await _client.PostAsync("api/Customers", content);
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var responseMessages = JsonConvert.DeserializeObject<string[]>(responseData);
+
+                responseMessages.Should().Contain("Name should have at least 3 chars");
+                responseMessages.Should().Contain("CNPJ cannot be 123");
+
+
+                var updatedCustomer = dbSet.AsNoTracking().ToList();
+                updatedCustomer.Should().BeEmpty();
+
             }
             catch (Exception)
             {

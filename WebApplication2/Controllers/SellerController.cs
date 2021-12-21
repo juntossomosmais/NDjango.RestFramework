@@ -11,7 +11,7 @@ namespace WebApplication2.Controllers
     [ApiController]
     public class SellerController : BaseController<SellerDto, Seller, ApplicationDbContext>
     {
-        public SellerController(ISerializer<SellerDto, Seller, ApplicationDbContext> serializer, ApplicationDbContext dbContext) : base(serializer, dbContext, new ActionOptions { AllowPatch = false })
+        public SellerController(Serializer<SellerDto, Seller, ApplicationDbContext> serializer, ApplicationDbContext dbContext) : base(serializer, dbContext, new ActionOptions { AllowPatch = false })
         {
         }
     }

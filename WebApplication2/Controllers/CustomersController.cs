@@ -4,6 +4,7 @@ using CSharpRestFramework.Serializer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using WebApplication2.Context;
+using WebApplication2.CustomSerializers;
 using WebApplication2.DTO;
 using WebApplication2.Filters;
 using WebApplication2.Models;
@@ -16,7 +17,7 @@ namespace WebApplication2.Controllers
     {
         private readonly string[] _allowedFields = new string[] { "Name", "CNPJ", "Age" };
 
-        public CustomersController(ISerializer<CustomerDTO, Customer, ApplicationDbContext> serializer,
+        public CustomersController(CustomerSerializer serializer,
                                    ApplicationDbContext dbContext,
                                    IHttpContextAccessor _contextAccessor) : base(serializer)
         {
