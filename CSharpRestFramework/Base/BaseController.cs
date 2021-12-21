@@ -1,4 +1,5 @@
-﻿using CSharpRestFramework.Serializer;
+﻿using CSharpRestFramework.Filters;
+using CSharpRestFramework.Serializer;
 using JSM.PartialJsonObject;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -42,7 +43,8 @@ namespace CSharpRestFramework.Base
         public IQueryable<TDestination> Query { get; set; }
         public List<string> FilterFields { get; set; } = new List<string>();
 
-        public List<Func<Dictionary<string, string>>> Filters { get; set; } = new List<Func<Dictionary<string, string>>>();
+        public List<Filter<TDestination>> Filters { get; set; } = new List<Filter<TDestination>>();
+        private TContext _context;
 
 
         #region .:: Constructors ::.
@@ -50,16 +52,34 @@ namespace CSharpRestFramework.Base
         {
             _serializer = serializer;
             _actionOptions = actionOptions == null ? new ActionOptions() : actionOptions;
+            _context = context;
+            Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer)
+        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context)
         {
             _serializer = serializer;
             _actionOptions = new ActionOptions();
+            _context = context;
+            Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
+
         }
 
         #endregion
 
+
+        [NonAction]
+        protected void RegisterFilters(HttpRequest request)
+        {
+            foreach (var filter in Filters)
+                Query = filter.AddFilter(Query, request);
+        }
+
+        [NonAction]
+        protected void AddSort(HttpRequest request, string[] allowedFilters)
+        {
+            Query = new SortFilter<TDestination>().Sort(Query, request, allowedFilters);
+        }
 
 
         [HttpGet]

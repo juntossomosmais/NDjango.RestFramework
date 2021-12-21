@@ -21,8 +21,8 @@ namespace WebApplication2.CustomSerializers
 
             if (operation == OperationType.Create)
             {
-                if (data.CNPJ == "123")
-                    errors.Add("CNPJ cannot be 123");
+                if (data.CNPJ == "567")
+                    errors.Add("CNPJ cannot be 567");
             }
 
             else if (operation == OperationType.Update)

@@ -3,6 +3,7 @@ using CSharpRestFramework.Filters;
 using CSharpRestFramework.Serializer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 using WebApplication2.Context;
 using WebApplication2.CustomSerializers;
 using WebApplication2.DTO;
@@ -19,16 +20,22 @@ namespace WebApplication2.Controllers
 
         public CustomersController(CustomerSerializer serializer,
                                    ApplicationDbContext dbContext,
-                                   IHttpContextAccessor _contextAccessor) : base(serializer)
+                                   IHttpContextAccessor _contextAccessor) : base(serializer, dbContext)
         {
             var request = _contextAccessor.HttpContext.Request;
 
-            var query = new FilterBuilder<ApplicationDbContext, Customer>(dbContext).DbSet;
-            query = new DocumentFilter().AddFilter(query, request);
-            query = new QueryStringFilter<ApplicationDbContext, Models.Customer>(_allowedFields).AddFilter(query, _contextAccessor.HttpContext.Request);
-            query = new SortFilter<Customer>().Sort(query, request, _allowedFields);
 
-            this.Query = query;
+            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(_allowedFields));
+            Filters.Add(new DocumentFilter());
+
+
+            RegisterFilters(request);
+            AddSort(request, _allowedFields);
         }
+
+        //public override IQueryable<Customer> GetQuery()
+        //{
+        //    return Query.Where(x => x.Age > 80);
+        //}
     }
 }
