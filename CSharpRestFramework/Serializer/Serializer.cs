@@ -12,13 +12,12 @@ namespace CSharpRestFramework.Serializer
     public interface ISerializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
                                                         where TOrigin : BaseDto
                                                         where TContext : DbContext
-                
+
     {
 
         Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query);
-        Task Save();
         Task Post(TOrigin origin);
-        void Patch(PartialJsonObject<TOrigin> originObject);
+        Task Patch(PartialJsonObject<TOrigin> originObject);
         void Update(TOrigin originObject);
     }
 
@@ -26,28 +25,24 @@ namespace CSharpRestFramework.Serializer
                                                                                         where TOrigin : BaseDto
                                                                                         where TContext : DbContext
     {
-
         private readonly TContext _applicationDbContext;
+
+        public IEnumerable<string> Errors { get; private set; }
         public Serializer(TContext applicationDbContext)
         {
             _applicationDbContext = applicationDbContext;
         }
 
-        public async Task Save()
+        public async virtual Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query)
         {
-            await _applicationDbContext.SaveChangesAsync();
-        }
 
-        public async Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query)
-        {
-            
             if (pageSize < 1)
                 throw new Exception("pageSize should be greater than 0");
 
             if (page < 1)
                 throw new Exception("page should be greater than 0");
 
-           
+
             int totalRecords = query.Count();
 
             int skip = page - 1;
@@ -59,7 +54,40 @@ namespace CSharpRestFramework.Serializer
             return (pages, data);
         }
 
-        public void Update(TOrigin originObject)
+        public async Task<bool> Save(TOrigin data, OperationType operationType)
+        {
+            Errors = Validate(data, operationType);
+
+            if (Errors.Any())
+                return false;
+
+            if (operationType == OperationType.Create)
+                await Post(data);
+
+            else if (operationType == OperationType.Update)
+                Put(data);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Used for Patch
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public async Task<bool> Save(PartialJsonObject<TOrigin> data)
+        {
+            Errors = Validate(data);
+
+            if (Errors.Any())
+                return false;
+
+            await Patch(data);
+
+            return true;
+        }
+
+        public virtual void Update(TOrigin originObject)
         {
             TDestination destinationObject = GetFromDB(originObject.Id);
             var stringDeserialized = JsonConvert.SerializeObject(originObject);
@@ -67,14 +95,15 @@ namespace CSharpRestFramework.Serializer
             _applicationDbContext.Update(destinationObject);
         }
 
-        public async Task Post(TOrigin originObject)
+        public virtual async Task Post(TOrigin originObject)
         {
             var stringDeserialized = JsonConvert.SerializeObject(originObject);
             var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
             await _applicationDbContext.Set<TDestination>().AddAsync(destinationObject);
+            await _applicationDbContext.SaveChangesAsync();
         }
 
-        public void Patch(PartialJsonObject<TOrigin> originObject)
+        public async virtual Task Patch(PartialJsonObject<TOrigin> originObject)
         {
             TDestination destinationObject = GetFromDB(originObject.Instance.Id);
 
@@ -91,11 +120,34 @@ namespace CSharpRestFramework.Serializer
                     productProperty.SetValue(destinationObject, property.GetValue(originObject.Instance));
                 }
             }
+
+            await _applicationDbContext.SaveChangesAsync();
+        }
+
+        public virtual void Put(TOrigin origin)
+        {
+
         }
 
         private TDestination GetFromDB(Guid guid)
         {
             return _applicationDbContext.Set<TDestination>().FirstOrDefault(x => x.Id == guid);
         }
+
+        public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
+        {
+            return data.Validate();
+        }
+
+        public virtual IEnumerable<string> Validate(PartialJsonObject<TOrigin> data)
+        {
+            return new List<string>();
+        }
+    }
+
+    public enum OperationType
+    {
+        Create,
+        Update
     }
 }

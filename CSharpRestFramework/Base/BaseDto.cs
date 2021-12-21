@@ -9,6 +9,6 @@ namespace CSharpRestFramework.Base
     {
         public Guid Id { get; set; }
 
-        public abstract bool IsValid();
+        public abstract IEnumerable<string> Validate();
     }
 }

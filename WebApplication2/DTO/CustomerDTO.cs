@@ -1,4 +1,6 @@
 ﻿using CSharpRestFramework.Base;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace WebApplication2.DTO
 {
@@ -12,9 +14,14 @@ namespace WebApplication2.DTO
         public string Name { get; set; }
         public string CNPJ { get; set; }
 
-        public override bool IsValid()
+        public override IEnumerable<string> Validate()
         {
-            return true;
+            var errors = new List<string>();
+
+            if (Name.Length < 3)
+                errors.Add("Name should have at least 3 chars");
+
+            return errors;
         }
     }
 }

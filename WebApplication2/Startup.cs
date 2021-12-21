@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
 using WebApplication2.Context;
+using WebApplication2.CustomSerializers;
 using WebApplication2.DTO;
 using WebApplication2.Models;
 
@@ -34,8 +35,8 @@ namespace WebApplication2
             var connectionString = Configuration.GetConnectionString("DefaultConnectionString");
             services.AddDbContext<ApplicationDbContext>(opt => opt.UseSqlServer(connectionString));
 
-            services.AddScoped<ISerializer<CustomerDTO, Customer, ApplicationDbContext>, Serializer<CustomerDTO, Customer, ApplicationDbContext>>();
-            services.AddScoped<ISerializer<SellerDto, Seller, ApplicationDbContext>, Serializer<SellerDto, Seller, ApplicationDbContext>>();
+            services.AddScoped<CustomerSerializer>();
+            services.AddScoped<Serializer<SellerDto, Seller, ApplicationDbContext>>();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
