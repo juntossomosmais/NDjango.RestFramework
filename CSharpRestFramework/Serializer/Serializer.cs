@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CSharpRestFramework.Serializer
 {
-    public class Serializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
+    public class Serializer<TOrigin, TDestination, TContext> where TDestination : class
                                                              where TOrigin : BaseDto
                                                              where TContext : DbContext
     {

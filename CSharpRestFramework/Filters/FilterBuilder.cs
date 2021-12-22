@@ -5,7 +5,7 @@ using System.Linq;
 namespace CSharpRestFramework.Filters
 {
     public class FilterBuilder<Tcontext, TEntity> : BaseFilter<Tcontext, TEntity> where Tcontext : DbContext
-                                                                                  where TEntity : BaseEntity
+                                                                                  where TEntity : class
     {
         public FilterBuilder(Tcontext context) : base(context)
         {
