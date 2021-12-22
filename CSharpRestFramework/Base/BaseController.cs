@@ -46,6 +46,8 @@ namespace CSharpRestFramework.Base
         public List<Filter<TDestination>> Filters { get; set; } = new List<Filter<TDestination>>();
         private TContext _context;
 
+        public string[] _allowedFields = Array.Empty<string>();
+
 
         #region .:: Constructors ::.
         public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
@@ -69,27 +71,36 @@ namespace CSharpRestFramework.Base
 
 
         [NonAction]
-        protected void RegisterFilters(HttpRequest request)
+        protected IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query , HttpRequest request)
         {
             foreach (var filter in Filters)
-                Query = filter.AddFilter(Query, request);
+                query = filter.AddFilter(query, request);
+            return query;
         }
 
         [NonAction]
-        protected void AddSort(HttpRequest request, string[] allowedFilters)
+        protected IQueryable<TDestination> Sort( string[] allowedFilters, IQueryable<TDestination> query)
         {
-            Query = new SortFilter<TDestination>().Sort(Query, request, allowedFilters);
+            return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
         }
 
+        public IQueryable<TDestination> GetQuerySet()
+        {
+            return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
+        }
 
         [HttpGet]
         public async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
-            var responseBody = await _serializer.List(page, pageSize, Query);
+            var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+
+            query = Sort(_allowedFields, query);
+
+            var (pages, data) = await _serializer.List(page, pageSize, query);
             return Ok(new PagedBaseResponse<TDestination>()
             {
-                Data = responseBody.Data,
-                Pages = responseBody.Pages
+                Data = data,
+                Pages = pages
             });
         }
 
@@ -100,7 +111,7 @@ namespace CSharpRestFramework.Base
 
             if (!isSaved)
                 return BadRequest(_serializer.Errors);
-           
+
             return Created("", new { });
         }
 

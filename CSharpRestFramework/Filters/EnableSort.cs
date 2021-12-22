@@ -16,7 +16,7 @@ namespace CSharpRestFramework.Filters
             else if(httpRequest.Query.ContainsKey("SortDesc"))
                 return SortDesc(query, httpRequest, allowedFilters);
 
-            return query;
+            return SortById(query);
         }
 
         private IQueryable<TEntity> SortAsc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
@@ -50,6 +50,18 @@ namespace CSharpRestFramework.Filters
 
             return query;
         }
+
+        private IQueryable<TEntity> SortById(IQueryable<TEntity> query)
+        {
+
+            query = OrderBy<TEntity>(query, "Id");
+
+            query = ThenBy<TEntity>(query, "Id");
+
+            return query;
+        }
+
+
 
         private IQueryable<TEntity> OrderBy<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderBy");
