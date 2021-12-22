@@ -175,7 +175,7 @@ namespace TestProject1
                 var second = customers.Data.Skip(1).FirstOrDefault();
                 var third = customers.Data.Skip(2).FirstOrDefault();
 
-                
+
                 first.Name.Should().Be("def");
                 first.CNPJ.Should().Be("456");
                 second.Name.Should().Be("abc");
@@ -229,8 +229,8 @@ namespace TestProject1
                 second.CNPJ.Should().Be("124");
                 third.Name.Should().Be("def");
                 third.CNPJ.Should().Be("456");
-               
-                
+
+
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -638,6 +638,7 @@ namespace TestProject1
             var dbSet = _context.Set<Customer>();
             try
             {
+
                 dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
                 dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
                 dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
