@@ -1,5 +1,4 @@
 ﻿using CSharpRestFramework.Base;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace WebApplication2.DTO
