@@ -40,21 +40,18 @@ namespace CSharpRestFramework.Base
 
     {
         private readonly Serializer<TOrigin, TDestination, TContext> _serializer;
-        private ActionOptions _actionOptions;
         public IQueryable<TDestination> Query { get; set; }
-        public List<string> FilterFields { get; set; } = new List<string>();
-
+        private TContext _context { get; set; }
+        private ActionOptions _actionOptions { get; set; }
         public List<Filter<TDestination>> Filters { get; set; } = new List<Filter<TDestination>>();
-        private TContext _context;
-
-        public string[] _allowedFields = Array.Empty<string>();
+        public string[] AllowedFields { get; set; } = Array.Empty<string>();
 
 
         #region .:: Constructors ::.
         public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
         {
             _serializer = serializer;
-            _actionOptions = actionOptions == null ? new ActionOptions() : actionOptions;
+            _actionOptions = actionOptions ?? new ActionOptions();
             _context = context;
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
@@ -95,7 +92,7 @@ namespace CSharpRestFramework.Base
         {
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
-            query = Sort(_allowedFields, query);
+            query = Sort(AllowedFields, query);
 
             var (pages, data) = await _serializer.List(page, pageSize, query);
             return Ok(new PagedBaseResponse<TDestination>()
