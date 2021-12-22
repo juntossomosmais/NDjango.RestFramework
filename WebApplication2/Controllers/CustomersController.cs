@@ -17,9 +17,9 @@ namespace WebApplication2.Controllers
         public CustomersController(CustomerSerializer serializer,
                                    ApplicationDbContext dbContext) : base(serializer, dbContext)
         {
-            _allowedFields = new [] { "Name", "CNPJ", "Age" };
+            AllowedFields = new [] { "Name", "CNPJ", "Age" };
 
-            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(_allowedFields));
+            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(AllowedFields));
             Filters.Add(new DocumentFilter());
 
         }
