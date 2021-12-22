@@ -455,7 +455,7 @@ namespace TestProject1
 
                 var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
                 // Act
-                var response = await _client.PatchAsync("api/Customers", content);
+                var response = await _client.PatchAsync($"api/Customers/{customer.Id}", content);
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
@@ -496,7 +496,7 @@ namespace TestProject1
 
                 var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
                 // Act
-                var response = await _client.PatchAsync("api/Customers", content);
+                var response = await _client.PatchAsync($"api/Customers/{customer.Id}", content);
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
@@ -691,7 +691,7 @@ namespace TestProject1
 
                 var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
                 // Act
-                var response = await _client.PatchAsync("api/Seller", content);
+                var response = await _client.PatchAsync($"api/Seller/{seller.Id}", content);
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);

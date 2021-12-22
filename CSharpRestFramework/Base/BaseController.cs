@@ -79,12 +79,12 @@ namespace CSharpRestFramework.Base
         }
 
         [NonAction]
-        protected IQueryable<TDestination> Sort( string[] allowedFilters, IQueryable<TDestination> query)
+        protected IQueryable<TDestination> Sort(string[] allowedFilters, IQueryable<TDestination> query)
         {
             return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
         }
 
-        public IQueryable<TDestination> GetQuerySet()
+        public virtual IQueryable<TDestination> GetQuerySet()
         {
             return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
@@ -116,12 +116,13 @@ namespace CSharpRestFramework.Base
         }
 
         [HttpPatch]
-        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity)
+        [Route("{entityId}")]
+        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] object entityId )
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            await _serializer.Patch(entity);
+            await _serializer.Patch(entity, entityId);
             return Ok();
         }
     }

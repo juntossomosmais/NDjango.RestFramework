@@ -26,10 +26,5 @@ namespace WebApplication2.Controllers
             Filters.Add(new DocumentFilter());
 
         }
-
-        //public override IQueryable<Customer> GetQuery()
-        //{
-        //    return Query.Where(x => x.Age > 80);
-        //}
     }
 }
