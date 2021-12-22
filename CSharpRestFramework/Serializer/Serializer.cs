@@ -9,21 +9,9 @@ using System.Threading.Tasks;
 
 namespace CSharpRestFramework.Serializer
 {
-    public interface ISerializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
-                                                        where TOrigin : BaseDto
-                                                        where TContext : DbContext
-
-    {
-
-        Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query);
-        Task Post(TOrigin origin);
-        Task Patch(PartialJsonObject<TOrigin> originObject, object entityId);
-        void Update(TOrigin originObject, object entityId);
-    }
-
-    public class Serializer<TOrigin, TDestination, TContext> : ISerializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
-                                                                                        where TOrigin : BaseDto
-                                                                                        where TContext : DbContext
+    public class Serializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
+                                                             where TOrigin : BaseDto
+                                                             where TContext : DbContext
     {
         private readonly TContext _applicationDbContext;
 
@@ -124,9 +112,12 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public virtual void Put(TOrigin origin)
+        public async virtual Task Put(TOrigin origin)
         {
-
+            var stringDeserialized = JsonConvert.SerializeObject(origin);
+            var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
+            _applicationDbContext.Set<TDestination>().Update(destinationObject);
+            await _applicationDbContext.SaveChangesAsync();
         }
 
         private TDestination GetFromDB(object guid)
