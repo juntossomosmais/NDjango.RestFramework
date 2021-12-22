@@ -13,7 +13,7 @@ namespace CSharpRestFramework.Base
 {
 
     public class BaseFilter<TContext, TEntity> where TContext : DbContext
-                                                    where TEntity : BaseEntity
+                                                    where TEntity : class
     {
         private TContext _context;
         public IQueryable<TEntity> DbSet { get; set; }
@@ -35,7 +35,7 @@ namespace CSharpRestFramework.Base
 
 
     public class BaseController<TOrigin, TDestination, TContext> : ControllerBase where TOrigin : BaseDto
-                                                                                  where TDestination : BaseEntity
+                                                                                  where TDestination : class
                                                                                   where TContext : DbContext
 
     {
