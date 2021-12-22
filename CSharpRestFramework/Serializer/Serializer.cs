@@ -17,8 +17,8 @@ namespace CSharpRestFramework.Serializer
 
         Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query);
         Task Post(TOrigin origin);
-        Task Patch(PartialJsonObject<TOrigin> originObject);
-        void Update(TOrigin originObject);
+        Task Patch(PartialJsonObject<TOrigin> originObject, object entityId);
+        void Update(TOrigin originObject, object entityId);
     }
 
     public class Serializer<TOrigin, TDestination, TContext> : ISerializer<TOrigin, TDestination, TContext> where TDestination : BaseEntity
@@ -75,21 +75,21 @@ namespace CSharpRestFramework.Serializer
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        public async Task<bool> Save(PartialJsonObject<TOrigin> data)
+        public async Task<bool> Save(PartialJsonObject<TOrigin> data, object entityId)
         {
             Errors = Validate(data);
 
             if (Errors.Any())
                 return false;
 
-            await Patch(data);
+            await Patch(data, entityId);
 
             return true;
         }
 
-        public virtual void Update(TOrigin originObject)
+        public virtual void Update(TOrigin originObject, object entityId)
         {
-            TDestination destinationObject = GetFromDB(originObject.Id);
+            TDestination destinationObject = GetFromDB(entityId);
             var stringDeserialized = JsonConvert.SerializeObject(originObject);
             JsonConvert.PopulateObject(stringDeserialized, destinationObject);
             _applicationDbContext.Update(destinationObject);
@@ -103,7 +103,7 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Patch(PartialJsonObject<TOrigin> originObject)
+        public async virtual Task Patch(PartialJsonObject<TOrigin> originObject, object entityId)
         {
             TDestination destinationObject = GetFromDB(originObject.Instance.Id);
 
@@ -129,9 +129,9 @@ namespace CSharpRestFramework.Serializer
 
         }
 
-        private TDestination GetFromDB(Guid guid)
+        private TDestination GetFromDB(object guid)
         {
-            return _applicationDbContext.Set<TDestination>().FirstOrDefault(x => x.Id == guid);
+            return _applicationDbContext.Set<TDestination>().Find(guid);
         }
 
         public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
