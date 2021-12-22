@@ -16,21 +16,15 @@ namespace WebApplication2.Controllers
     [ApiController]
     public class CustomersController : BaseController<CustomerDTO, Customer, ApplicationDbContext>
     {
-        private readonly string[] _allowedFields = new string[] { "Name", "CNPJ", "Age" };
 
         public CustomersController(CustomerSerializer serializer,
-                                   ApplicationDbContext dbContext,
-                                   IHttpContextAccessor _contextAccessor) : base(serializer, dbContext)
+                                   ApplicationDbContext dbContext) : base(serializer, dbContext)
         {
-            var request = _contextAccessor.HttpContext.Request;
-
+            _allowedFields = new [] { "Name", "CNPJ", "Age" };
 
             Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(_allowedFields));
             Filters.Add(new DocumentFilter());
 
-
-            RegisterFilters(request);
-            AddSort(request, _allowedFields);
         }
 
         //public override IQueryable<Customer> GetQuery()
