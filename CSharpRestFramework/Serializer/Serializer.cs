@@ -53,7 +53,7 @@ namespace CSharpRestFramework.Serializer
                 await Post(data);
 
             else if (operationType == OperationType.Update)
-                Put(data);
+                await Put(data);
 
             return true;
         }

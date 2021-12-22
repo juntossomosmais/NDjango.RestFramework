@@ -1,9 +1,6 @@
 ﻿using CSharpRestFramework.Base;
 using CSharpRestFramework.Filters;
-using CSharpRestFramework.Serializer;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 using WebApplication2.Context;
 using WebApplication2.CustomSerializers;
 using WebApplication2.DTO;
