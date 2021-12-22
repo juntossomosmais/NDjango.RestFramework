@@ -432,7 +432,6 @@ namespace TestProject1
             }
         }
 
-
         [Fact]
         public async Task Patch_WithFullObject_ShouldUpdateFullObject()
         {
@@ -552,7 +551,6 @@ namespace TestProject1
 
 
         }
-
 
         [Fact]
         public async Task Post_WithInvalidData_ShouldNotInsertObjectAndReturn400Error()
@@ -696,6 +694,49 @@ namespace TestProject1
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
                 var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == seller.Id);
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+
+
+        [Fact]
+        public async Task Put_WithFullObject_ShouldUpdateFullObject()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+                dbSet.Add(customer);
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                var customerToUpdate = new
+                {
+                    Id = customer.Id,
+                    CNPJ = "aaaa",
+                    Name = "eee"
+                };
+
+                var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
+                // Act
+                var response = await _client.PutAsync($"api/Customers/{customer.Id}", content);
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+                updatedCustomer.Name.Should().Be(customerToUpdate.Name);
+                updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();

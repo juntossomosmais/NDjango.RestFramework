@@ -30,6 +30,7 @@ namespace CSharpRestFramework.Base
         public bool AllowList { get; set; } = true;
         public bool AllowPost { get; set; } = true;
         public bool AllowPatch { get; set; } = true;
+        public bool AllowPut { get; set; } = true;
     }
 
 
@@ -71,7 +72,7 @@ namespace CSharpRestFramework.Base
 
 
         [NonAction]
-        protected IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query , HttpRequest request)
+        protected IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
         {
             foreach (var filter in Filters)
                 query = filter.AddFilter(query, request);
@@ -117,12 +118,23 @@ namespace CSharpRestFramework.Base
 
         [HttpPatch]
         [Route("{entityId}")]
-        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] object entityId )
+        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] object entityId)
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             await _serializer.Patch(entity, entityId);
+            return Ok();
+        }
+
+        [HttpPut]
+        [Route("{entityId}")]
+        public async Task<IActionResult> Put([FromBody] TOrigin origin)
+        {
+            if (!_actionOptions.AllowPut)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+            await _serializer.Put(origin);
             return Ok();
         }
     }
