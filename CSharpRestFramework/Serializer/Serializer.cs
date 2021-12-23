@@ -42,7 +42,7 @@ namespace CSharpRestFramework.Serializer
             return (pages, data);
         }
 
-        public async Task<bool> Save(TOrigin data, OperationType operationType, object objectId)
+        public async Task<bool> Save<TPrimaryKey>(TOrigin data, OperationType operationType, TPrimaryKey objectId)
         {
             Errors = Validate(data, operationType);
 
