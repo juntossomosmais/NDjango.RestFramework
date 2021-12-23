@@ -1,6 +1,7 @@
 ﻿using CSharpRestFramework.Base;
 using CSharpRestFramework.Filters;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using WebApplication2.Context;
 using WebApplication2.CustomSerializers;
 using WebApplication2.DTO;
@@ -11,7 +12,7 @@ namespace WebApplication2.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CustomersController : BaseController<CustomerDTO, Customer, ApplicationDbContext>
+    public class CustomersController : BaseController<CustomerDTO, Customer, Guid, ApplicationDbContext>
     {
 
         public CustomersController(CustomerSerializer serializer,

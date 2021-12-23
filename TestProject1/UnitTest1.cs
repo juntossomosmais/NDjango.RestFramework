@@ -749,5 +749,40 @@ namespace TestProject1
                 throw;
             }
         }
+
+        [Fact]
+        public async Task Delete_WithObject_ShouldDeleteEntityFromDataseAndReturnOk()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+                dbSet.Add(customer);
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+
+
+                // Act
+                var response = await _client.DeleteAsync($"api/Customers/{customer.Id}");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+                updatedCustomer.Should().BeNull();
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
     }
 }
