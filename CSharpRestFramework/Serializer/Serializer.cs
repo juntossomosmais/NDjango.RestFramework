@@ -42,6 +42,18 @@ namespace CSharpRestFramework.Serializer
             return (pages, data);
         }
 
+        public async Task<bool> Save(TOrigin data, OperationType operationType, object objectId)
+        {
+            Errors = Validate(data, operationType);
+
+            if (Errors.Any())
+                return false;
+
+            await Put(data, objectId);
+
+            return true;
+        }
+
         public async Task<bool> Save(TOrigin data, OperationType operationType)
         {
             Errors = Validate(data, operationType);
@@ -49,11 +61,7 @@ namespace CSharpRestFramework.Serializer
             if (Errors.Any())
                 return false;
 
-            if (operationType == OperationType.Create)
-                await Post(data);
-
-            else if (operationType == OperationType.Update)
-                await Put(data);
+            await Post(data);
 
             return true;
         }
@@ -75,14 +83,6 @@ namespace CSharpRestFramework.Serializer
             return true;
         }
 
-        public virtual void Update(TOrigin originObject, object entityId)
-        {
-            TDestination destinationObject = GetFromDB(entityId);
-            var stringDeserialized = JsonConvert.SerializeObject(originObject);
-            JsonConvert.PopulateObject(stringDeserialized, destinationObject);
-            _applicationDbContext.Update(destinationObject);
-        }
-
         public virtual async Task Post(TOrigin originObject)
         {
             var stringDeserialized = JsonConvert.SerializeObject(originObject);
@@ -91,9 +91,9 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Patch(PartialJsonObject<TOrigin> originObject, object entityId)
+        public async virtual Task Patch<TPrimaryKey>(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
-            TDestination destinationObject = GetFromDB(originObject.Instance.Id);
+            TDestination destinationObject = await GetFromDB(entityId);
 
             var destinationType = typeof(TDestination);
 
@@ -112,17 +112,29 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Put(TOrigin origin)
+        public async virtual Task Put<TPrimaryKey>(TOrigin origin, TPrimaryKey entityId)
         {
+            TDestination destinationObject = await GetFromDB(entityId);
             var stringDeserialized = JsonConvert.SerializeObject(origin);
-            var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
-            _applicationDbContext.Set<TDestination>().Update(destinationObject);
+            JsonConvert.PopulateObject(stringDeserialized, destinationObject);
+            _applicationDbContext.Update(destinationObject);
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        private TDestination GetFromDB(object guid)
+        public async virtual Task Delete<TPrimaryKey>(TPrimaryKey entityId)
         {
-            return _applicationDbContext.Set<TDestination>().Find(guid);
+            var data = await GetFromDB(entityId);
+            if (data == null)
+                throw new Exception("Entity not found");
+
+            _applicationDbContext.Remove(data);
+            await _applicationDbContext.SaveChangesAsync();
+
+        }
+
+        private async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid)
+        {
+            return await _applicationDbContext.Set<TDestination>().FindAsync(guid);
         }
 
         public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
