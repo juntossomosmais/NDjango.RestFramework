@@ -34,7 +34,7 @@ namespace CSharpRestFramework.Base
     }
 
 
-    public class BaseController<TOrigin, TDestination, TContext> : ControllerBase where TOrigin : BaseDto
+    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase where TOrigin : BaseDto
                                                                                   where TDestination : class
                                                                                   where TContext : DbContext
 
@@ -115,7 +115,7 @@ namespace CSharpRestFramework.Base
 
         [HttpPatch]
         [Route("{entityId}")]
-        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] object entityId)
+        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] TPrimaryKey entityId)
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
@@ -126,12 +126,20 @@ namespace CSharpRestFramework.Base
 
         [HttpPut]
         [Route("{entityId}")]
-        public async Task<IActionResult> Put([FromBody] TOrigin origin)
+        public async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey entityId)
         {
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            await _serializer.Put(origin);
+            await _serializer.Save(origin, OperationType.Update, entityId);
+            return Ok();
+        }
+
+        [HttpDelete]
+        [Route("{entityId}")]
+        public async Task<IActionResult> Delete([FromRoute] TPrimaryKey entityId)
+        {
+            await _serializer.Delete(entityId);
             return Ok();
         }
     }
