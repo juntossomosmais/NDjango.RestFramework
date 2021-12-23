@@ -5,7 +5,12 @@ services:
     environment:
       SA_PASSWORD: Password1
       ACCEPT_EULA: "Y"
-  dotnet-31-sql-server-azure-edge-latest:
+  mssql-server-2019-latest:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      SA_PASSWORD: Password1
+      ACCEPT_EULA: "Y"
+  dotnet-50-sql-server-azure-edge-latest:
     build:
       context: .
       dockerfile: Dockerfile
@@ -16,6 +21,22 @@ services:
     command:       [
         "/app/Scripts/wait-for-it.sh",
         "sql-server-azure-edge-latest:1433",
+        "-t",
+        "120",
+        "--",
+        "./Scripts/start-tests.sh"
+    ]
+  dotnet-50-mssql-server-2019-latest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - mssql-server-2019-latest
+    environment:
+      - "ConnectionStrings__DefaultConnectionString=Data Source=mssql-server-2019-latest,1433;Initial Catalog=POCContext;User Id=sa;Password=Password1"
+    command:       [
+        "/app/Scripts/wait-for-it.sh",
+        "mssql-server-2019-latest:1433",
         "-t",
         "120",
         "--",
