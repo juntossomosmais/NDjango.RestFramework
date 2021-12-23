@@ -36,7 +36,7 @@ services:
       - "ConnectionStrings__DefaultConnectionString=Data Source=mssql-server-2019-latest,1433;Initial Catalog=POCContext;User Id=sa;Password=Password1"
     command:       [
         "/app/Scripts/wait-for-it.sh",
-        "sql-server-azure-edge-latest:1433",
+        "mssql-server-2019-latest:1433",
         "-t",
         "120",
         "--",
