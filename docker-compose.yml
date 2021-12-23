@@ -1,9 +1,23 @@
 version: "3.8"
 services:
-  db:
+  sql-server-azure-edge-latest:
     image: mcr.microsoft.com/azure-sql-edge
     environment:
       SA_PASSWORD: Password1
       ACCEPT_EULA: "Y"
-    ports:
-      - "1433:1433"
+  dotnet-31-sql-server-azure-edge-latest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - sql-server-azure-edge-latest
+    environment:
+      - "ConnectionStrings__DefaultConnectionString=Data Source=sql-server-azure-edge-latest,1433;Initial Catalog=POCContext;User Id=sa;Password=Password1"
+    command:       [
+        "/app/Scripts/wait-for-it.sh",
+        "sql-server-azure-edge-latest:1433",
+        "-t",
+        "120",
+        "--",
+        "./Scripts/start-tests.sh"
+    ]
