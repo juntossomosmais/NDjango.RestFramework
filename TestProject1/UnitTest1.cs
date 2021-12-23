@@ -33,6 +33,7 @@ namespace TestProject1
                 .UseConfiguration(new ConfigurationBuilder()
                     .SetBasePath(applicationPath)
                     .AddJsonFile("appsettings.json")
+                    .AddEnvironmentVariables()
                     .Build()
                 )
                 .UseStartup<Startup>());
