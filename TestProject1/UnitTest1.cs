@@ -670,6 +670,45 @@ namespace TestProject1
         }
 
         [Fact]
+        public async Task GetSingle_WithValidParameter_ShouldReturn1Record()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                var customer1 = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+                var customer2 = new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "def" };
+                var customer3 = new Customer() { Id = Guid.NewGuid(), CNPJ = "789", Name = "ghi" };
+
+
+                dbSet.AddRange(customer1, customer2, customer3);
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync($"api/Customers/{customer1.Id}");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var customer = JsonConvert.DeserializeObject<Customer>(responseData);
+                customer.Should().NotBeNull();
+                customer.Id.Should().Be(customer1.Id);
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+
+        [Fact]
         public async Task Patch_WithPartialObject_ShouldReturnMethodNowAllowed()
         {
             // Arrange
@@ -707,7 +746,6 @@ namespace TestProject1
                 throw;
             }
         }
-
 
         [Fact]
         public async Task Put_WithFullObject_ShouldUpdateFullObject()
