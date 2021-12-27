@@ -91,7 +91,7 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Patch<TPrimaryKey>(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
+        public virtual async Task Patch<TPrimaryKey>(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
             TDestination destinationObject = await GetFromDB(entityId);
 
@@ -112,7 +112,7 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Put<TPrimaryKey>(TOrigin origin, TPrimaryKey entityId)
+        public virtual async Task Put<TPrimaryKey>(TOrigin origin, TPrimaryKey entityId)
         {
             TDestination destinationObject = await GetFromDB(entityId);
             var stringDeserialized = JsonConvert.SerializeObject(origin);
@@ -121,7 +121,7 @@ namespace CSharpRestFramework.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public async virtual Task Delete<TPrimaryKey>(TPrimaryKey entityId)
+        public virtual async  Task Delete<TPrimaryKey>(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
             if (data == null)
@@ -130,6 +130,15 @@ namespace CSharpRestFramework.Serializer
             _applicationDbContext.Remove(data);
             await _applicationDbContext.SaveChangesAsync();
 
+        }
+
+        public virtual async Task<TDestination> GetSingle<TPrimaryKey>(TPrimaryKey entityId)
+        {
+            var data = await GetFromDB(entityId);
+            if (data == null)
+                throw new Exception("Entity not found");
+
+            return data;
         }
 
         private async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid)

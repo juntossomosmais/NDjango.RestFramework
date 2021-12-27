@@ -7,7 +7,7 @@ namespace WebApplication2.DTO
     {
         public CustomerDTO()
         {
-            
+
         }
 
         public string Name { get; set; }
