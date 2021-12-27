@@ -69,7 +69,7 @@ namespace CSharpRestFramework.Base
 
 
         [NonAction]
-        protected IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
+        public IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
         {
             foreach (var filter in Filters)
                 query = filter.AddFilter(query, request);
@@ -77,7 +77,7 @@ namespace CSharpRestFramework.Base
         }
 
         [NonAction]
-        protected IQueryable<TDestination> Sort(string[] allowedFilters, IQueryable<TDestination> query)
+        public IQueryable<TDestination> Sort(string[] allowedFilters, IQueryable<TDestination> query)
         {
             return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
         }
@@ -88,7 +88,14 @@ namespace CSharpRestFramework.Base
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        [Route("{entityId}")]
+        public virtual async Task<IActionResult> GetSingle(TPrimaryKey entityId)
+        {
+            return Ok(await _serializer.GetSingle(entityId));
+        }
+
+        [HttpGet]
+        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
@@ -103,7 +110,7 @@ namespace CSharpRestFramework.Base
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post(TOrigin entity)
+        public virtual async Task<IActionResult> Post(TOrigin entity)
         {
             var isSaved = await _serializer.Save(entity, OperationType.Create);
 
@@ -115,7 +122,7 @@ namespace CSharpRestFramework.Base
 
         [HttpPatch]
         [Route("{entityId}")]
-        public async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] TPrimaryKey entityId)
+        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] TPrimaryKey entityId)
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
@@ -126,7 +133,7 @@ namespace CSharpRestFramework.Base
 
         [HttpPut]
         [Route("{entityId}")]
-        public async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey entityId)
+        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey entityId)
         {
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
@@ -137,7 +144,7 @@ namespace CSharpRestFramework.Base
 
         [HttpDelete]
         [Route("{entityId}")]
-        public async Task<IActionResult> Delete([FromRoute] TPrimaryKey entityId)
+        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey entityId)
         {
             await _serializer.Delete(entityId);
             return Ok();
