@@ -1,4 +1,4 @@
-ARG DOTNETCORE_VERSION=5.0
+ARG DOTNETCORE_VERSION=6.0
 
 # Starting layer point using Microsoft's dotnet SDK image based on debian distro
 FROM mcr.microsoft.com/dotnet/sdk:$DOTNETCORE_VERSION
