@@ -105,7 +105,7 @@ namespace TestProject1
                 _context.SaveChanges();
 
             }
-            catch (System.Exception)
+            catch (System.Exception ex)
             {
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -822,6 +822,22 @@ namespace TestProject1
                 _context.SaveChanges();
                 throw;
             }
+        }
+
+        [Fact]
+        public async Task GetSwaggerJson_WhenTryLoadSwagger_ShouldReturnStatus200()
+        {
+            // Arrange
+            var urlSwagger = "/swagger/v1/swagger.json";
+            var _client = _server.CreateClient();
+            _client.BaseAddress = new System.Uri("http://localhost:35185");
+
+            // Act
+            var response = await _client.GetAsync(urlSwagger);
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+
         }
     }
 }
