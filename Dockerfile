@@ -15,7 +15,7 @@ RUN echo "deb http://ftp.de.debian.org/debian buster main" | tee /etc/apt/source
 RUN dotnet tool install --global dotnet-sonarscanner
 ENV PATH="${PATH}:/root/.dotnet/tools"
 
-RUN dotnet tool install --global dotnet-ef
+RUN dotnet tool install --global dotnet-ef --version 6.0.2
 
 WORKDIR /app
 COPY . ./
