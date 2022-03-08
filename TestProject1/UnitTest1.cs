@@ -105,7 +105,7 @@ namespace TestProject1
                 _context.SaveChanges();
 
             }
-            catch (System.Exception ex)
+            catch (System.Exception)
             {
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
