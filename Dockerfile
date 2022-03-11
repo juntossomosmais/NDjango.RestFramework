@@ -1,4 +1,4 @@
-ARG DOTNETCORE_VERSION=5.0
+ARG DOTNETCORE_VERSION=6.0
 
 # Starting layer point using Microsoft's dotnet SDK image based on debian distro
 FROM mcr.microsoft.com/dotnet/sdk:$DOTNETCORE_VERSION
@@ -15,7 +15,7 @@ RUN echo "deb http://ftp.de.debian.org/debian buster main" | tee /etc/apt/source
 RUN dotnet tool install --global dotnet-sonarscanner
 ENV PATH="${PATH}:/root/.dotnet/tools"
 
-RUN dotnet tool install --global dotnet-ef
+RUN dotnet tool install --global dotnet-ef --version 6.0.2
 
 WORKDIR /app
 COPY . ./

@@ -82,6 +82,7 @@ namespace CSharpRestFramework.Base
             return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
         }
 
+        [NonAction]
         public virtual IQueryable<TDestination> GetQuerySet()
         {
             return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
