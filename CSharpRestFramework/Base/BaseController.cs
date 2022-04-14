@@ -27,10 +27,27 @@ namespace CSharpRestFramework.Base
 
     public class ActionOptions
     {
-        public bool AllowList { get; set; } = true;
-        public bool AllowPost { get; set; } = true;
-        public bool AllowPatch { get; set; } = true;
-        public bool AllowPut { get; set; } = true;
+        public ActionOptions(bool allowList = true,
+            bool allowPost = true,
+            bool allowPatch = true,
+            bool allowPut = true,
+            bool allowDelete = true,
+            bool allowGetSingle = true)
+        {
+            AllowList = allowList;
+            AllowPost = allowPost;
+            AllowPatch = allowPatch;
+            AllowPut = allowPut;
+            AllowDelete = allowDelete;
+            AllowGetSingle = allowGetSingle;
+        }
+
+        public bool AllowList { get; } 
+        public bool AllowPost { get; } 
+        public bool AllowPatch { get;  }
+        public bool AllowPut { get; }
+        public bool AllowDelete { get; }
+        public bool AllowGetSingle { get; }
     }
 
 
@@ -48,7 +65,7 @@ namespace CSharpRestFramework.Base
 
 
         #region .:: Constructors ::.
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
+        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions = null)
         {
             _serializer = serializer;
             _actionOptions = actionOptions ?? new ActionOptions();
@@ -92,12 +109,18 @@ namespace CSharpRestFramework.Base
         [Route("{entityId}")]
         public virtual async Task<IActionResult> GetSingle(TPrimaryKey entityId)
         {
+            if (!_actionOptions.AllowGetSingle)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            
             return Ok(await _serializer.GetSingle(entityId));
         }
 
         [HttpGet]
         public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
         {
+            if (!_actionOptions.AllowList)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
             query = Sort(AllowedFields, query);
@@ -111,8 +134,12 @@ namespace CSharpRestFramework.Base
         }
 
         [HttpPost]
+        
         public virtual async Task<IActionResult> Post(TOrigin entity)
         {
+            if (!_actionOptions.AllowPost)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            
             var isSaved = await _serializer.Save(entity, OperationType.Create);
 
             if (!isSaved)
@@ -147,6 +174,9 @@ namespace CSharpRestFramework.Base
         [Route("{entityId}")]
         public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey entityId)
         {
+            if (!_actionOptions.AllowDelete)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            
             await _serializer.Delete(entityId);
             return Ok();
         }
