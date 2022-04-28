@@ -153,7 +153,7 @@ stages:
       condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], '')) 
 
 
-- stage: Publish-Artifacts
+- stage: PublishArtifacts
   jobs:
   - job: Publish
     steps:
