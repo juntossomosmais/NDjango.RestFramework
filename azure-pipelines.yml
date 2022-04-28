@@ -19,96 +19,93 @@ stages:
         versionSpec: '3.x'
         addToPath: true
         architecture: 'x64'
-
     - task: PythonScript@0
-      displayName: 'Set tag version'
       inputs:
         scriptSource: 'inline'
         script: |
-                  import json
-                  import sys
-                  import urllib.request
-                  from contextlib import go
-                  
-                  
-                  def set_value(key, value):
-                      print(f"Set key {key} as {value}")
-                      print(f"##vso[task.setvariable variable={key};]{value}")
-                  
-                  
-                  def pull_request_setup(list_of_prs, commit_sha):
-                      print(f"Length of PRs: {len(list_of_prs)}")
-                      print(f"Commit SHA to search for: {commit_sha}")
-                      if len(list_of_prs) > 0:
-                          for pr in list_of_prs:
-                              if pr.get("merge_commit_sha") and pr["merge_commit_sha"] == commit_sha:
-                                  pr_details = {"branch_name": pr["head"]["ref"], "base": pr["base"]["ref"]}
-                                  print(f"Built PR details: {pr_details}")
-                                  return pr_details
-                          print("No PR with the SHA commit found...")
-                  
-                  
-                  def is_a_feature_branch(branch_name: str) -> bool:
-                      return branch_name.lower().startswith("feature/")
-                  
-                  
-                  def is_a_fix_branch(branch_name: str) -> bool:
-                      return branch_name.lower().startswith("fix/")
-                  
-                  
-                  def do_request_and_convert_to_json(address, headers):
-                      body = urllib.request.urlopen(urllib.request.Request(address, headers=headers)).read()
-                      return json.loads(body)
-                  
-                  
-                  env_tag_version = "ENV_TAG_VERSION"
-                  owner, repository = sys.argv[1].split("/")
-                  provided_commit_sha = sys.argv[2]
-                  api_token = sys.argv[3]
-                  
-                  base_headers = {"Authorization": f"token {api_token}"}
-                  base_address = f"https://api.github.com/repos/{owner}/{repository}"
-                  address_tags = f"{base_address}/tags"
-                  address_pulls = f"{base_address}/pulls?state=closed"
-                  
-                  tag_result = do_request_and_convert_to_json(address_tags, base_headers)
-                  
-                  
-                  def set_tag_version(branch_name, current_major, current_minor, current_patch):
-                      is_a_minor, is_a_patch = (
-                          is_a_feature_branch(evaluated_pr["branch_name"]),
-                          is_a_fix_branch(evaluated_pr["branch_name"]),
-                      )
-                  
-                      if is_a_minor:
-                          minor = current_minor + 1
-                          patch = 0
-                      elif is_a_patch:
-                          minor = current_minor
-                          patch = current_patch + 1
-                      else:
-                          raise Exception("Couldn't determine the new version!")
-                  
-                      set_value(env_tag_version, f"{current_major}.{minor}.{patch}")
-                  
-                  
-                  # More or less based on https://semver.org/, which is MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA
-                  
-                  with suppress(Exception):
-                      if len(tag_result) == 0:
-                          print("First release of the repository")
-                          set_value(env_tag_version, "2.0.0")  # Estabilishing a new major version to forget the old versions!
-                      else:
-                          latest_tag_version = tag_result[0]["name"]
-                          latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
-                          print(f"Latest tag version and commit sha: {latest_tag_version} / {latest_tag_commit_sha}")
-                          major, minor, patch = [int(x) for x in latest_tag_version.split(".")]
-                          pr_result = do_request_and_convert_to_json(address_pulls, base_headers)
-                          evaluated_pr = pull_request_setup(pr_result, provided_commit_sha)
-                          if evaluated_pr:
-                              set_tag_version(evaluated_pr["branch_name"], major, minor, patch)
+          import json
+          import sys
+          import urllib.request
+          from contextlib import go
+          
+          
+          def set_value(key, value):
+              print(f"Set key {key} as {value}")
+              print(f"##vso[task.setvariable variable={key};]{value}")
+          
+          
+          def pull_request_setup(list_of_prs, commit_sha):
+              print(f"Length of PRs: {len(list_of_prs)}")
+              print(f"Commit SHA to search for: {commit_sha}")
+              if len(list_of_prs) > 0:
+                  for pr in list_of_prs:
+                      if pr.get("merge_commit_sha") and pr["merge_commit_sha"] == commit_sha:
+                          pr_details = {"branch_name": pr["head"]["ref"], "base": pr["base"]["ref"]}
+                          print(f"Built PR details: {pr_details}")
+                          return pr_details
+                  print("No PR with the SHA commit found...")
+          
+          
+          def is_a_feature_branch(branch_name: str) -> bool:
+              return branch_name.lower().startswith("feature/")
+          
+          
+          def is_a_fix_branch(branch_name: str) -> bool:
+              return branch_name.lower().startswith("fix/")
+          
+          
+          def do_request_and_convert_to_json(address, headers):
+              body = urllib.request.urlopen(urllib.request.Request(address, headers=headers)).read()
+              return json.loads(body)
+          
+          
+          env_tag_version = "ENV_TAG_VERSION"
+          owner, repository = sys.argv[1].split("/")
+          provided_commit_sha = sys.argv[2]
+          api_token = sys.argv[3]
+          
+          base_headers = {"Authorization": f"token {api_token}"}
+          base_address = f"https://api.github.com/repos/{owner}/{repository}"
+          address_tags = f"{base_address}/tags"
+          address_pulls = f"{base_address}/pulls?state=closed"
+          
+          tag_result = do_request_and_convert_to_json(address_tags, base_headers)
+          
+          
+          def set_tag_version(branch_name, current_major, current_minor, current_patch):
+              is_a_minor, is_a_patch = (
+                  is_a_feature_branch(evaluated_pr["branch_name"]),
+                  is_a_fix_branch(evaluated_pr["branch_name"]),
+              )
+          
+              if is_a_minor:
+                  minor = current_minor + 1
+                  patch = 0
+              elif is_a_patch:
+                  minor = current_minor
+                  patch = current_patch + 1
+              else:
+                  raise Exception("Couldn't determine the new version!")
+          
+              set_value(env_tag_version, f"{current_major}.{minor}.{patch}")
+          
+          
+          # More or less based on https://semver.org/, which is MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA
+          
+          with suppress(Exception):
+              if len(tag_result) == 0:
+                  print("First release of the repository")
+                  set_value(env_tag_version, "2.0.0")  # Estabilishing a new major version to forget the old versions!
+              else:
+                  latest_tag_version = tag_result[0]["name"]
+                  latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
+                  print(f"Latest tag version and commit sha: {latest_tag_version} / {latest_tag_commit_sha}")
+                  major, minor, patch = [int(x) for x in latest_tag_version.split(".")]
+                  pr_result = do_request_and_convert_to_json(address_pulls, base_headers)
+                  evaluated_pr = pull_request_setup(pr_result, provided_commit_sha)
+                  if evaluated_pr:
+                      set_tag_version(evaluated_pr["branch_name"], major, minor, patch)
         arguments: '$(Build.Repository.ID) $(Build.SourceVersion) $(GITHUB_API_TOKEN)'
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     - task: DotNetCoreCLI@2
       displayName: Restore
