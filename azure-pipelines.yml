@@ -105,7 +105,7 @@ stages:
                           if evaluated_pr:
                               set_tag_version(evaluated_pr["branch_name"], major, minor, patch)
         arguments: '$(Build.Repository.ID) $(Build.SourceVersion) $(GITHUB_API_TOKEN)'
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     - task: DotNetCoreCLI@2
       displayName: Restore
