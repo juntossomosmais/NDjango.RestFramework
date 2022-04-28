@@ -15,7 +15,10 @@ stages:
   - job: Build
     steps:
     - task: UsePythonVersion@0
-      displayName: 'Use Python 3.x'
+      inputs:
+        versionSpec: '3.x'
+        addToPath: true
+        architecture: 'x64'
 
     - task: PythonScript@0
       displayName: 'Set tag version'
