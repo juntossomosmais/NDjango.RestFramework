@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: ubuntu-20.04
 
 variables:
 - group: Main variables for all pipelines
@@ -16,7 +16,7 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.10.1'
+        versionSpec: '3.x'
         addToPath: true
         architecture: 'x64'
     - task: PythonScript@0
