@@ -26,7 +26,7 @@ stages:
           import json
           import sys
           import urllib.request
-          from contextlib import go
+          from contextlib import suppress
           
           
           def set_value(key, value):
