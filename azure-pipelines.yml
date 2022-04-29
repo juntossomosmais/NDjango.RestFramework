@@ -185,7 +185,8 @@ stages:
         script: |
           echo Write your commands here
           
-          echo $(Pipeline.Workspace)
+          echo $(Pipeline.Workspace)/drop/artifacts
+          cd $(Pipeline.Workspace)/drop/artifacts
           dir
     - task: DotNetCoreCLI@2
       displayName: 'Publish to MarketplaceArtifacts'
