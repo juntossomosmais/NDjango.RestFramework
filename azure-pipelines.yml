@@ -118,7 +118,7 @@ stages:
     - task: DotNetCoreCLI@2
       displayName: Build
       inputs:
-        projects: '$(Parameters.RestoreBuildProjects)'
+        projects: '**/*.csproj'
         arguments: '--output $(Build.BinariesDirectory) --configuration $(BuildConfiguration)'
       condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], '')) 
 
@@ -136,7 +136,7 @@ stages:
       inputs:
         command: publish
         publishWebProjects: false
-        projects: '$(Parameters.RestoreBuildProjects)'
+        projects: '**/*.csproj'
         arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)'
         zipAfterPublish: false
         modifyOutputPath: false
