@@ -182,7 +182,7 @@ stages:
       displayName: 'Publish to MarketplaceArtifacts'
       inputs:
         command: push
-        packagesToPush: '_csharp-rest-framework/drop/artifacts/pack/**/*.nupkg;!_csharp-rest-framework/drop/artifacts/pack/**/*.symbols.nupkg'
+        packagesToPush: 'home/vsts/work/1/drop/artifacts/pack/**/*.nupkg;!home/vsts/work/1/drop/artifacts/pack/**/*.symbols.nupkg'
         publishVstsFeed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
 
     - task: rvo-vsts-promotepackage-task@3
