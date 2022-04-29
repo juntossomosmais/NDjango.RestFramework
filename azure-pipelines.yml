@@ -168,7 +168,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-                ENV_TAG_VERSION=$(cat "drop/artifacts/buildversion")
+                ENV_TAG_VERSION=$(cat "$(Pipeline.Workspace)/drop/artifacts/buildversion")
                 echo "Version that will be released: ${ENV_TAG_VERSION}"
                 echo "##vso[task.setvariable variable=ENV_TAG_VERSION;]${ENV_TAG_VERSION}"
                 displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
