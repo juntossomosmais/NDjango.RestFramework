@@ -159,7 +159,10 @@ stages:
     steps:
     - task: UsePythonVersion@0
       displayName: 'Use Python 3.x'
-
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        targetPath: '$(Pipeline.Workspace)'
     - task: Bash@3
       inputs:
         targetType: 'inline'
