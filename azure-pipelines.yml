@@ -149,7 +149,7 @@ stages:
     - task: PublishBuildArtifacts@1
       displayName: 'Publish Artifact'
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/artifacts/drop'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
       condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], '')) 
 
 
