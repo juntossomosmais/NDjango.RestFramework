@@ -165,13 +165,13 @@ stages:
         itemPattern: 'drop/artifacts/**'
         targetPath: '$(Pipeline.Workspace)'
     - task: Bash@3
+      displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
       inputs:
         targetType: 'inline'
         script: |
                 ENV_TAG_VERSION=$(cat "/home/vsts/work/1/drop/artifacts/buildversion")
                 echo "Version that will be released: ${ENV_TAG_VERSION}"
                 echo "##vso[task.setvariable variable=ENV_TAG_VERSION;]${ENV_TAG_VERSION}"
-                displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
 
     - task: UseDotNet@2
       displayName: 'Use .NET Core sdk 2.2.*'
