@@ -189,7 +189,7 @@ stages:
       inputs:
         feed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
         inputType: 'nameVersion'
-        definition: 'a9f953b9-6274-4b0b-8e0a-ce2c06412e6f,8d5b1973-3deb-4774-b580-ff48ce8a8945,f196de99-0b9e-4e9d-bc9b-a8956db5f0c1,c3b0069f-129c-4438-a2f1-f567159c1df1,5fae0ced-7f9d-4040-808a-fada6911fd5f,5fee295c-b495-4e76-a0c0-4cc13aabc841'
+        definition: 'fb18697d-307d-470b-b3e8-18fb571d735e'
         version: '$(ENV_TAG_VERSION)'
         releaseView: '9ae03480-e803-4e61-94ed-6c1819d4432f'
 
