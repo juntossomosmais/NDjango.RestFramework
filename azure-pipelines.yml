@@ -162,7 +162,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         buildType: 'current'
-        itemPattern: 'dorp/artifacts/**'
+        itemPattern: 'drop/artifacts/**'
         targetPath: '$(Pipeline.Workspace)'
     - task: Bash@3
       inputs:
