@@ -164,7 +164,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-                ENV_TAG_VERSION=$(cat "_csharp-rest-framework/drop/buildversion")
+                ENV_TAG_VERSION=$(cat "_csharp-rest-framework/drop/artifacts/buildversion")
                 echo "Version that will be released: ${ENV_TAG_VERSION}"
                 echo "##vso[task.setvariable variable=ENV_TAG_VERSION;]${ENV_TAG_VERSION}"
                 displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
@@ -178,7 +178,7 @@ stages:
       displayName: 'Publish to MarketplaceArtifacts'
       inputs:
         command: push
-        packagesToPush: '_csharp-rest-framework/drop/pack/**/*.nupkg;!_csharp-rest-framework/drop/pack/**/*.symbols.nupkg'
+        packagesToPush: '_csharp-rest-framework/drop/artifacts/pack/**/*.nupkg;!_csharp-rest-framework/drop/artifacts/pack/**/*.symbols.nupkg'
         publishVstsFeed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
 
     - task: rvo-vsts-promotepackage-task@3
