@@ -154,6 +154,8 @@ stages:
 
 
 - stage: PublishArtifacts
+  pool:
+    vmImage: 'windows-latest'
   jobs:
   - job: Publish
     steps:
