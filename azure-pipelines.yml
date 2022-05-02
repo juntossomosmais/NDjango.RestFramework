@@ -2,7 +2,7 @@ trigger:
 - main
 
 pr:
- - master
+ - main
 
 pool:
   vmImage: ubuntu-20.04
