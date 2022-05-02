@@ -1,6 +1,9 @@
 trigger:
 - main
 
+pr:
+ - master
+
 pool:
   vmImage: ubuntu-20.04
 
@@ -9,10 +12,41 @@ variables:
 - group: sonar-cloud-config
 
 
+
 stages:
-- stage: Build
+- stage: Sonar
+  condition: eq(variables['Build.Reason'], 'PullRequest')
   jobs:
-  - job: Build
+  - job: Sonar
+    steps:
+    - task: DownloadSecureFile@1
+      displayName: 'Download nuget.config'
+      inputs:
+        secureFile: nuget.config
+    - script: |
+        echo "Moving nuget.config file to sources directory..."
+        mv "$(Agent.TempDirectory)/nuget.config" nuget.config
+      displayName: 'Fetch nuget.config'
+    - script: |
+        echo "Cloning devops repository..."
+        git clone https://${{ parameters.GITHUB_API_USER }}:${{ parameters.GITHUB_API_TOKEN }}@github.com/juntossomosmais/devops.git
+        echo "Moving dotnet-test-sonar.sh script to Scripts directory..."
+        mv devops/scripts/sonar/dotnet-test-sonar.sh $(System.DefaultWorkingDirectory)/Scripts
+        echo $(Build.SourceVersion)
+        ls
+      displayName: 'Fetch devops scripts'
+    - task: DockerCompose@0
+      displayName: 'Run Docker Tests With SonarScanner'
+      inputs:
+        containerregistrytype: 'Azure Container Registry'
+        dockerComposeFile: '**/docker-compose.yml'
+        action: 'Run a Docker Compose command'
+        dockerComposeCommand: 'run -v "$(System.DefaultWorkingDirectory)/.git:/app/.git/" integration-tests bash ./Scripts/dotnet-test-sonar.sh --is-pr-analysis=true --sonar-host-url="$(SONAR_HOST_URL)" --sonar-organization="$(SONAR_ORGANIZATION)" --sonar-project-key=juntossomosmais_csharp-rest-framework --sonar-login="$(SONAR_LOGIN)" --sonar-pr-origin-branch="$(System.PullRequest.SourceBranch)" --sonar-pr-target-branch="$(System.PullRequest.TargetBranch)" --sonar-branch-name="$(Build.SourceBranchName)" --sonar-project-version="$(Build.SourceVersion)" --sonar-pr-id="$(System.PullRequest.PullRequestNumber)"'
+
+- stage: BuildPack
+  condition: ne(variables['Build.Reason'], 'PullRequest')
+  jobs:
+  - job: BuildPack
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -154,6 +188,7 @@ stages:
 
 
 - stage: PublishArtifacts
+  condition: ne(variables['Build.Reason'], 'PullRequest')
   pool:
     vmImage: 'windows-latest'
   jobs:
