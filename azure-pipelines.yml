@@ -29,7 +29,7 @@ stages:
       displayName: 'Fetch nuget.config'
     - script: |
         echo "Cloning devops repository..."
-        git clone https://${{ parameters.GITHUB_API_USER }}:${{ parameters.GITHUB_API_TOKEN }}@github.com/juntossomosmais/devops.git
+        git clone https://$(GITHUB_API_USER):$(GITHUB_API_TOKEN)@github.com/juntossomosmais/devops.git
         echo "Moving dotnet-test-sonar.sh script to Scripts directory..."
         mv devops/scripts/sonar/dotnet-test-sonar.sh $(System.DefaultWorkingDirectory)/Scripts
         echo $(Build.SourceVersion)
