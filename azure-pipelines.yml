@@ -95,7 +95,7 @@ stages:
           with suppress(Exception):
               if len(tag_result) == 0:
                   print("First release of the repository")
-                  set_value(env_tag_version, "4.0.0")  # Estabilishing a new major version to forget the old versions!
+                  set_value(env_tag_version, "5.0.0")  # Estabilishing a new major version to forget the old versions!
               else:
                   latest_tag_version = tag_result[0]["name"]
                   latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
@@ -128,7 +128,7 @@ stages:
         command: custom
         projects: '**/*.csproj'
         custom: 'pack '
-        arguments: '--output /home/vsts/work/1/a/artifacts/pack /p:Configuration=$(BuildConfiguration) --verbosity Detailed -p:Version=$(ENV_TAG_VERSION)+sha.$(Build.SourceVersion)'
+        arguments: '--output $(build.artifactstagingdirectory)/artifacts/pack /p:Configuration=$(BuildConfiguration) --verbosity Detailed -p:Version=$(ENV_TAG_VERSION)+sha.$(Build.SourceVersion)'
       condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], '')) 
 
     - task: DotNetCoreCLI@2
