@@ -9,12 +9,6 @@ services:
     ports:
       - 1433:1433
       
-  migrations:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: ./Scripts/apply-migrations.sh    
-    
   integration-tests:
     container_name: csharp-rest-framework-integration-tests
     build:
