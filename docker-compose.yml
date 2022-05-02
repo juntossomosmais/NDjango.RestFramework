@@ -1,20 +1,29 @@
-version: "3.8"
+version: "3.6"
 services:
-  mssql-server-2019-latest:
-    image: mcr.microsoft.com/mssql/server:2019-latest
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:latest
     environment:
       SA_PASSWORD: Password1
       ACCEPT_EULA: "Y"
-
+    ports:
+      - 1433:1433
+      
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ./Scripts/apply-migrations.sh    
+    
   integration-tests:
     container_name: csharp-rest-framework-integration-tests
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      - mssql-server-2019-latest
+      - sqlserver
     environment:
-      - "ConnectionStrings__DefaultConnectionString=Data Source=mssql-server-2019-latest,1433;Initial Catalog=POCContext;User Id=sa;Password=Password1"
+      - "ConnectionStrings__DefaultConnectionString=Data Source=sqlserver,1433;Initial Catalog=RestFramework;User Id=sa;Password=Password1"      
     command:
       [
         "./Scripts/start-tests.sh"
