@@ -129,7 +129,7 @@ stages:
                 with suppress(Exception):
                     if len(tag_result) == 0:
                         print("First release of the repository")
-                        set_value(env_tag_version, "5.0.2")  # Estabilishing a new major version to forget the old versions!
+                        set_value(env_tag_version, "6.0.0")  # Estabilishing a new major version to forget the old versions!
                     else:
                         latest_tag_version = tag_result[0]["name"]
                         latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
