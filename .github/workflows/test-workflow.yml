@@ -1,9 +1,0 @@
-name: test
-on: push
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run Tests
-        run: docker-compose up dotnet-50-sql-server-azure-edge-latest dotnet-50-mssql-server-2019-latest
