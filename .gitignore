@@ -493,7 +493,7 @@ coverage*.info
 # NuGet v3's project.json files produces more ignorable files
 
 # Nuget personal access tokens and Credentials
-# nuget.config
+nuget.config
 
 # Microsoft Azure Build Output
 
