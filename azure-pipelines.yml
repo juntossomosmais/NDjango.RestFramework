@@ -129,7 +129,7 @@ stages:
                 with suppress(Exception):
                     if len(tag_result) == 0:
                         print("First release of the repository")
-                        set_value(env_tag_version, "6.0.0")  # Estabilishing a new major version to forget the old versions!
+                        set_value(env_tag_version, "7.0.1")  # Estabilishing a new major version to forget the old versions!
                     else:
                         latest_tag_version = tag_result[0]["name"]
                         latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
@@ -233,10 +233,10 @@ stages:
             inputs:
               feed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
               inputType: 'nameVersion'
-              definition: 'fb18697d-307d-470b-b3e8-18fb571d735e'
+              definition: '46a8a833-03d0-4d89-97f4-4ef2fc850e13'
               version: '$(ENV_TAG_VERSION)'
               releaseView: '9ae03480-e803-4e61-94ed-6c1819d4432f'
-
+              
           - task: GitHubRelease@1
             displayName: 'GitHub release (create)'
             inputs:
