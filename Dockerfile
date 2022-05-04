@@ -1,4 +1,4 @@
-ROM juntossomosmais/dotnet-sonar:6.0
+FROM juntossomosmais/dotnet-sonar:6.0
 
 # Install EF Core tools
 RUN dotnet tool install --global dotnet-ef --version 6.0.2
