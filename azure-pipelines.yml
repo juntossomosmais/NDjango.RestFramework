@@ -1,0 +1,245 @@
+trigger:
+  - main
+
+pr:
+  - main
+
+pool:
+  vmImage: ubuntu-20.04
+
+variables:
+  - group: Main variables for all pipelines
+  - group: sonar-cloud-config
+
+
+
+stages:
+  - stage: Sonar
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    jobs:
+      - job: Sonar
+        steps:
+          - task: DownloadSecureFile@1
+            displayName: 'Download nuget.config'
+            inputs:
+              secureFile: nuget.config
+          - script: |
+              echo "Moving nuget.config file to sources directory..."
+              mv "$(Agent.TempDirectory)/nuget.config" nuget.config
+            displayName: 'Fetch nuget.config'
+          - script: |
+              echo "Cloning devops repository..."
+              git clone https://$(GITHUB_API_USER):$(GITHUB_API_TOKEN)@github.com/juntossomosmais/devops.git
+              echo "Moving dotnet-test-sonar.sh script to Scripts directory..."
+              mv devops/scripts/sonar/dotnet-test-sonar.sh $(System.DefaultWorkingDirectory)/Scripts
+              echo $(Build.SourceVersion)
+              ls
+            displayName: 'Fetch devops scripts'
+          - task: DockerCompose@0
+            displayName: 'Run Docker Tests With SonarScanner'
+            inputs:
+              containerregistrytype: 'Azure Container Registry'
+              dockerComposeFile: '**/docker-compose.yml'
+              action: 'Run a Docker Compose command'
+              dockerComposeCommand: 'run -v "$(System.DefaultWorkingDirectory)/.git:/app/.git/" integration-tests bash ./Scripts/dotnet-test-sonar.sh --is-pr-analysis=true --sonar-host-url="$(SONAR_HOST_URL)" --sonar-organization="$(SONAR_ORGANIZATION)" --sonar-project-key=juntossomosmais_csharp-rest-framework --sonar-login="$(SONAR_LOGIN)" --sonar-pr-origin-branch="$(System.PullRequest.SourceBranch)" --sonar-pr-target-branch="$(System.PullRequest.TargetBranch)" --sonar-branch-name="$(Build.SourceBranchName)" --sonar-project-version="$(Build.SourceVersion)" --sonar-pr-id="$(System.PullRequest.PullRequestNumber)"'
+
+  - stage: BuildPack
+    condition: ne(variables['Build.Reason'], 'PullRequest')
+    jobs:
+      - job: BuildPack
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.x'
+              addToPath: true
+              architecture: 'x64'
+          - task: PythonScript@0
+            inputs:
+              scriptSource: 'inline'
+              script: |
+                import json
+                import sys
+                import urllib.request
+                from contextlib import suppress
+                
+                
+                def set_value(key, value):
+                    print(f"Set key {key} as {value}")
+                    print(f"##vso[task.setvariable variable={key};]{value}")
+                
+                
+                def pull_request_setup(list_of_prs, commit_sha):
+                    print(f"Length of PRs: {len(list_of_prs)}")
+                    print(f"Commit SHA to search for: {commit_sha}")
+                    if len(list_of_prs) > 0:
+                        for pr in list_of_prs:
+                            if pr.get("merge_commit_sha") and pr["merge_commit_sha"] == commit_sha:
+                                pr_details = {"branch_name": pr["head"]["ref"], "base": pr["base"]["ref"]}
+                                print(f"Built PR details: {pr_details}")
+                                return pr_details
+                        print("No PR with the SHA commit found...")
+                
+                
+                def is_a_feature_branch(branch_name: str) -> bool:
+                    return branch_name.lower().startswith("feature/")
+                
+                
+                def is_a_fix_branch(branch_name: str) -> bool:
+                    return branch_name.lower().startswith("fix/")
+                
+                
+                def do_request_and_convert_to_json(address, headers):
+                    body = urllib.request.urlopen(urllib.request.Request(address, headers=headers)).read()
+                    return json.loads(body)
+                
+                
+                env_tag_version = "ENV_TAG_VERSION"
+                owner, repository = sys.argv[1].split("/")
+                provided_commit_sha = sys.argv[2]
+                api_token = sys.argv[3]
+                
+                base_headers = {"Authorization": f"token {api_token}"}
+                base_address = f"https://api.github.com/repos/{owner}/{repository}"
+                address_tags = f"{base_address}/tags"
+                address_pulls = f"{base_address}/pulls?state=closed"
+                
+                tag_result = do_request_and_convert_to_json(address_tags, base_headers)
+                
+                
+                def set_tag_version(branch_name, current_major, current_minor, current_patch):
+                    is_a_minor, is_a_patch = (
+                        is_a_feature_branch(evaluated_pr["branch_name"]),
+                        is_a_fix_branch(evaluated_pr["branch_name"]),
+                    )
+                
+                    if is_a_minor:
+                        minor = current_minor + 1
+                        patch = 0
+                    elif is_a_patch:
+                        minor = current_minor
+                        patch = current_patch + 1
+                    else:
+                        raise Exception("Couldn't determine the new version!")
+                
+                    set_value(env_tag_version, f"{current_major}.{minor}.{patch}")
+                
+                
+                # More or less based on https://semver.org/, which is MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA
+                
+                with suppress(Exception):
+                    if len(tag_result) == 0:
+                        print("First release of the repository")
+                        set_value(env_tag_version, "5.0.1")  # Estabilishing a new major version to forget the old versions!
+                    else:
+                        latest_tag_version = tag_result[0]["name"]
+                        latest_tag_commit_sha = tag_result[0]["commit"]["sha"]
+                        print(f"Latest tag version and commit sha: {latest_tag_version} / {latest_tag_commit_sha}")
+                        major, minor, patch = [int(x) for x in latest_tag_version.split(".")]
+                        pr_result = do_request_and_convert_to_json(address_pulls, base_headers)
+                        evaluated_pr = pull_request_setup(pr_result, provided_commit_sha)
+                        if evaluated_pr:
+                            set_tag_version(evaluated_pr["branch_name"], major, minor, patch)
+              arguments: '$(Build.Repository.ID) $(Build.SourceVersion) $(GITHUB_API_TOKEN)'
+
+          - task: DotNetCoreCLI@2
+            displayName: Restore
+            inputs:
+              command: restore
+              projects: '**/*.csproj'
+              vstsFeed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+          - task: DotNetCoreCLI@2
+            displayName: Build
+            inputs:
+              projects: '**/*.csproj'
+              arguments: '--output $(Build.BinariesDirectory) --configuration $(BuildConfiguration)'
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+          - task: DotNetCoreCLI@2
+            displayName: Pack
+            inputs:
+              command: custom
+              projects: '**/*.csproj'
+              custom: 'pack '
+              arguments: '--output $(build.artifactstagingdirectory)/artifacts/pack /p:Configuration=$(BuildConfiguration) --verbosity Detailed -p:Version=$(ENV_TAG_VERSION)+sha.$(Build.SourceVersion)'
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+          - task: DotNetCoreCLI@2
+            displayName: Publish
+            inputs:
+              command: publish
+              publishWebProjects: false
+              projects: '**/*.csproj'
+              arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)'
+              zipAfterPublish: false
+              modifyOutputPath: false
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+          - bash: 'echo $(ENV_TAG_VERSION) > $(Build.ArtifactStagingDirectory)/artifacts/buildversion'
+            displayName: 'Create a buildversion file'
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            condition: and(succeeded(), ne(variables['ENV_TAG_VERSION'], ''))
+
+
+  - stage: PublishArtifacts
+    condition: ne(variables['Build.Reason'], 'PullRequest')
+    pool:
+      vmImage: 'windows-latest'
+    jobs:
+      - job: Publish
+        steps:
+          - task: UsePythonVersion@0
+            displayName: 'Use Python 3.x'
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'current'
+              itemPattern: 'drop/artifacts/**'
+              targetPath: '$(Pipeline.Workspace)'
+          - task: Bash@3
+            displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
+            inputs:
+              targetType: 'inline'
+              script: |
+                ENV_TAG_VERSION=$(cat "$(Pipeline.Workspace)/drop/artifacts/buildversion")
+                echo "Version that will be released: ${ENV_TAG_VERSION}"
+                echo "##vso[task.setvariable variable=ENV_TAG_VERSION;]${ENV_TAG_VERSION}"
+          - task: UseDotNet@2
+            displayName: 'Use .NET Core sdk 2.2.*'
+            inputs:
+              version: 2.2.x
+
+          - task: CmdLine@2
+            inputs:
+              script: |
+                echo Write your commands here
+                
+                echo $(Pipeline.Workspace)/drop/artifacts
+                cd $(Pipeline.Workspace)/drop/artifacts
+                dir
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish to MarketplaceArtifacts'
+            inputs:
+              command: push
+              packagesToPush: '$(Pipeline.Workspace)/drop/artifacts/pack/**/*.nupkg;!$(Pipeline.Workspace)/drop/artifacts/pack/**/*.symbols.nupkg'
+              publishVstsFeed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
+
+          - task: rvo-vsts-promotepackage-task@3
+            inputs:
+              feed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
+              inputType: 'nameVersion'
+              definition: 'fb18697d-307d-470b-b3e8-18fb571d735e'
+              version: '$(ENV_TAG_VERSION)'
+              releaseView: '9ae03480-e803-4e61-94ed-6c1819d4432f'
+
+          - task: GitHubRelease@1
+            displayName: 'GitHub release (create)'
+            inputs:
+              gitHubConnection: 'jsm-robot-personal-access-token'
+              tagSource: userSpecifiedTag
+              tag: '$(ENV_TAG_VERSION)'
