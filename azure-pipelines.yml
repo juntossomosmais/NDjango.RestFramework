@@ -11,37 +11,27 @@ variables:
   - group: Main variables for all pipelines
   - group: sonar-cloud-config
 
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: juntossomosmais/azure-pipelines-templates
+      endpoint: github.com
+      ref: main
 
+parameters:
+  - name: SONAR_PROJECT
+    default: 'juntossomosmais_csharp-rest-framework'
 
 stages:
-  - stage: Sonar
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    jobs:
-      - job: Sonar
-        steps:
-          - task: DownloadSecureFile@1
-            displayName: 'Download nuget.config'
-            inputs:
-              secureFile: nuget.config
-          - script: |
-              echo "Moving nuget.config file to sources directory..."
-              mv "$(Agent.TempDirectory)/nuget.config" nuget.config
-            displayName: 'Fetch nuget.config'
-          - script: |
-              echo "Cloning devops repository..."
-              git clone https://$(GITHUB_API_USER):$(GITHUB_API_TOKEN)@github.com/juntossomosmais/devops.git
-              echo "Moving dotnet-test-sonar.sh script to Scripts directory..."
-              mv devops/scripts/sonar/dotnet-test-sonar.sh $(System.DefaultWorkingDirectory)/Scripts
-              echo $(Build.SourceVersion)
-              ls
-            displayName: 'Fetch devops scripts'
-          - task: DockerCompose@0
-            displayName: 'Run Docker Tests With SonarScanner'
-            inputs:
-              containerregistrytype: 'Azure Container Registry'
-              dockerComposeFile: '**/docker-compose.yml'
-              action: 'Run a Docker Compose command'
-              dockerComposeCommand: 'run -v "$(System.DefaultWorkingDirectory)/.git:/app/.git/" integration-tests bash ./Scripts/dotnet-test-sonar.sh --is-pr-analysis=true --sonar-host-url="$(SONAR_HOST_URL)" --sonar-organization="$(SONAR_ORGANIZATION)" --sonar-project-key=juntossomosmais_csharp-rest-framework --sonar-login="$(SONAR_LOGIN)" --sonar-pr-origin-branch="$(System.PullRequest.SourceBranch)" --sonar-pr-target-branch="$(System.PullRequest.TargetBranch)" --sonar-branch-name="$(Build.SourceBranchName)" --sonar-project-version="$(Build.SourceVersion)" --sonar-pr-id="$(System.PullRequest.PullRequestNumber)"'
+  - template: dotnet/stages/sonar.yml@templates
+    parameters:
+      GITHUB_API_USER: $(GITHUB_API_USER)
+      GITHUB_API_TOKEN: $(GITHUB_API_TOKEN)
+      SONAR_HOST_URL: $(SONAR_HOST_URL)
+      SONAR_ORGANIZATION: $(SONAR_ORGANIZATION)
+      SONAR_LOGIN: $(SONAR_LOGIN)
+      SONAR_PROJECT: ${{ parameters.SONAR_PROJECT }}
 
   - stage: BuildPack
     condition: ne(variables['Build.Reason'], 'PullRequest')
