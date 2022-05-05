@@ -23,6 +23,7 @@ parameters:
   - name: SONAR_PROJECT
     default: 'juntossomosmais_csharp-rest-framework'
 
+
 stages:
   - template: dotnet/stages/sonar.yml@templates
     parameters:
