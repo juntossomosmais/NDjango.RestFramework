@@ -37,7 +37,7 @@ stages:
 
   - template: shared/dotnet/step-nuget_build_pack.yaml@templates
     parameters:
-      SONAR_PROJECT: ${{ parameters.AZURE_FEED_ID }}
+      AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
 
   - stage: PublishArtifacts
     condition: ne(variables['Build.Reason'], 'PullRequest')
