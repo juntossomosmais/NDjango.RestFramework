@@ -17,7 +17,7 @@ resources:
       type: github
       name: juntossomosmais/azure-pipelines-templates
       endpoint: github.com
-      ref: main
+      ref: refactor/change-folder-structure
 
 parameters:
   - name: SONAR_PROJECT
@@ -25,7 +25,7 @@ parameters:
 
 
 stages:
-  - template: dotnet/stages/sonar.yml@templates
+  - template: legacy/dotnet/stages/sonar.yml@templates
     parameters:
       GITHUB_API_USER: $(GITHUB_API_USER)
       GITHUB_API_TOKEN: $(GITHUB_API_TOKEN)
