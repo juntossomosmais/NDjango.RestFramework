@@ -24,6 +24,8 @@ parameters:
     default: 'juntossomosmais_csharp-rest-framework'
   - name: AZURE_FEED_ID
     default: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
+  - name: AZURE_PACKAGE_ID
+    default: '46a8a833-03d0-4d89-97f4-4ef2fc850e13'
 
 stages:
   - template: legacy/dotnet/stages/sonar.yml@templates
@@ -35,63 +37,11 @@ stages:
       SONAR_LOGIN: $(SONAR_LOGIN)
       SONAR_PROJECT: ${{ parameters.SONAR_PROJECT }}
 
-  - template: shared/dotnet/step-nuget_build_pack.yaml@templates
+  - template: shared/dotnet/steps-nuget_build_pack.yaml@templates
     parameters:
       AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
 
-  - stage: PublishArtifacts
-    condition: ne(variables['Build.Reason'], 'PullRequest')
-    pool:
-      vmImage: 'windows-latest'
-    jobs:
-      - job: Publish
-        steps:
-          - task: UsePythonVersion@0
-            displayName: 'Use Python 3.x'
-          - task: DownloadPipelineArtifact@2
-            inputs:
-              buildType: 'current'
-              itemPattern: 'drop/artifacts/**'
-              targetPath: '$(Pipeline.Workspace)'
-          - task: Bash@3
-            displayName: 'Retrieve tag and set ENV_TAG_VERSION variable'
-            inputs:
-              targetType: 'inline'
-              script: |
-                ENV_TAG_VERSION=$(cat "$(Pipeline.Workspace)/drop/artifacts/buildversion")
-                echo "Version that will be released: ${ENV_TAG_VERSION}"
-                echo "##vso[task.setvariable variable=ENV_TAG_VERSION;]${ENV_TAG_VERSION}"
-          - task: UseDotNet@2
-            displayName: 'Use .NET Core sdk 2.2.*'
-            inputs:
-              version: 2.2.x
-
-          - task: CmdLine@2
-            inputs:
-              script: |
-                echo Write your commands here
-                
-                echo $(Pipeline.Workspace)/drop/artifacts
-                cd $(Pipeline.Workspace)/drop/artifacts
-                dir
-          - task: DotNetCoreCLI@2
-            displayName: 'Publish to MarketplaceArtifacts'
-            inputs:
-              command: push
-              packagesToPush: '$(Pipeline.Workspace)/drop/artifacts/pack/**/*.nupkg;!$(Pipeline.Workspace)/drop/artifacts/pack/**/*.symbols.nupkg'
-              publishVstsFeed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
-
-          - task: rvo-vsts-promotepackage-task@3
-            inputs:
-              feed: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
-              inputType: 'nameVersion'
-              definition: '46a8a833-03d0-4d89-97f4-4ef2fc850e13'
-              version: '$(ENV_TAG_VERSION)'
-              releaseView: '9ae03480-e803-4e61-94ed-6c1819d4432f'
-              
-          - task: GitHubRelease@1
-            displayName: 'GitHub release (create)'
-            inputs:
-              gitHubConnection: 'jsm-robot-personal-access-token'
-              tagSource: userSpecifiedTag
-              tag: '$(ENV_TAG_VERSION)'
+  - template: shared/dotnet/steps-nuget_push_artifacts.yaml@templates
+    parameters:
+      AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
+      AZURE_PACKAGE_ID: ${{ parameters.AZURE_PACKAGE_ID }}
