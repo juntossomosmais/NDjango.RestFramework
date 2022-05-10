@@ -35,4 +35,4 @@ stages:
       SONAR_PROJECT: ${{ parameters.SONAR_PROJECT }}
       AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
       AZURE_PACKAGE_ID: ${{ parameters.AZURE_PACKAGE_ID }}
-      DOTNET_VERSION: ${{ parameters.DOTNET_VERSION }} 
+      DOTNET_VERSION: ${{ parameters.DOTNET_VERSION }}
