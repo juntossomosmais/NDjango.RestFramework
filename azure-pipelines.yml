@@ -26,22 +26,13 @@ parameters:
     default: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
   - name: AZURE_PACKAGE_ID
     default: '46a8a833-03d0-4d89-97f4-4ef2fc850e13'
+  - name: DOTNET_VERSION
+    default: '6.0.x'
 
 stages:
-  - template: legacy/dotnet/stages/sonar.yml@templates
+  - template: dotnet/nuget.yml@templates
     parameters:
-      GITHUB_API_USER: $(GITHUB_API_USER)
-      GITHUB_API_TOKEN: $(GITHUB_API_TOKEN)
-      SONAR_HOST_URL: $(SONAR_HOST_URL)
-      SONAR_ORGANIZATION: $(SONAR_ORGANIZATION)
-      SONAR_LOGIN: $(SONAR_LOGIN)
       SONAR_PROJECT: ${{ parameters.SONAR_PROJECT }}
-
-  - template: shared/dotnet/steps-nuget_build_pack.yaml@templates
-    parameters:
       AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
-
-  - template: shared/dotnet/steps-nuget_push_artifacts.yaml@templates
-    parameters:
-      AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
-      AZURE_PACKAGE_ID: ${{ parameters.AZURE_PACKAGE_ID }}  
+      AZURE_PACKAGE_ID: ${{ parameters.AZURE_PACKAGE_ID }}
+      DOTNET_VERSION: ${{ parameters.DOTNET_VERSION }}
