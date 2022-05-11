@@ -4,9 +4,6 @@ trigger:
 pr:
   - main
 
-pool:
-  vmImage: ubuntu-20.04
-
 variables:
   - group: Main variables for all pipelines
   - group: sonar-cloud-config
@@ -19,20 +16,10 @@ resources:
       endpoint: github.com
       ref: refactor/change-folder-structure-dotnet
 
-parameters:
-  - name: SONAR_PROJECT
-    default: 'juntossomosmais_csharp-rest-framework'
-  - name: AZURE_FEED_ID
-    default: '7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0'
-  - name: AZURE_PACKAGE_ID
-    default: '46a8a833-03d0-4d89-97f4-4ef2fc850e13'
-  - name: DOTNET_VERSION
-    default: '6.0.x'
-
 stages:
-  - template: dotnet/nuget.yaml@templates
+  - template: dotnet/nuget_push_artifacts.yaml@templates
     parameters:
-      SONAR_PROJECT: ${{ parameters.SONAR_PROJECT }}
-      AZURE_FEED_ID: ${{ parameters.AZURE_FEED_ID }}
-      AZURE_PACKAGE_ID: ${{ parameters.AZURE_PACKAGE_ID }}
-      DOTNET_VERSION: ${{ parameters.DOTNET_VERSION }}
+      SonarProject: "juntossomosmais_csharp-rest-framework"
+      AzureFeedId: "7a82b4a3-6db8-4249-a7ec-9968996b9406/0d3df630-9f80-4d07-b31c-822063ea1dd0"
+      AzurePackageId: "46a8a833-03d0-4d89-97f4-4ef2fc850e13"
+      DotnetVersion: "6.0.x"
