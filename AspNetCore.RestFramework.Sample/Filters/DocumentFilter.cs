@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using System.Linq;
 using AspNetRestFramework.Sample.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AspNetRestFramework.Sample.Filters
 {
@@ -18,10 +19,11 @@ namespace AspNetRestFramework.Sample.Filters
 
             if (queryString.Any(x => x.Key == "cnpj"))
                 documentType = "cnpj";
-
+            
             var document = queryString.FirstOrDefault(x => x.Key == documentType)?.Value;
             if (string.IsNullOrWhiteSpace(document))
                 return query;
+            
 
             return query.Where(x => x.CustomerDocuments.Any(x => x.DocumentType == documentType && x.Document == document.Value.ToString()));
         }

@@ -1,4 +1,5 @@
-﻿using AspNetCore.RestFramework.Core.Serializer;
+﻿using System;
+using AspNetCore.RestFramework.Core.Serializer;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ using AspNetRestFramework.Sample.Models;
 
 namespace AspNetRestFramework.Sample.CustomSerializers
 {
-    public class CustomerSerializer : Serializer<CustomerDTO, Customer, ApplicationDbContext>
+    public class CustomerSerializer : Serializer<CustomerDTO, Customer,Guid, ApplicationDbContext>
     {
         public CustomerSerializer(ApplicationDbContext applicationDbContext) : base(applicationDbContext)
         {

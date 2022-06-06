@@ -34,12 +34,13 @@ namespace AspNetCore.RestFramework.Core.Base
     }
 
 
-    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase where TOrigin : BaseDto
-                                                                                  where TDestination : class
+    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase 
+                                                                                  where TOrigin : BaseDto
+                                                                                  where TDestination : BaseModel<TPrimaryKey>
                                                                                   where TContext : DbContext
 
     {
-        private readonly Serializer<TOrigin, TDestination, TContext> _serializer;
+        private readonly Serializer<TOrigin, TDestination, TPrimaryKey, TContext> _serializer;
         public IQueryable<TDestination> Query { get; set; }
         private TContext _context { get; set; }
         private ActionOptions _actionOptions { get; set; }
@@ -48,7 +49,7 @@ namespace AspNetCore.RestFramework.Core.Base
 
 
         #region .:: Constructors ::.
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
+        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context, ActionOptions actionOptions)
         {
             _serializer = serializer;
             _actionOptions = actionOptions ?? new ActionOptions();
@@ -56,7 +57,7 @@ namespace AspNetCore.RestFramework.Core.Base
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context)
+        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context)
         {
             _serializer = serializer;
             _actionOptions = new ActionOptions();
@@ -92,7 +93,9 @@ namespace AspNetCore.RestFramework.Core.Base
         [Route("{entityId}")]
         public virtual async Task<IActionResult> GetSingle(TPrimaryKey entityId)
         {
-            return Ok(await _serializer.GetSingle(entityId));
+            var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+
+            return Ok(await _serializer.GetSingle(entityId, query));
         }
 
         [HttpGet]
@@ -113,11 +116,19 @@ namespace AspNetCore.RestFramework.Core.Base
         [HttpPost]
         public virtual async Task<IActionResult> Post(TOrigin entity)
         {
-            var isSaved = await _serializer.Save(entity, OperationType.Create);
+            try
+            {
+                var isSaved = await _serializer.Save(entity, OperationType.Create);
 
-            if (!isSaved)
-                return BadRequest(_serializer.Errors);
-
+                if (!isSaved)
+                    return BadRequest(_serializer.Errors);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+            
             return Created("", new { });
         }
 

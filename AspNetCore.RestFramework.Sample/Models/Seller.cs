@@ -3,9 +3,12 @@ using System;
 
 namespace AspNetRestFramework.Sample.Models
 {
-    public class Seller
+    public class Seller : BaseModel<Guid>
     {
-        public Guid Id { get; set; }
         public string Name { get; set; }
+        public override string[] GetFields()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

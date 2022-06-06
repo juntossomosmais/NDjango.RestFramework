@@ -12,6 +12,8 @@ namespace AspNetRestFramework.Sample.DTO
 
         public string Name { get; set; }
         public string CNPJ { get; set; }
+        
+        public ICollection<CustomerDocumentsDTO> CustomerDocuments { get; set; }
 
         public override IEnumerable<string> Validate()
         {

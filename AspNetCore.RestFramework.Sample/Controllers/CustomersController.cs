@@ -19,10 +19,9 @@ namespace AspNetRestFramework.Sample.Controllers
                                    ApplicationDbContext dbContext) : base(serializer, dbContext)
         {
             AllowedFields = new [] { "Name", "CNPJ", "Age" };
-
             Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(AllowedFields));
             Filters.Add(new DocumentFilter());
-
+            Filters.Add(new CustomerDocumentIncludeFilter());
         }
     }
 }
