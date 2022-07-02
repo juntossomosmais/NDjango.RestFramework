@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AspNetRestFramework.Sample.Filters;
 
-public class CustomerDocumentIncludeFilter : Filter<Customer>
+public class CustomerFilter : Filter<CustomerDocument>
 {
-    public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
+    public override IQueryable<CustomerDocument> AddFilter(IQueryable<CustomerDocument> query, HttpRequest request)
     {
-        return query.Include(x => x.CustomerDocument);
+        return query.Include(x => x.Customer);
     }
 }

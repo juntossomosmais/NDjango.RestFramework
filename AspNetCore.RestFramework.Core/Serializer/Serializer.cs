@@ -38,7 +38,7 @@ namespace AspNetCore.RestFramework.Core.Serializer
 
             var data = await query.ToListAsync();
             var pages = (int)Math.Ceiling((decimal)totalRecords / (decimal)pageSize);
-
+            
             return (pages, data);
         }
 
@@ -136,27 +136,22 @@ namespace AspNetCore.RestFramework.Core.Serializer
 
         }
 
-        public virtual async Task<string> GetSingle<TPrimaryKey>(TPrimaryKey entityId, IQueryable<TDestination> query)
-        {
-            var data = await GetFromDB(entityId, query);
-            if (data == null)
-                throw new Exception("Entity not found");
-
-            string json = JsonConvert.SerializeObject(data, new JsonSerializerSettings { ContractResolver = new JsonTransform(new [] {"Id", "Name","CNPJ","Age","CustomerDocuments"}) });
-            
-
-            return json;
-        }
+       // public virtual async Task<string> GetSingle<TPrimaryKey>(TPrimaryKey entityId, IQueryable<TDestination> query)
+       // {
+       //     var data = await GetFromDB(entityId, query);
+       //     if (data == null)
+       //         throw new Exception("Entity not found");
+       //     
+       //     return data;
+       // }
         
-        public virtual async Task<string> GetSingle(IQueryable<TDestination> query)
+        public virtual async Task<TDestination> GetSingle(IQueryable<TDestination> query)
         {
             var data = await GetFromDB(query);
             if (data == null)
                 throw new Exception("Entity not found");
 
-            string json = JsonConvert.SerializeObject(data, new JsonSerializerSettings { ContractResolver = new JsonTransform(new [] {"Id", "Name","CNPJ","Age","CustomerDocuments"}) });
-            
-            return json;
+            return data;
         }
 
         private async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid)
@@ -164,14 +159,12 @@ namespace AspNetCore.RestFramework.Core.Serializer
             return await _applicationDbContext.Set<TDestination>().FindAsync(guid);
         }
         
-        private async Task<string> GetFromDB<TPrimaryKey>(TPrimaryKey guid, IQueryable<TDestination> query)
+        public async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid, IQueryable<TDestination> query)
         {
             var key = guid.ToString();
             var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync();
-            
-            string json = JsonConvert.SerializeObject(data, new JsonSerializerSettings { ContractResolver = new JsonTransform(data.GetFields()) });
-            
-            return json;
+
+            return data;
         }
 
 

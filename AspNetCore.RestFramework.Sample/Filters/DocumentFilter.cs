@@ -25,7 +25,7 @@ namespace AspNetRestFramework.Sample.Filters
                 return query;
             
 
-            return query.Where(x => x.CustomerDocuments.Any(x => x.DocumentType == documentType && x.Document == document.Value.ToString()));
+            return query.Where(x => x.CustomerDocument.Any(x => x.DocumentType == documentType && x.Document == document.Value.ToString()));
         }
     }
 }

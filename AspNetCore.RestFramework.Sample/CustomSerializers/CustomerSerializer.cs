@@ -37,7 +37,7 @@ namespace AspNetRestFramework.Sample.CustomSerializers
 
         public Task<(int Pages, List<Customer> Data)> ListCustom(int page, int pageSize, IQueryable<Customer> query)
         {
-            query = query.Include(x => x.CustomerDocuments);
+            query = query.Include(x => x.CustomerDocument);
             return base.List(page,pageSize, query);
         }
     }
