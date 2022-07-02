@@ -8,7 +8,6 @@ namespace AspNetRestFramework.Sample.Models
         public string Document { get; set; }
         public string DocumentType { get; set; }
         public Guid CustomerId { get; set; }
-
         public Customer Customer { get; set; }
         public override string[] GetFields()
         {

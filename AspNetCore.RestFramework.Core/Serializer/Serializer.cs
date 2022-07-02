@@ -125,31 +125,21 @@ namespace AspNetCore.RestFramework.Core.Serializer
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public virtual async  Task Delete<TPrimaryKey>(TPrimaryKey entityId)
+        public virtual async Task Delete<TPrimaryKey>(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
             if (data == null)
-                throw new Exception("Entity not found");
+                throw new Exception(BaseMessages.NOT_FOUND);
 
             _applicationDbContext.Remove(data);
             await _applicationDbContext.SaveChangesAsync();
-
         }
-
-       // public virtual async Task<string> GetSingle<TPrimaryKey>(TPrimaryKey entityId, IQueryable<TDestination> query)
-       // {
-       //     var data = await GetFromDB(entityId, query);
-       //     if (data == null)
-       //         throw new Exception("Entity not found");
-       //     
-       //     return data;
-       // }
         
         public virtual async Task<TDestination> GetSingle(IQueryable<TDestination> query)
         {
             var data = await GetFromDB(query);
             if (data == null)
-                throw new Exception("Entity not found");
+                throw new Exception(BaseMessages.NOT_FOUND);
 
             return data;
         }
@@ -166,7 +156,6 @@ namespace AspNetCore.RestFramework.Core.Serializer
 
             return data;
         }
-
 
         public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
         {

@@ -13,28 +13,6 @@ using Newtonsoft.Json.Linq;
 
 namespace AspNetCore.RestFramework.Core.Base
 {
-    public class BaseFilter<TContext, TEntity> where TContext : DbContext
-        where TEntity : class
-    {
-        private TContext _context;
-        public IQueryable<TEntity> DbSet { get; set; }
-
-        public BaseFilter(TContext context)
-        {
-            _context = context;
-            DbSet = context.Set<TEntity>();
-        }
-    }
-
-    public class ActionOptions
-    {
-        public bool AllowList { get; set; } = true;
-        public bool AllowPost { get; set; } = true;
-        public bool AllowPatch { get; set; } = true;
-        public bool AllowPut { get; set; } = true;
-    }
-
-
     [Produces("application/json")]
     public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
         where TOrigin : BaseDto
@@ -72,6 +50,153 @@ namespace AspNetCore.RestFramework.Core.Base
         #endregion
 
 
+        [HttpGet]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> GetSingle(TPrimaryKey Id)
+        {
+            try
+            {
+                var listOfProps = GetFieldsFromModel();
+
+                if (listOfProps == null || listOfProps.Length == 0)
+                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+
+                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+
+                var data = await _serializer.GetFromDB(Id, query);
+                if (data == null)
+                    return NotFound(BaseMessages.NOT_FOUND);
+
+                string json = JsonConvert.SerializeObject(data,
+                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+
+                var jObject = JObject.Parse(json);
+                return Ok(jObject);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpGet]
+        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        {
+            try
+            {
+                var listOfProps = GetFieldsFromModel();
+
+                if (listOfProps == null || listOfProps.Length == 0)
+                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+
+                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+                query = Sort(AllowedFields, query);
+                var (pages, data) = await _serializer.List(page, pageSize, query);
+
+                string json = JsonConvert.SerializeObject(data,
+                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+                var jArray = JArray.Parse(json);
+
+                var result = new PagedBaseResponse<JArray>()
+                {
+                    Data = jArray,
+                    Pages = pages
+                };
+
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpPost]
+        public virtual async Task<IActionResult> Post(TOrigin entity)
+        {
+            try
+            {
+                var isSaved = await _serializer.Save(entity, OperationType.Create);
+
+                if (!isSaved)
+                    return BadRequest(_serializer.Errors);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(_serializer.Errors);
+            }
+
+            return Created(BaseMessages.SUCESS, new { });
+        }
+
+        [HttpPatch]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity,
+            [FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                if (!_actionOptions.AllowPatch)
+                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+                await _serializer.Patch(entity, Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpPut]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                if (!_actionOptions.AllowPut)
+                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+                await _serializer.Save(origin, OperationType.Update, Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpDelete]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                await _serializer.Delete(Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        #region methods
+
+        [NonAction]
+        public string[] GetFieldsFromModel()
+        {
+            try
+            {
+                var instanceMethod = typeof(TDestination).GetMethod("GetFields");
+                return (string[]) instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+            }
+            catch (Exception e)
+            {
+                return Array.Empty<string>();
+            }
+        }
+
         [NonAction]
         public IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
         {
@@ -92,119 +217,6 @@ namespace AspNetCore.RestFramework.Core.Base
             return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        [HttpGet]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> GetSingle(TPrimaryKey Id)
-        {
-            try
-            {
-                var instanceMethod = typeof(TDestination).GetMethod("GetFields");
-                var classInstance = Activator.CreateInstance(typeof(TDestination), null);
-                var listOfProps = instanceMethod?.Invoke(classInstance, null);
-
-                if (listOfProps == null || ((string[]) listOfProps).Length == 0)
-                    return BadRequest("It is necessary to implement the GetFields method inside the entity.");
-                
-                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
-
-                var data = await _serializer.GetFromDB(Id, query);
-                if (data == null)
-                    return NotFound("Entity not found");
-
-                string json = JsonConvert.SerializeObject(data,
-                    new JsonSerializerSettings {ContractResolver = new JsonTransform((string[]) listOfProps)});
-
-                var jObject = JObject.Parse(json);
-                return Ok(jObject);
-            }
-            catch (Exception e)
-            {
-                return BadRequest("An error occurred while performing the operation.");
-            }
-        }
-
-        [HttpGet]
-        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
-        {
-            try
-            {
-                var instanceMethod = typeof(TDestination).GetMethod("GetFields");
-                var classInstance = Activator.CreateInstance(typeof(TDestination), null);
-                var listOfProps = instanceMethod?.Invoke(classInstance, null);
-
-                if (listOfProps == null || ((string[]) listOfProps).Length == 0)
-                    return BadRequest("It is necessary to implement the GetFields method inside the entity.");
-                
-                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
-                query = Sort(AllowedFields, query);
-                var (pages, data) = await _serializer.List(page, pageSize, query);
-
-                string json = JsonConvert.SerializeObject(data,
-                    new JsonSerializerSettings {ContractResolver = new JsonTransform((string[]) listOfProps)});
-                var jArray = JArray.Parse(json);
-
-                var result = new PagedBaseResponse<JArray>()
-                {
-                    Data = jArray,
-                    Pages = pages
-                };
-
-                return Ok(result);
-            }
-            catch (Exception e)
-            {
-                return BadRequest("An error occurred while performing the operation.");
-            }
-        }
-
-        [HttpPost]
-        public virtual async Task<IActionResult> Post(TOrigin entity)
-        {
-            try
-            {
-                var isSaved = await _serializer.Save(entity, OperationType.Create);
-
-                if (!isSaved)
-                    return BadRequest(_serializer.Errors);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
-
-            return Created("", new { });
-        }
-
-        [HttpPatch]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity,
-            [FromRoute] TPrimaryKey Id)
-        {
-            if (!_actionOptions.AllowPatch)
-                return StatusCode(StatusCodes.Status405MethodNotAllowed);
-
-            await _serializer.Patch(entity, Id);
-            return Ok();
-        }
-
-        [HttpPut]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey Id)
-        {
-            if (!_actionOptions.AllowPut)
-                return StatusCode(StatusCodes.Status405MethodNotAllowed);
-
-            await _serializer.Save(origin, OperationType.Update, Id);
-            return Ok();
-        }
-
-        [HttpDelete]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey Id)
-        {
-            await _serializer.Delete(Id);
-            return Ok();
-        }
+        #endregion
     }
 }
