@@ -9,6 +9,8 @@ namespace AspNetRestFramework.Sample.Mappings
         public void Configure(EntityTypeBuilder<Customer> builder)
         {
             builder.HasKey(b => b.Id);
+
+            //builder.Navigation(e => e.CustomerDocuments).AutoInclude();
         }
     }
 }

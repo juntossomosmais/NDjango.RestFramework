@@ -8,38 +8,19 @@ using System.Linq;
 using System.Threading.Tasks;
 using AspNetCore.RestFramework.Core.Filters;
 using AspNetCore.RestFramework.Core.Serializer;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AspNetCore.RestFramework.Core.Base
 {
-
-    public class BaseFilter<TContext, TEntity> where TContext : DbContext
-                                                    where TEntity : class
-    {
-        private TContext _context;
-        public IQueryable<TEntity> DbSet { get; set; }
-
-        public BaseFilter(TContext context)
-        {
-            _context = context;
-            DbSet = context.Set<TEntity>();
-        }
-    }
-
-    public class ActionOptions
-    {
-        public bool AllowList { get; set; } = true;
-        public bool AllowPost { get; set; } = true;
-        public bool AllowPatch { get; set; } = true;
-        public bool AllowPut { get; set; } = true;
-    }
-
-
-    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase where TOrigin : BaseDto
-                                                                                  where TDestination : class
-                                                                                  where TContext : DbContext
+    [Produces("application/json")]
+    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
+        where TOrigin : BaseDto
+        where TDestination : BaseModel<TPrimaryKey>
+        where TContext : DbContext
 
     {
-        private readonly Serializer<TOrigin, TDestination, TContext> _serializer;
+        private readonly Serializer<TOrigin, TDestination, TPrimaryKey, TContext> _serializer;
         public IQueryable<TDestination> Query { get; set; }
         private TContext _context { get; set; }
         private ActionOptions _actionOptions { get; set; }
@@ -48,7 +29,9 @@ namespace AspNetCore.RestFramework.Core.Base
 
 
         #region .:: Constructors ::.
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context, ActionOptions actionOptions)
+
+        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context,
+            ActionOptions actionOptions)
         {
             _serializer = serializer;
             _actionOptions = actionOptions ?? new ActionOptions();
@@ -56,17 +39,163 @@ namespace AspNetCore.RestFramework.Core.Base
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        public BaseController(Serializer<TOrigin, TDestination, TContext> serializer, TContext context)
+        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context)
         {
             _serializer = serializer;
             _actionOptions = new ActionOptions();
             _context = context;
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
-
         }
 
         #endregion
 
+
+        [HttpGet]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> GetSingle(TPrimaryKey Id)
+        {
+            try
+            {
+                var listOfProps = GetFieldsFromModel();
+
+                if (listOfProps == null || listOfProps.Length == 0)
+                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+
+                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+
+                var data = await _serializer.GetFromDB(Id, query);
+                if (data == null)
+                    return NotFound(BaseMessages.NOT_FOUND);
+
+                string json = JsonConvert.SerializeObject(data,
+                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+
+                var jObject = JObject.Parse(json);
+                return Ok(jObject);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpGet]
+        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        {
+            try
+            {
+                var listOfProps = GetFieldsFromModel();
+
+                if (listOfProps == null || listOfProps.Length == 0)
+                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+
+                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+                query = Sort(AllowedFields, query);
+                var (pages, data) = await _serializer.List(page, pageSize, query);
+
+                string json = JsonConvert.SerializeObject(data,
+                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+                var jArray = JArray.Parse(json);
+
+                var result = new PagedBaseResponse<JArray>()
+                {
+                    Data = jArray,
+                    Pages = pages
+                };
+
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpPost]
+        public virtual async Task<IActionResult> Post(TOrigin entity)
+        {
+            try
+            {
+                var isSaved = await _serializer.Save(entity, OperationType.Create);
+
+                if (!isSaved)
+                    return BadRequest(_serializer.Errors);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(_serializer.Errors);
+            }
+
+            return Created(BaseMessages.SUCESS, new { });
+        }
+
+        [HttpPatch]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity,
+            [FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                if (!_actionOptions.AllowPatch)
+                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+                await _serializer.Patch(entity, Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpPut]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                if (!_actionOptions.AllowPut)
+                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+                await _serializer.Save(origin, OperationType.Update, Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        [HttpDelete]
+        [Route("{Id}")]
+        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey Id)
+        {
+            try
+            {
+                await _serializer.Delete(Id);
+                return Ok(BaseMessages.SUCESS);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
+            }
+        }
+
+        #region methods
+
+        [NonAction]
+        public string[] GetFieldsFromModel()
+        {
+            try
+            {
+                var instanceMethod = typeof(TDestination).GetMethod("GetFields");
+                return (string[]) instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+            }
+            catch (Exception e)
+            {
+                return Array.Empty<string>();
+            }
+        }
 
         [NonAction]
         public IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
@@ -88,67 +217,6 @@ namespace AspNetCore.RestFramework.Core.Base
             return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        [HttpGet]
-        [Route("{entityId}")]
-        public virtual async Task<IActionResult> GetSingle(TPrimaryKey entityId)
-        {
-            return Ok(await _serializer.GetSingle(entityId));
-        }
-
-        [HttpGet]
-        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
-        {
-            var query = FilterQuery(GetQuerySet(), HttpContext.Request);
-
-            query = Sort(AllowedFields, query);
-
-            var (pages, data) = await _serializer.List(page, pageSize, query);
-            return Ok(new PagedBaseResponse<TDestination>()
-            {
-                Data = data,
-                Pages = pages
-            });
-        }
-
-        [HttpPost]
-        public virtual async Task<IActionResult> Post(TOrigin entity)
-        {
-            var isSaved = await _serializer.Save(entity, OperationType.Create);
-
-            if (!isSaved)
-                return BadRequest(_serializer.Errors);
-
-            return Created("", new { });
-        }
-
-        [HttpPatch]
-        [Route("{entityId}")]
-        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity, [FromRoute] TPrimaryKey entityId)
-        {
-            if (!_actionOptions.AllowPatch)
-                return StatusCode(StatusCodes.Status405MethodNotAllowed);
-
-            await _serializer.Patch(entity, entityId);
-            return Ok();
-        }
-
-        [HttpPut]
-        [Route("{entityId}")]
-        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey entityId)
-        {
-            if (!_actionOptions.AllowPut)
-                return StatusCode(StatusCodes.Status405MethodNotAllowed);
-
-            await _serializer.Save(origin, OperationType.Update, entityId);
-            return Ok();
-        }
-
-        [HttpDelete]
-        [Route("{entityId}")]
-        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey entityId)
-        {
-            await _serializer.Delete(entityId);
-            return Ok();
-        }
+        #endregion
     }
 }

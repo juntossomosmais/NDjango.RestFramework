@@ -9,7 +9,7 @@ namespace AspNetRestFramework.Sample.Mappings
         public void Configure(EntityTypeBuilder<CustomerDocument> builder)
         {
             builder.HasOne(b => b.Customer)
-                .WithMany(b => b.CustomerDocuments)
+                .WithMany(b => b.CustomerDocument)
                 .HasForeignKey(b => b.CustomerId)
                 .IsRequired();
         }

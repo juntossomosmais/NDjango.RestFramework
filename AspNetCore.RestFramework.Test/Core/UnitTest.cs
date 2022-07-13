@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using AspNetRestFramework.Sample;
 using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.Models;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace AspNetCore.RestFramework.Test.Core
@@ -62,7 +63,8 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+
                 customers.Data.Count.Should().Be(3);
 
                 dbSet.RemoveRange(dbSet.ToList());
@@ -97,7 +99,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(1);
                 customers.Data.FirstOrDefault().Name.Should().Be("ghi");
 
@@ -133,7 +135,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(2);
 
                 dbSet.RemoveRange(dbSet.ToList());
@@ -169,7 +171,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(3);
 
                 var first = customers.Data.FirstOrDefault();
@@ -217,7 +219,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(3);
 
                 var first = customers.Data.FirstOrDefault();
@@ -256,7 +258,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "123",
                     Name = "abc",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -273,7 +275,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "456",
                     Name = "def",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -292,7 +294,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(1);
                 customers.Data.FirstOrDefault().Name.Should().Be("abc");
 
@@ -319,7 +321,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "123",
                     Name = "abc",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -336,7 +338,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "456",
                     Name = "def",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -355,7 +357,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(1);
                 customers.Data.FirstOrDefault().Name.Should().Be("abc");
 
@@ -382,7 +384,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "123",
                     Name = "abc",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -399,7 +401,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 {
                     CNPJ = "456",
                     Name = "def",
-                    CustomerDocuments = new List<CustomerDocument>() { new CustomerDocument
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
@@ -418,12 +420,11 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Should().BeEmpty();
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
-
             }
             catch (System.Exception)
             {
@@ -432,7 +433,66 @@ namespace AspNetCore.RestFramework.Test.Core
                 throw;
             }
         }
+ [Fact]
+        public async Task Get_WithQueryStringCustomerParameter_ShouldReturnNoRecord()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "123",
+                    Name = "abc",
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "XYZ"
+                    }, new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cpf",
+                        Document = "1234"
+                    }}
 
+                });
+                dbSet.Add(new Customer()
+                {
+                    CNPJ = "456",
+                    Name = "def",
+                    CustomerDocument = new List<CustomerDocument>() { new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cnpj",
+                        Document = "LHA"
+                    }}
+                });
+                dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync("api/Customers?cpf=5557");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+                customers.Data.Should().BeEmpty();
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+            }
+            catch (System.Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
         [Fact]
         public async Task Patch_WithFullObject_ShouldUpdateFullObject()
         {
@@ -549,8 +609,6 @@ namespace AspNetCore.RestFramework.Test.Core
                 _context.SaveChanges();
                 throw;
             }
-
-
         }
 
         [Fact]
@@ -614,7 +672,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(3);
                 customers.Pages.Should().Be(1);
 
@@ -651,7 +709,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<Customer>>(responseData);
+                var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(1);
                 customers.Pages.Should().Be(3);
                 customers.Data.First().Name.Should().Be("ghi");
@@ -695,6 +753,45 @@ namespace AspNetCore.RestFramework.Test.Core
                 var customer = JsonConvert.DeserializeObject<Customer>(responseData);
                 customer.Should().NotBeNull();
                 customer.Id.Should().Be(customer1.Id);
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+
+            }
+            catch (Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
+        }
+        
+        [Fact]
+        public async Task GetSingle_WithInValidParameter_ShouldReturn404()
+        {
+            // Arrange
+            var dbSet = _context.Set<Customer>();
+            try
+            {
+                var customer1 = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+                var customer2 = new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "def" };
+                var customer3 = new Customer() { Id = Guid.NewGuid(), CNPJ = "789", Name = "ghi" };
+
+
+                dbSet.AddRange(customer1, customer2, customer3);
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync($"api/Customers/{Guid.NewGuid()}");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var msg = JsonConvert.DeserializeObject<string>(responseData);
+                msg.Should().NotBeNull();
+                msg.Should().Be("Entity not found");
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -825,7 +922,7 @@ namespace AspNetCore.RestFramework.Test.Core
         }
 
         [Fact]
-        public async Task GetSwaggerJson_WhenTryLoadSwagger_ShouldReturnStatus200()
+        public async Task GetCustomer_ShouldReturnStatus200()
         {
             // Arrange
             var urlSwagger = "/swagger/v1/swagger.json";
@@ -837,6 +934,41 @@ namespace AspNetCore.RestFramework.Test.Core
 
             // Assert
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        }
+        
+        [Fact]
+        public async Task GetSingle_WithoutFields_ShouldReturnBadRequest()
+        {
+            // Arrange
+            var dbSet = _context.Set<Seller>();
+            try
+            {
+                var seller1 = new Seller() { Id = Guid.NewGuid(),Name = "Teste"};
+
+                dbSet.Add(seller1);
+                _context.SaveChanges();
+
+                var _client = _server.CreateClient();
+                _client.BaseAddress = new System.Uri("http://localhost:35185");
+                // Act
+                var response = await _client.GetAsync($"api/Seller/{seller1.Id}");
+
+                // Assert
+                response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+                var responseData = await response.Content.ReadAsStringAsync();
+                var msg = JsonConvert.DeserializeObject<string>(responseData);
+                msg.Should().NotBeEmpty();
+                msg.Should().Be(BaseMessages.ERROR_GET_FIELDS);
+
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+            }
+            catch (Exception)
+            {
+                dbSet.RemoveRange(dbSet.ToList());
+                _context.SaveChanges();
+                throw;
+            }
         }
     }
 }

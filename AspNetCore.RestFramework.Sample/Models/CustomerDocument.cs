@@ -3,13 +3,15 @@ using System;
 
 namespace AspNetRestFramework.Sample.Models
 {
-    public class CustomerDocument
+    public class CustomerDocument : BaseModel<Guid>
     {
-        public Guid Id { get; set; }
         public string Document { get; set; }
         public string DocumentType { get; set; }
         public Guid CustomerId { get; set; }
-
         public Customer Customer { get; set; }
+        public override string[] GetFields()
+        {
+            return new[] {"Document", "Customer", "Customer:CNPJ", "Customer:Age"};
+        }
     }
 }

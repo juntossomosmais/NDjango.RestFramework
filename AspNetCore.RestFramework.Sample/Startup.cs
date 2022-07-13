@@ -1,3 +1,4 @@
+using System;
 using AspNetCore.RestFramework.Core.Serializer;
 using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.CustomSerializers;
@@ -28,7 +29,11 @@ namespace AspNetRestFramework.Sample
         {
             services.AddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.HttpContextAccessor>();
 
-            services.AddControllers().AddNewtonsoftJson(config => config.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore);
+            services.AddControllers().AddNewtonsoftJson(config =>
+            {
+                config.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+                config.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+            });
 
 
 
@@ -36,7 +41,8 @@ namespace AspNetRestFramework.Sample
             services.AddDbContext<ApplicationDbContext>(opt => opt.UseSqlServer(connectionString));
 
             services.AddScoped<CustomerSerializer>();
-            services.AddScoped<Serializer<SellerDto, Seller, ApplicationDbContext>>();
+            services.AddScoped<Serializer<SellerDto, Seller,Guid, ApplicationDbContext>>();
+            services.AddScoped<Serializer<CustomerDocumentsDTO, CustomerDocument,Guid, ApplicationDbContext>>();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>

@@ -9,7 +9,7 @@ using AspNetCore.RestFramework.Core.Base;
 
 namespace AspNetCore.RestFramework.Core.Serializer
 {
-    public class Serializer<TOrigin, TDestination, TContext> where TDestination : class
+    public class Serializer<TOrigin, TDestination, TPrimaryKey, TContext> where TDestination : BaseModel<TPrimaryKey>
                                                              where TOrigin : BaseDto
                                                              where TContext : DbContext
     {
@@ -38,7 +38,7 @@ namespace AspNetCore.RestFramework.Core.Serializer
 
             var data = await query.ToListAsync();
             var pages = (int)Math.Ceiling((decimal)totalRecords / (decimal)pageSize);
-
+            
             return (pages, data);
         }
 
@@ -116,27 +116,30 @@ namespace AspNetCore.RestFramework.Core.Serializer
         {
             TDestination destinationObject = await GetFromDB(entityId);
             var stringDeserialized = JsonConvert.SerializeObject(origin);
-            JsonConvert.PopulateObject(stringDeserialized, destinationObject);
+            
+            dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
+            stringDeserializedDynamic.Id = entityId;
+            
+            JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destinationObject);
             _applicationDbContext.Update(destinationObject);
             await _applicationDbContext.SaveChangesAsync();
         }
 
-        public virtual async  Task Delete<TPrimaryKey>(TPrimaryKey entityId)
+        public virtual async Task Delete<TPrimaryKey>(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
             if (data == null)
-                throw new Exception("Entity not found");
+                throw new Exception(BaseMessages.NOT_FOUND);
 
             _applicationDbContext.Remove(data);
             await _applicationDbContext.SaveChangesAsync();
-
         }
-
-        public virtual async Task<TDestination> GetSingle<TPrimaryKey>(TPrimaryKey entityId)
+        
+        public virtual async Task<TDestination> GetSingle(IQueryable<TDestination> query)
         {
-            var data = await GetFromDB(entityId);
+            var data = await GetFromDB(query);
             if (data == null)
-                throw new Exception("Entity not found");
+                throw new Exception(BaseMessages.NOT_FOUND);
 
             return data;
         }
@@ -144,6 +147,14 @@ namespace AspNetCore.RestFramework.Core.Serializer
         private async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid)
         {
             return await _applicationDbContext.Set<TDestination>().FindAsync(guid);
+        }
+        
+        public async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid, IQueryable<TDestination> query)
+        {
+            var key = guid.ToString();
+            var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync();
+
+            return data;
         }
 
         public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
@@ -162,4 +173,6 @@ namespace AspNetCore.RestFramework.Core.Serializer
         Create,
         Update
     }
+    
+    
 }
