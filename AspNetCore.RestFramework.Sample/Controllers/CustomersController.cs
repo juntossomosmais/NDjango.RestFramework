@@ -14,7 +14,6 @@ namespace AspNetRestFramework.Sample.Controllers
     [ApiController]
     public class CustomersController : BaseController<CustomerDTO, Customer, Guid, ApplicationDbContext>
     {
-
         public CustomersController(CustomerSerializer serializer,
                                    ApplicationDbContext dbContext) : base(serializer, dbContext)
         {
