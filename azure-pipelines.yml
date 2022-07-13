@@ -14,7 +14,7 @@ resources:
       type: github
       name: juntossomosmais/azure-pipelines-templates
       endpoint: github.com
-      ref: refactor/change-folder-structure-dotnet
+      ref: refactor/change-folder-structure
 
 extends:
   template: dotnet/nuget_deploy_artifacts.yaml@templates
