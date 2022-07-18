@@ -14,11 +14,11 @@ namespace AspNetRestFramework.Sample.Controllers
     [ApiController]
     public class CustomersController : BaseController<CustomerDTO, Customer, Guid, ApplicationDbContext>
     {
-
         public CustomersController(CustomerSerializer serializer,
                                    ApplicationDbContext dbContext) : base(serializer, dbContext)
         {
-            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(new [] { "Name", "CNPJ", "Age" }));
+            AllowedFields = new[] {"Name", "CNPJ", "Age"};
+            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(AllowedFields));
             Filters.Add(new DocumentFilter());
             Filters.Add(new CustomerDocumentIncludeFilter());
         }
