@@ -5,6 +5,7 @@ using System;
 using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.DTO;
 using AspNetRestFramework.Sample.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AspNetRestFramework.Sample.Controllers
 {
@@ -12,7 +13,7 @@ namespace AspNetRestFramework.Sample.Controllers
     [ApiController]
     public class SellerController : BaseController<SellerDto, Seller, Guid, ApplicationDbContext>
     {
-        public SellerController(Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer, ApplicationDbContext dbContext) : base(serializer, dbContext, new ActionOptions { AllowPatch = false })
+        public SellerController(Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer, ApplicationDbContext dbContext, ILogger<Seller> logger) : base(serializer, dbContext, new ActionOptions { AllowPatch = false }, logger)
         {
         }
     }

@@ -6,6 +6,7 @@ using AspNetRestFramework.Sample.DTO;
 using AspNetRestFramework.Sample.Filters;
 using AspNetRestFramework.Sample.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace AspNetRestFramework.Sample.Controllers;
 
@@ -13,7 +14,7 @@ namespace AspNetRestFramework.Sample.Controllers;
 [ApiController]
 public class CustomerDocumentController : BaseController<CustomerDocumentsDTO, CustomerDocument, Guid, ApplicationDbContext>
 {
-    public CustomerDocumentController(Serializer<CustomerDocumentsDTO, CustomerDocument, Guid, ApplicationDbContext> serializer, ApplicationDbContext context) : base(serializer, context)
+    public CustomerDocumentController(Serializer<CustomerDocumentsDTO, CustomerDocument, Guid, ApplicationDbContext> serializer, ApplicationDbContext context, ILogger<CustomerDocument> logger) : base(serializer, context,logger)
     {
         Filters.Add(new CustomerFilter());
     }

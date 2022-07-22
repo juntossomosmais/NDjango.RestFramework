@@ -1,9 +1,10 @@
-﻿using AspNetCore.RestFramework.Core.Base;
+﻿using System;
+using AspNetCore.RestFramework.Core.Base;
 using System.Collections.Generic;
 
 namespace AspNetRestFramework.Sample.DTO
 {
-    public class SellerDto : BaseDto
+    public class SellerDto : BaseDto<Guid>
     {
         public string Name { get; set; }
 

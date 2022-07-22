@@ -7,6 +7,7 @@ using AspNetRestFramework.Sample.CustomSerializers;
 using AspNetRestFramework.Sample.DTO;
 using AspNetRestFramework.Sample.Filters;
 using AspNetRestFramework.Sample.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AspNetRestFramework.Sample.Controllers
 {
@@ -15,7 +16,7 @@ namespace AspNetRestFramework.Sample.Controllers
     public class CustomersController : BaseController<CustomerDTO, Customer, Guid, ApplicationDbContext>
     {
         public CustomersController(CustomerSerializer serializer,
-                                   ApplicationDbContext dbContext) : base(serializer, dbContext)
+                                   ApplicationDbContext dbContext, ILogger<Customer> logger) : base(serializer, dbContext, logger)
         {
             AllowedFields = new[] {"Name", "CNPJ", "Age"};
             Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(AllowedFields));
