@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AspNetCore.RestFramework.Core.Filters;
 using AspNetCore.RestFramework.Core.Serializer;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,7 +16,7 @@ namespace AspNetCore.RestFramework.Core.Base
 {
     [Produces("application/json")]
     public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
-        where TOrigin : BaseDto
+        where TOrigin : BaseDto<TPrimaryKey>
         where TDestination : BaseModel<TPrimaryKey>
         where TContext : DbContext
 
@@ -26,25 +27,28 @@ namespace AspNetCore.RestFramework.Core.Base
         private ActionOptions _actionOptions { get; set; }
         public List<Filter<TDestination>> Filters { get; set; } = new List<Filter<TDestination>>();
         public string[] AllowedFields { get; set; } = Array.Empty<string>();
-
+        
+        private readonly ILogger _logger;
 
         #region .:: Constructors ::.
 
         public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context,
-            ActionOptions actionOptions)
+            ActionOptions actionOptions, ILogger<TDestination> logger)
         {
             _serializer = serializer;
             _actionOptions = actionOptions ?? new ActionOptions();
             _context = context;
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
+            _logger = logger;
         }
 
-        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context)
+        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context, ILogger<TDestination> logger)
         {
             _serializer = serializer;
             _actionOptions = new ActionOptions();
             _context = context;
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
+            _logger = logger;
         }
 
         #endregion
@@ -75,6 +79,7 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
                 return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
         }
@@ -107,6 +112,7 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
                 return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
         }
@@ -123,7 +129,8 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
-                return BadRequest(_serializer.Errors);
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
+                return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
 
             return Created(BaseMessages.SUCESS, new { });
@@ -144,6 +151,7 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
                 return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
         }
@@ -162,6 +170,7 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
                 return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
         }
@@ -177,6 +186,7 @@ namespace AspNetCore.RestFramework.Core.Base
             }
             catch (Exception e)
             {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
                 return BadRequest(BaseMessages.ERROR_MESSAGE);
             }
         }

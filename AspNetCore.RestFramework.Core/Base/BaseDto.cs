@@ -4,10 +4,10 @@ using Newtonsoft.Json;
 
 namespace AspNetCore.RestFramework.Core.Base
 {
-    public abstract class BaseDto
+    public abstract class BaseDto<TType> 
     {
         [System.Text.Json.Serialization.JsonIgnore]
-        public Guid Id { get; set; }
+        public TType Id { get; set; }
 
         public abstract IEnumerable<string> Validate();
     }

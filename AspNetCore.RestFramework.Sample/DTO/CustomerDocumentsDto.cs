@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using AspNetCore.RestFramework.Core.Base;
 
 namespace AspNetRestFramework.Sample.DTO;
 
-public class CustomerDocumentsDTO : BaseDto
+public class CustomerDocumentsDTO : BaseDto<Guid>
 {
     public string Document { get; set; }
     public string DocumentType { get; set; }
