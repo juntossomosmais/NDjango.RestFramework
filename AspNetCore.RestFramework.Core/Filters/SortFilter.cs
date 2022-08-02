@@ -9,9 +9,9 @@ namespace AspNetCore.RestFramework.Core.Filters
     {
         public IQueryable<TEntity> Sort(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
         {
-            if (httpRequest.Query.ContainsKey("Sort"))
+            if (httpRequest.Query.Keys.Any(k => k.Equals("Sort", StringComparison.OrdinalIgnoreCase)))
                 return SortAsc(query, httpRequest, allowedFilters);
-            else if(httpRequest.Query.ContainsKey("SortDesc"))
+            else if (httpRequest.Query.Keys.Any(k => k.Equals("SortDesc", StringComparison.OrdinalIgnoreCase)))
                 return SortDesc(query, httpRequest, allowedFilters);
 
             return SortById(query);
@@ -19,8 +19,9 @@ namespace AspNetCore.RestFramework.Core.Filters
 
         private IQueryable<TEntity> SortAsc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
         {
-            var sortElements = httpRequest.Query.First(x => x.Key == "Sort").Value.ToString().Split(",");
-            var filtered = sortElements.Where(x => allowedFilters.Contains(x)).ToArray();
+            var parameterValue = httpRequest.Query.First(x => x.Key.Equals("Sort", StringComparison.OrdinalIgnoreCase)).Value;
+            var sortElements = parameterValue.ToString().Split(",");
+            var filtered = sortElements.Where(x => allowedFilters.Any(f => f.Equals(x, StringComparison.OrdinalIgnoreCase))).ToArray();
 
             if (!filtered.Any())
                 return query;
@@ -35,8 +36,9 @@ namespace AspNetCore.RestFramework.Core.Filters
 
         private IQueryable<TEntity> SortDesc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
         {
-            var sortElements = httpRequest.Query.First(x => x.Key == "SortDesc").Value.ToString().Split(",");
-            var filtered = sortElements.Where(x => allowedFilters.Contains(x)).ToArray();
+            var parameterValue = httpRequest.Query.First(x => x.Key.Equals("SortDesc", StringComparison.OrdinalIgnoreCase)).Value;
+            var sortElements = parameterValue.ToString().Split(",");
+            var filtered = sortElements.Where(x => allowedFilters.Any(f => f.Equals(x, StringComparison.OrdinalIgnoreCase))).ToArray();
 
             if (!filtered.Any())
                 return query;
@@ -59,8 +61,6 @@ namespace AspNetCore.RestFramework.Core.Filters
             return query;
         }
 
-
-
         private IQueryable<TEntity> OrderBy<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderBy");
 
@@ -75,17 +75,19 @@ namespace AspNetCore.RestFramework.Core.Filters
 
         private IQueryable<TEntity> Order(IQueryable<TEntity> query, string orderByProperty, string operation)
         {
-            #region .:: Stackoverflow ::.
-            // https://stackoverflow.com/questions/7265186/how-do-i-specify-the-linq-orderby-argument-dynamically
+            /*
+             * Modified the following solution to be case insensitive:
+             * https://stackoverflow.com/questions/7265186/how-do-i-specify-the-linq-orderby-argument-dynamically
+             */
+
             var type = typeof(TEntity);
-            var objProperty = type.GetProperty(orderByProperty);
+            var objProperty = type.GetProperties().First(p => p.Name.Equals(orderByProperty, StringComparison.OrdinalIgnoreCase));
             var parameter = Expression.Parameter(type, "param");
             var propertyAccess = Expression.MakeMemberAccess(parameter, objProperty);
             var orderByExpression = Expression.Lambda(propertyAccess, parameter);
             var resultExpression = Expression.Call(typeof(Queryable), operation, new Type[] { type, objProperty.PropertyType },
                                           query.Expression, Expression.Quote(orderByExpression));
             return query.Provider.CreateQuery<TEntity>(resultExpression);
-            #endregion
         }
 
     }
