@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace AspNetCore.RestFramework.Core.Base
+﻿namespace AspNetCore.RestFramework.Core.Base
 {
     public class PagedBaseResponse<TData>
     {

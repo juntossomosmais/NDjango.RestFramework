@@ -1,5 +1,3 @@
-using System;
-
 namespace AspNetCore.RestFramework.Core.Base;
 
 public abstract class BaseModel<TPrimaryKey>
