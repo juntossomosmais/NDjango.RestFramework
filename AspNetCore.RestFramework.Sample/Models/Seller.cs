@@ -6,10 +6,6 @@ namespace AspNetRestFramework.Sample.Models
     public class Seller : BaseModel<Guid>
     {
         public string Name { get; set; }
-        public override string[] GetFields() => new[]
-        {
-            nameof(Id),
-            nameof(Name),
-        };
+        public override string[] GetFields() => throw new NotImplementedException();
     }
 }
