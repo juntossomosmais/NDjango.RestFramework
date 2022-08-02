@@ -20,14 +20,16 @@ namespace AspNetCore.RestFramework.Core.Filters
             return Builder(query, request);
         }
 
-
         private IQueryable<T> Builder<T>(IQueryable<T> query, HttpRequest httpRequest)
         {
             Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
 
             foreach (var item in httpRequest.Query)
-                if (_allowedFields.Contains(item.Key))
-                    fieldsToFilter.Add(item.Key, item.Value);
+            {
+                var allowedField = _allowedFields.FirstOrDefault(f => f.Equals(item.Key, StringComparison.OrdinalIgnoreCase));
+                if (allowedField != null)
+                    fieldsToFilter.Add(allowedField, item.Value);
+            }
 
             List<Expression<Func<T, bool>>> lst = new List<Expression<Func<T, bool>>>();
 
@@ -38,7 +40,6 @@ namespace AspNetCore.RestFramework.Core.Filters
 
             return query;
         }
-
 
         private static Expression<Func<T, bool>> GetColumnEquality<T>(string property, string term)
         {
@@ -53,7 +54,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             var lambda = Expression.Lambda<Func<T, bool>>(objEquality, obj);
 
             return lambda;
-#endregion
+            #endregion
         }
     }
 }
