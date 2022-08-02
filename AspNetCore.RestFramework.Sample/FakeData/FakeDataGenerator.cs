@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace AspNetRestFramework.Sample.FakeData
 {
-    public class FakeDataGenerator
+    public static class FakeDataGenerator
     {
         private const int SELLERS_TO_GENERATE = 30;
         private const int CUSTOMERS_TO_GENERATE = 500;

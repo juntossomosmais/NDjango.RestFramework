@@ -295,7 +295,7 @@ namespace AspNetCore.RestFramework.Core.Base
         #region Methods
 
         [NonAction]
-        private string[] GetFieldsFromModel()
+        private static string[] GetFieldsFromModel()
         {
             try
             {

@@ -26,10 +26,10 @@ namespace AspNetCore.RestFramework.Core.Filters
             if (!filtered.Any())
                 return query;
 
-            query = OrderBy<TEntity>(query, filtered.First());
+            query = OrderBy(query, filtered.First());
 
             foreach (var item in filtered.Skip(1))
-                query = ThenBy<TEntity>(query, item);
+                query = ThenBy(query, item);
 
             return query;
         }
@@ -43,37 +43,36 @@ namespace AspNetCore.RestFramework.Core.Filters
             if (!filtered.Any())
                 return query;
 
-            query = OrderByDescending<TEntity>(query, filtered.First());
+            query = OrderByDescending(query, filtered.First());
 
             foreach (var item in filtered.Skip(1))
-                query = ThenByDescending<TEntity>(query, item);
+                query = ThenByDescending(query, item);
 
             return query;
         }
 
         private IQueryable<TEntity> SortById(IQueryable<TEntity> query)
         {
+            query = OrderBy(query, "Id");
 
-            query = OrderBy<TEntity>(query, "Id");
-
-            query = ThenBy<TEntity>(query, "Id");
+            query = ThenBy(query, "Id");
 
             return query;
         }
 
-        private IQueryable<TEntity> OrderBy<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
+        private IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderBy");
 
-        private IQueryable<TEntity> ThenBy<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
+        private IQueryable<TEntity> ThenBy(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "ThenBy");
 
-        private IQueryable<TEntity> OrderByDescending<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
+        private IQueryable<TEntity> OrderByDescending(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderByDescending");
 
-        private IQueryable<TEntity> ThenByDescending<IQueryable>(IQueryable<TEntity> query, string orderByProperty) =>
+        private IQueryable<TEntity> ThenByDescending(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "ThenByDescending");
 
-        private IQueryable<TEntity> Order(IQueryable<TEntity> query, string orderByProperty, string operation)
+        private static IQueryable<TEntity> Order(IQueryable<TEntity> query, string orderByProperty, string operation)
         {
             /*
              * Modified the following solution to be case insensitive:
