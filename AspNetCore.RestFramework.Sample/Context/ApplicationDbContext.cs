@@ -11,9 +11,9 @@ namespace AspNetRestFramework.Sample.Context
         }
 
 
-        public Customer Customer { get; set; }
-        public Seller Seller { get; set; }
-        public CustomerDocument CustomerDocument { get; set; }
+        public DbSet<Customer> Customer { get; set; }
+        public DbSet<Seller> Seller { get; set; }
+        public DbSet<CustomerDocument> CustomerDocument { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
