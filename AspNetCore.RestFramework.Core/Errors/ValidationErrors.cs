@@ -5,15 +5,12 @@ namespace AspNetCore.RestFramework.Core.Errors
 {
     public class ValidationErrors : BaseErrorResponse<string[]>
     {
-        private IDictionary<string, string[]> _errors;
-
         public ValidationErrors(IDictionary<string, string[]> errors)
         {
-            _errors = errors;
         }
 
         public override string Type => "VALIDATION_ERRORS";
 
-        public override IDictionary<string, string[]> Error => _errors;
+        public override IDictionary<string, string[]> Error { get; set; } = new Dictionary<string, string[]>();
     }
 }
