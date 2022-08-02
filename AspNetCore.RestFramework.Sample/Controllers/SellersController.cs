@@ -6,6 +6,7 @@ using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.DTO;
 using AspNetRestFramework.Sample.Models;
 using Microsoft.Extensions.Logging;
+using AspNetCore.RestFramework.Core.Filters;
 
 namespace AspNetRestFramework.Sample.Controllers
 {
@@ -13,8 +14,22 @@ namespace AspNetRestFramework.Sample.Controllers
     [ApiController]
     public class SellersController : BaseController<SellerDto, Seller, Guid, ApplicationDbContext>
     {
-        public SellersController(Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer, ApplicationDbContext dbContext, ILogger<Seller> logger) : base(serializer, dbContext, new ActionOptions { AllowPatch = false }, logger)
+        public SellersController(
+            Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer,
+            ApplicationDbContext dbContext,
+            ILogger<Seller> logger)
+            : base(
+                  serializer,
+                  dbContext,
+                  new ActionOptions { AllowPatch = false },
+                  logger)
         {
+            AllowedFields = new[] {
+                nameof(Seller.Name)
+            };
+
+            Filters.Add(new QueryStringFilter<Seller>(AllowedFields));
+            Filters.Add(new QueryStringIdRangeFilter<Seller, Guid>());
         }
     }
 }

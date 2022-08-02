@@ -6,9 +6,9 @@ using System.Linq.Expressions;
 
 namespace AspNetCore.RestFramework.Core.Filters
 {
-    public class QueryStringFilter<Tcontext, TEntity> : Filter<TEntity>
+    public class QueryStringFilter<TEntity> : Filter<TEntity>
     {
-        private string[] _allowedFields;
+        private readonly string[] _allowedFields;
 
         public QueryStringFilter(string[] allowedFilters)
         {

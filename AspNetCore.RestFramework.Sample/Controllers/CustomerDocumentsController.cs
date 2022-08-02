@@ -1,5 +1,6 @@
 using System;
 using AspNetCore.RestFramework.Core.Base;
+using AspNetCore.RestFramework.Core.Filters;
 using AspNetCore.RestFramework.Core.Serializer;
 using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.DTO;
@@ -16,6 +17,14 @@ public class CustomerDocumentsController : BaseController<CustomerDocumentDto, C
 {
     public CustomerDocumentsController(Serializer<CustomerDocumentDto, CustomerDocument, Guid, ApplicationDbContext> serializer, ApplicationDbContext context, ILogger<CustomerDocument> logger) : base(serializer, context,logger)
     {
+        AllowedFields = new[] {
+            nameof(CustomerDocument.Document),
+            nameof(CustomerDocument.DocumentType),
+            nameof(CustomerDocument.CustomerId)
+        };
+
         Filters.Add(new CustomerFilter());
+        Filters.Add(new QueryStringFilter<CustomerDocument>(AllowedFields));
+        Filters.Add(new QueryStringIdRangeFilter<CustomerDocument, Guid>());
     }
 }
