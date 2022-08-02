@@ -17,6 +17,7 @@ using AspNetRestFramework.Sample.Context;
 using AspNetRestFramework.Sample.Models;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using AspNetCore.RestFramework.Core.Errors;
 
 namespace AspNetCore.RestFramework.Test.Core
 {
@@ -585,7 +586,6 @@ namespace AspNetCore.RestFramework.Test.Core
             try
             {
                 var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
-                dbSet.Add(customer);
 
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
@@ -595,10 +595,10 @@ namespace AspNetCore.RestFramework.Test.Core
                 var response = await _client.PostAsync("api/Customers", content);
 
                 // Assert
-                var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+                var addedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created);
-                updatedCustomer.Name.Should().Be(customer.Name);
-                updatedCustomer.CNPJ.Should().Be(customer.CNPJ);
+                addedCustomer.Name.Should().Be(customer.Name);
+                addedCustomer.CNPJ.Should().Be(customer.CNPJ);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -620,7 +620,6 @@ namespace AspNetCore.RestFramework.Test.Core
             try
             {
                 var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "567", Name = "ac" };
-                dbSet.Add(customer);
 
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
@@ -632,15 +631,13 @@ namespace AspNetCore.RestFramework.Test.Core
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var responseMessages = JsonConvert.DeserializeObject<string[]>(responseData);
+                var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
 
-                responseMessages.Should().Contain("Name should have at least 3 chars");
-                responseMessages.Should().Contain("CNPJ cannot be 567");
+                responseMessages.Error["Name"].Should().Contain("Name should have at least 3 characters");
+                responseMessages.Error["CNPJ"].Should().Contain("CNPJ cannot be 567");
 
-
-                var updatedCustomer = dbSet.AsNoTracking().ToList();
-                updatedCustomer.Should().BeEmpty();
-
+                var customers = dbSet.AsNoTracking().ToList();
+                customers.Should().BeEmpty();
             }
             catch (Exception)
             {
@@ -788,10 +785,6 @@ namespace AspNetCore.RestFramework.Test.Core
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
-                var responseData = await response.Content.ReadAsStringAsync();
-                var msg = JsonConvert.DeserializeObject<string>(responseData);
-                msg.Should().NotBeNull();
-                msg.Should().Be("Entity not found");
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -826,7 +819,7 @@ namespace AspNetCore.RestFramework.Test.Core
 
                 var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
                 // Act
-                var response = await _client.PatchAsync($"api/Seller/{seller.Id}", content);
+                var response = await _client.PatchAsync($"api/Sellers/{seller.Id}", content);
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
@@ -951,14 +944,13 @@ namespace AspNetCore.RestFramework.Test.Core
                 var _client = _server.CreateClient();
                 _client.BaseAddress = new System.Uri("http://localhost:35185");
                 // Act
-                var response = await _client.GetAsync($"api/Seller/{seller1.Id}");
+                var response = await _client.GetAsync($"api/Sellers/{seller1.Id}");
 
                 // Assert
                 response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
                 var responseData = await response.Content.ReadAsStringAsync();
-                var msg = JsonConvert.DeserializeObject<string>(responseData);
-                msg.Should().NotBeEmpty();
-                msg.Should().Be(BaseMessages.ERROR_GET_FIELDS);
+                var msg = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
+                msg.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
