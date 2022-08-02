@@ -4,7 +4,7 @@ namespace AspNetCore.RestFramework.Core.Base
 {
     public class PagedBaseResponse<TData>
     {
-        public int Pages { get; set; }
+        public int Total { get; set; }
         public TData Data { get; set; }
     }
 }

@@ -6,7 +6,5 @@ namespace AspNetCore.RestFramework.Core.Base
     {
         [System.Text.Json.Serialization.JsonIgnore]
         public TPrimaryKey Id { get; set; }
-
-        public abstract IEnumerable<string> Validate();
     }
 }

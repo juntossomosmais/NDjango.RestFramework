@@ -674,7 +674,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 var responseData = await response.Content.ReadAsStringAsync();
                 var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(3);
-                customers.Pages.Should().Be(1);
+                customers.Total.Should().Be(3);
 
                 dbSet.RemoveRange(dbSet.ToList());
                 _context.SaveChanges();
@@ -711,7 +711,7 @@ namespace AspNetCore.RestFramework.Test.Core
                 var responseData = await response.Content.ReadAsStringAsync();
                 var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
                 customers.Data.Count.Should().Be(1);
-                customers.Pages.Should().Be(3);
+                customers.Total.Should().Be(3);
                 customers.Data.First().Name.Should().Be("ghi");
 
 

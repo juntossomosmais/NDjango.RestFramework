@@ -14,87 +14,48 @@ namespace AspNetCore.RestFramework.Core.Serializer
         where TOrigin : BaseDto<TPrimaryKey>
         where TContext : DbContext
     {
-        private readonly TContext _applicationDbContext;
+        private readonly TContext _dbContext;
 
-        public IEnumerable<string> Errors { get; private set; }
         public Serializer(TContext applicationDbContext)
         {
-            _applicationDbContext = applicationDbContext;
+            _dbContext = applicationDbContext;
         }
 
-        public async virtual Task<(int Pages, List<TDestination> Data)> List(int page, int pageSize, IQueryable<TDestination> query)
+        public async virtual Task<(int Total, List<TDestination> Data)> ListAsync(int page, int pageSize, IQueryable<TDestination> query)
         {
-
             if (pageSize < 1)
                 throw new Exception("pageSize should be greater than 0");
 
             if (page < 1)
                 throw new Exception("page should be greater than 0");
 
-
-            int totalRecords = query.Count();
+            int total = query.Count();
 
             int skip = page - 1;
             query = query.Skip(skip * pageSize).Take(pageSize);
 
             var data = await query.ToListAsync();
-            var pages = (int)Math.Ceiling((decimal)totalRecords / (decimal)pageSize);
             
-            return (pages, data);
+            return (total, data);
         }
 
-        public async Task<bool> Save<TPrimaryKey>(TOrigin data, OperationType operationType, TPrimaryKey objectId)
+        public virtual async Task<TDestination> PostAsync(TOrigin data)
         {
-            Errors = Validate(data, operationType);
-
-            if (Errors.Any())
-                return false;
-
-            await Put(data, objectId);
-
-            return true;
-        }
-
-        public async Task<bool> Save(TOrigin data, OperationType operationType)
-        {
-            Errors = Validate(data, operationType);
-
-            if (Errors.Any())
-                return false;
-
-            await Post(data);
-
-            return true;
-        }
-
-        /// <summary>
-        /// Used for Patch
-        /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public async Task<bool> Save(PartialJsonObject<TOrigin> data, object entityId)
-        {
-            Errors = Validate(data);
-
-            if (Errors.Any())
-                return false;
-
-            await Patch(data, entityId);
-
-            return true;
-        }
-
-        public virtual async Task Post(TOrigin originObject)
-        {
-            var stringDeserialized = JsonConvert.SerializeObject(originObject);
+            var stringDeserialized = JsonConvert.SerializeObject(data);
             var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
-            await _applicationDbContext.Set<TDestination>().AddAsync(destinationObject);
-            await _applicationDbContext.SaveChangesAsync();
+
+            await _dbContext.Set<TDestination>().AddAsync(destinationObject);
+            await _dbContext.SaveChangesAsync();
+
+            return destinationObject;
         }
 
-        public virtual async Task Patch<TPrimaryKey>(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
+        public virtual async Task<TDestination> PatchAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
             TDestination destinationObject = await GetFromDB(entityId);
+
+            if (destinationObject == null)
+                return null;
 
             var destinationType = typeof(TDestination);
 
@@ -110,70 +71,88 @@ namespace AspNetCore.RestFramework.Core.Serializer
                 }
             }
 
-            await _applicationDbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
+
+            return destinationObject;
         }
 
-        public virtual async Task Put<TPrimaryKey>(TOrigin origin, TPrimaryKey entityId)
+        public virtual async Task<TDestination> PutAsync(TOrigin origin, TPrimaryKey entityId)
         {
             TDestination destinationObject = await GetFromDB(entityId);
+
+            if (destinationObject == null)
+                return null;
+
             var stringDeserialized = JsonConvert.SerializeObject(origin);
             
             dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
             stringDeserializedDynamic.Id = entityId;
             
             JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destinationObject);
-            _applicationDbContext.Update(destinationObject);
-            await _applicationDbContext.SaveChangesAsync();
+            _dbContext.Update(destinationObject);
+            await _dbContext.SaveChangesAsync();
+
+            return destinationObject;
         }
 
-        public virtual async Task Delete<TPrimaryKey>(TPrimaryKey entityId)
+        public virtual async Task<IList<TPrimaryKey>> PutManyAsync(TOrigin origin, IList<TPrimaryKey> entityIds)
+        {
+            IList<TDestination> destinationObjects = await GetManyFromDB(entityIds);
+
+            var stringDeserialized = JsonConvert.SerializeObject(origin);
+            dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
+
+            foreach (var obj in destinationObjects)
+            {
+                stringDeserializedDynamic.Id = obj.Id;
+                JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), obj);
+            }
+
+            _dbContext.UpdateRange(destinationObjects);
+            await _dbContext.SaveChangesAsync();
+
+            return destinationObjects.Select(m => m.Id).ToList();
+        }
+
+        public virtual async Task<TDestination> DeleteAsync(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
+            
             if (data == null)
-                throw new Exception(BaseMessages.NOT_FOUND);
+                return null;
 
-            _applicationDbContext.Remove(data);
-            await _applicationDbContext.SaveChangesAsync();
-        }
-        
-        public virtual async Task<TDestination> GetSingle(IQueryable<TDestination> query)
-        {
-            var data = await GetFromDB(query);
-            if (data == null)
-                throw new Exception(BaseMessages.NOT_FOUND);
+            _dbContext.Remove(data);
+            await _dbContext.SaveChangesAsync();
 
             return data;
         }
 
-        private async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid)
+        public virtual async Task<IList<TPrimaryKey>> DeleteManyAsync(IList<TPrimaryKey> entityIds)
         {
-            return await _applicationDbContext.Set<TDestination>().FindAsync(guid);
+            var deletedObjects = await GetManyFromDB(entityIds);
+
+            _dbContext.RemoveRange(deletedObjects);
+            await _dbContext.SaveChangesAsync();
+
+            return deletedObjects.Select(m => m.Id).ToList();
+        }
+
+        private async Task<TDestination> GetFromDB(TPrimaryKey id)
+        {
+            return await _dbContext.Set<TDestination>().FindAsync(id);
         }
         
-        public async Task<TDestination> GetFromDB<TPrimaryKey>(TPrimaryKey guid, IQueryable<TDestination> query)
+        public async Task<TDestination> GetFromDB(TPrimaryKey id, IQueryable<TDestination> query)
         {
-            var key = guid.ToString();
+            var key = id.ToString();
             var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync();
 
             return data;
         }
 
-        public virtual IEnumerable<string> Validate(TOrigin data, OperationType operation)
+        private async Task<IList<TDestination>> GetManyFromDB(IList<TPrimaryKey> entityIds)
         {
-            return data.Validate();
-        }
-
-        public virtual IEnumerable<string> Validate(PartialJsonObject<TOrigin> data)
-        {
-            return new List<string>();
+            return await _dbContext.Set<TDestination>().Where(m => entityIds.Contains(m.Id)).ToListAsync();
         }
     }
-
-    public enum OperationType
-    {
-        Create,
-        Update
-    }
-    
-    
 }
