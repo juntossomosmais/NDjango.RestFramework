@@ -60,16 +60,16 @@ namespace AspNetCore.RestFramework.Core.Filters
             return query;
         }
 
-        private IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string orderByProperty) =>
+        private static IQueryable<TEntity> OrderBy(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderBy");
 
-        private IQueryable<TEntity> ThenBy(IQueryable<TEntity> query, string orderByProperty) =>
+        private static IQueryable<TEntity> ThenBy(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "ThenBy");
 
-        private IQueryable<TEntity> OrderByDescending(IQueryable<TEntity> query, string orderByProperty) =>
+        private static IQueryable<TEntity> OrderByDescending(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "OrderByDescending");
 
-        private IQueryable<TEntity> ThenByDescending(IQueryable<TEntity> query, string orderByProperty) =>
+        private static IQueryable<TEntity> ThenByDescending(IQueryable<TEntity> query, string orderByProperty) =>
             Order(query, orderByProperty, "ThenByDescending");
 
         private static IQueryable<TEntity> Order(IQueryable<TEntity> query, string orderByProperty, string operation)
