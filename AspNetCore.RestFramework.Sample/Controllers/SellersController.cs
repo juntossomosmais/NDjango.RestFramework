@@ -11,9 +11,9 @@ namespace AspNetRestFramework.Sample.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class SellerController : BaseController<SellerDto, Seller, Guid, ApplicationDbContext>
+    public class SellersController : BaseController<SellerDto, Seller, Guid, ApplicationDbContext>
     {
-        public SellerController(Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer, ApplicationDbContext dbContext, ILogger<Seller> logger) : base(serializer, dbContext, new ActionOptions { AllowPatch = false }, logger)
+        public SellersController(Serializer<SellerDto, Seller, Guid, ApplicationDbContext> serializer, ApplicationDbContext dbContext, ILogger<Seller> logger) : base(serializer, dbContext, new ActionOptions { AllowPatch = false }, logger)
         {
         }
     }

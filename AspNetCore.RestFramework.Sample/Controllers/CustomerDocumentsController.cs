@@ -12,9 +12,9 @@ namespace AspNetRestFramework.Sample.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class CustomerDocumentController : BaseController<CustomerDocumentsDTO, CustomerDocument, Guid, ApplicationDbContext>
+public class CustomerDocumentsController : BaseController<CustomerDocumentDto, CustomerDocument, Guid, ApplicationDbContext>
 {
-    public CustomerDocumentController(Serializer<CustomerDocumentsDTO, CustomerDocument, Guid, ApplicationDbContext> serializer, ApplicationDbContext context, ILogger<CustomerDocument> logger) : base(serializer, context,logger)
+    public CustomerDocumentsController(Serializer<CustomerDocumentDto, CustomerDocument, Guid, ApplicationDbContext> serializer, ApplicationDbContext context, ILogger<CustomerDocument> logger) : base(serializer, context,logger)
     {
         Filters.Add(new CustomerFilter());
     }

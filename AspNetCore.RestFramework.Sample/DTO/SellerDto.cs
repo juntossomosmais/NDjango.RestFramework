@@ -1,6 +1,5 @@
 ﻿using System;
 using AspNetCore.RestFramework.Core.Base;
-using System.Collections.Generic;
 
 namespace AspNetRestFramework.Sample.DTO
 {

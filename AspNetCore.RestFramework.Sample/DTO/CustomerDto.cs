@@ -4,17 +4,16 @@ using System.Collections.Generic;
 
 namespace AspNetRestFramework.Sample.DTO
 {
-    public class CustomerDTO : BaseDto<Guid>
+    public class CustomerDto : BaseDto<Guid>
     {
-        public CustomerDTO()
+        public CustomerDto()
         {
-
         }
 
         public string Name { get; set; }
         public string CNPJ { get; set; }
         
-        public ICollection<CustomerDocumentsDTO> CustomerDocuments { get; set; }
+        public ICollection<CustomerDocumentDto> CustomerDocuments { get; set; }
 
         public override IEnumerable<string> Validate()
         {
