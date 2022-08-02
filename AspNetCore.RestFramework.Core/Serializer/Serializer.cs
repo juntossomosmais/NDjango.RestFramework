@@ -9,9 +9,10 @@ using AspNetCore.RestFramework.Core.Base;
 
 namespace AspNetCore.RestFramework.Core.Serializer
 {
-    public class Serializer<TOrigin, TDestination, TPrimaryKey, TContext> where TDestination : BaseModel<TPrimaryKey>
-                                                             where TOrigin : BaseDto<TPrimaryKey>
-                                                             where TContext : DbContext
+    public class Serializer<TOrigin, TDestination, TPrimaryKey, TContext>
+        where TDestination : BaseModel<TPrimaryKey>
+        where TOrigin : BaseDto<TPrimaryKey>
+        where TContext : DbContext
     {
         private readonly TContext _applicationDbContext;
 

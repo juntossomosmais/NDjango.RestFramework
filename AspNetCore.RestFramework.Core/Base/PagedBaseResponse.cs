@@ -2,9 +2,9 @@
 
 namespace AspNetCore.RestFramework.Core.Base
 {
-    public class PagedBaseResponse<T>
+    public class PagedBaseResponse<TData>
     {
         public int Pages { get; set; }
-        public T Data { get; set; }
+        public TData Data { get; set; }
     }
 }

@@ -2,8 +2,8 @@ using System;
 
 namespace AspNetCore.RestFramework.Core.Base;
 
-public abstract class BaseModel<TType> 
+public abstract class BaseModel<TPrimaryKey>
 {
-    public TType Id { get; set; }
+    public TPrimaryKey Id { get; set; }
     public abstract string[] GetFields();
 }
