@@ -17,7 +17,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return SortById(query);
         }
 
-        private IQueryable<TEntity> SortAsc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
+        private static IQueryable<TEntity> SortAsc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
         {
             var parameterValue = httpRequest.Query.First(x => x.Key.Equals("Sort", StringComparison.OrdinalIgnoreCase)).Value;
             var sortElements = parameterValue.ToString().Split(",");
@@ -34,7 +34,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return query;
         }
 
-        private IQueryable<TEntity> SortDesc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
+        private static IQueryable<TEntity> SortDesc(IQueryable<TEntity> query, HttpRequest httpRequest, string[] allowedFilters)
         {
             var parameterValue = httpRequest.Query.First(x => x.Key.Equals("SortDesc", StringComparison.OrdinalIgnoreCase)).Value;
             var sortElements = parameterValue.ToString().Split(",");
@@ -51,7 +51,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return query;
         }
 
-        private IQueryable<TEntity> SortById(IQueryable<TEntity> query)
+        private static IQueryable<TEntity> SortById(IQueryable<TEntity> query)
         {
             query = OrderBy(query, "Id");
 
