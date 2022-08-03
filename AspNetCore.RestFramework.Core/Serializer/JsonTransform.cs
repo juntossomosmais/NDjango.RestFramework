@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,17 +9,18 @@ namespace AspNetCore.RestFramework.Core.Serializer;
 
 public class JsonTransform : DefaultContractResolver
 {
-    private readonly HashSet<string> showProps;
+    private readonly HashSet<string> _propNamesToShow;
 
     public JsonTransform(IEnumerable<string> propNamesToShow)
     {
-        this.showProps = new HashSet<string>(propNamesToShow);
+        NamingStrategy = new CamelCaseNamingStrategy();
+        _propNamesToShow = new HashSet<string>(propNamesToShow);
     }
 
     protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
     {
         JsonProperty property = base.CreateProperty(member, memberSerialization);
-        if (this.showProps.Contains(property.PropertyName))
+        if (_propNamesToShow.Any(m => m.Equals(property.PropertyName, StringComparison.OrdinalIgnoreCase)))
         {
             property.ShouldSerialize = _ => true;
         }
@@ -27,14 +29,10 @@ public class JsonTransform : DefaultContractResolver
             var namespaceArray = member?.DeclaringType?.ToString().Split(".");
             var className = namespaceArray?.Last();
 
-            if (this.showProps.Contains($"{className}:{property.PropertyName}"))
-            {
+            if (_propNamesToShow.Any(m => m.Equals($"{className}:{property.PropertyName}", StringComparison.OrdinalIgnoreCase)))
                 property.ShouldSerialize = _ => true;
-            }
             else
-            {
                 property.ShouldSerialize = _ => false;
-            }
         }
         return property;
     }
