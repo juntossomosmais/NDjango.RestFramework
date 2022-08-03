@@ -43,18 +43,26 @@ namespace AspNetCore.RestFramework.Core.Filters
 
         private static Expression<Func<T, bool>> GetColumnEquality<T>(string property, string term)
         {
-            #region .:: Stackoverflow ::.
-            // https://stackoverflow.com/questions/17832989/linq-iqueryable-generic-filter/17833880#17833880
+            /*
+             * Modified the following solution to support Guid parsing:
+             * https://stackoverflow.com/questions/17832989/linq-iqueryable-generic-filter/17833880#17833880
+             * */
+
             var obj = Expression.Parameter(typeof(T), "obj");
             
             var objProperty = Expression.PropertyOrField(obj, property);
-            var converted = Convert.ChangeType(term, objProperty.Type);
-            var objEquality = Expression.Equal(objProperty, Expression.Constant(converted));
+
+            object convertedValue;
+            if (objProperty.Type.IsAssignableTo(typeof(Guid)))
+                convertedValue = Guid.Parse(term);
+            else
+                convertedValue = Convert.ChangeType(term, objProperty.Type);
+
+            var objEquality = Expression.Equal(objProperty, Expression.Constant(convertedValue));
 
             var lambda = Expression.Lambda<Func<T, bool>>(objEquality, obj);
 
             return lambda;
-            #endregion
         }
     }
 }
