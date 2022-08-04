@@ -25,6 +25,7 @@ public class CustomerDocumentsController : BaseController<CustomerDocumentDto, C
 
         Filters.Add(new CustomerFilter());
         Filters.Add(new QueryStringFilter<CustomerDocument>(AllowedFields));
+        Filters.Add(new QueryStringSearchFilter<CustomerDocument>(AllowedFields));
         Filters.Add(new QueryStringIdRangeFilter<CustomerDocument, Guid>());
     }
 }

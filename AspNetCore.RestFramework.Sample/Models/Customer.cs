@@ -11,10 +11,10 @@ namespace AspNetRestFramework.Sample.Models
         public int Age { get; set; }
 
         public ICollection<CustomerDocument> CustomerDocument { get; set; }
-        
+
         public override string[] GetFields()
         {
-            return new[] {"Name","CNPJ", "Id", "CustomerDocument", "CustomerDocument:DocumentType","CustomerDocument:Document"};
+            return new[] { "Name", "CNPJ", "Age", "Id", "CustomerDocument", "CustomerDocument:DocumentType", "CustomerDocument:Document" };
         }
     }
 }

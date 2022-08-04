@@ -25,12 +25,14 @@ namespace AspNetRestFramework.Sample.Controllers
                   logger)
         {
             AllowedFields = new[] {
+                nameof(Customer.Id),
                 nameof(Customer.Name),
                 nameof(Customer.CNPJ),
-                nameof(Customer.Age)
+                nameof(Customer.Age),
             };
 
             Filters.Add(new QueryStringFilter<Customer>(AllowedFields));
+            Filters.Add(new QueryStringSearchFilter<Customer>(AllowedFields));
             Filters.Add(new QueryStringIdRangeFilter<Customer, Guid>());
             Filters.Add(new DocumentFilter());
             Filters.Add(new CustomerDocumentIncludeFilter());

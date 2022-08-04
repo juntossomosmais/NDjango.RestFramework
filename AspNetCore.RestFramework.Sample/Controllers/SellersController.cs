@@ -29,6 +29,7 @@ namespace AspNetRestFramework.Sample.Controllers
             };
 
             Filters.Add(new QueryStringFilter<Seller>(AllowedFields));
+            Filters.Add(new QueryStringSearchFilter<Seller>(AllowedFields));
             Filters.Add(new QueryStringIdRangeFilter<Seller, Guid>());
         }
     }
