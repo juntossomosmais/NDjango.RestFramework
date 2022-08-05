@@ -36,7 +36,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return FilterAllExpressions(query, parameter, expressions);
         }
 
-        private IQueryable<TEntity> FilterAllExpressions(IQueryable<TEntity> query, ParameterExpression parameter, List<Expression> expressions)
+        private static IQueryable<TEntity> FilterAllExpressions(IQueryable<TEntity> query, ParameterExpression parameter, List<Expression> expressions)
         {
             if (expressions.Count > 0)
             {
@@ -61,7 +61,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return query;
         }
 
-        private bool TryGetColumnFilter(string property, string term, ParameterExpression parameter, out Expression expression)
+        private static bool TryGetColumnFilter(string property, string term, ParameterExpression parameter, out Expression expression)
         {
             var objProperty = Expression.PropertyOrField(parameter, property);
 
@@ -91,7 +91,7 @@ namespace AspNetCore.RestFramework.Core.Filters
             return true;
         }
 
-        private bool TryConvertValue(string value, Type conversionType, out object result)
+        private static bool TryConvertValue(string value, Type conversionType, out object result)
         {
             try
             {
