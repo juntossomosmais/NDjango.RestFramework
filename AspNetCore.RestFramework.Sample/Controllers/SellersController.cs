@@ -21,7 +21,6 @@ namespace AspNetRestFramework.Sample.Controllers
             : base(
                   serializer,
                   dbContext,
-                  new ActionOptions { AllowPatch = false },
                   logger)
         {
             AllowedFields = new[] {

@@ -1,4 +1,6 @@
-﻿using AspNetCore.RestFramework.Core.Errors;
+﻿using AspNetCore.RestFramework.Core.Base;
+using AspNetCore.RestFramework.Core.Errors;
+using AspNetRestFramework.Sample.DTO;
 using AspNetRestFramework.Sample.Models;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +57,33 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
 
             var customers = dbSet.AsNoTracking().ToList();
             customers.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task Post_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        {
+            // Arrange
+            var dbSet = Context.Set<Seller>();
+
+            var seller = new SellerDto()
+            {
+                Name = "Seller",
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(seller), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PostAsync("api/Sellers", content);
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
+
+            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+
+            var sellers = dbSet.AsNoTracking().ToList();
+            sellers.Should().BeEmpty();
         }
     }
 }

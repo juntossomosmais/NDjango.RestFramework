@@ -20,6 +20,7 @@ namespace AspNetRestFramework.Sample.Controllers
             : base(
                   serializer,
                   context,
+                  new ActionOptions() { AllowPatch = false },
                   logger)
         {
             AllowedFields = new[] {

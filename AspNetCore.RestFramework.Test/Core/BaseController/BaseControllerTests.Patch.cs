@@ -1,4 +1,7 @@
-﻿using AspNetRestFramework.Sample.Models;
+﻿using AspNetCore.RestFramework.Core.Base;
+using AspNetCore.RestFramework.Core.Errors;
+using AspNetRestFramework.Sample.DTO;
+using AspNetRestFramework.Sample.Models;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -69,28 +72,72 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
         }
 
         [Fact]
-        public async Task Patch_WithPartialObject_ShouldReturnMethodNowAllowed()
+        public async Task Patch_WhenEntityDoesntExist_ReturnsNotFound()
         {
             // Arrange
-            var dbSet = Context.Set<Seller>();
-            var seller = new Seller() { Id = Guid.NewGuid(), Name = "abc" };
-            dbSet.Add(seller);
-            Context.SaveChanges();
-
             var customerToUpdate = new
             {
-                Id = seller.Id,
                 CNPJ = "aaaa",
+                Name = "eee"
             };
 
             var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8, "application/json-patch+json");
 
             // Act
+            var response = await Client.PatchAsync($"api/Customers/{Guid.NewGuid()}", content);
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task Patch_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        {
+            // Arrange
+            var seller = new SellerDto()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Seller",
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(seller), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
             var response = await Client.PatchAsync($"api/Sellers/{seller.Id}", content);
 
             // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
+
+            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+        }
+
+        [Fact]
+        public async Task Patch_WhenPatchIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        {
+            // Arrange
+            var dbSet = Context.Set<IntAsIdEntity>();
+            var entity = new IntAsIdEntity() { Name = "abc" };
+            dbSet.Add(entity);
+            Context.SaveChanges();
+
+            var entityToUpdate = new IntAsIdEntityDto()
+            {
+                Id = entity.Id,
+                Name = "aaaa",
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(entityToUpdate), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PatchAsync($"api/IntAsIdEntities/{entity.Id}", content);
+
+            // Assert
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
-            var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == seller.Id);
+            
+            var notUpdatedEntity = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == entity.Id);
+            notUpdatedEntity.Name.Should().Be(entity.Name);
         }
     }
 }

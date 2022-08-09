@@ -1,4 +1,5 @@
 ﻿using AspNetCore.RestFramework.Core.Base;
+using AspNetCore.RestFramework.Core.Errors;
 using AspNetRestFramework.Sample.Models;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -473,6 +474,20 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(expectedCount);
             customers.Total.Should().Be(expectedCount);
+        }
+
+        [Fact]
+        public async Task ListPaged_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        {
+            // Act
+            var response = await Client.GetAsync("api/Sellers");
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
+
+            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
         }
     }
 }
