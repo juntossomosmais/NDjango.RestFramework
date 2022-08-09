@@ -57,5 +57,23 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
                     .Including(m => m.Name)
                 );
         }
+
+        [Fact]
+        public async Task PutMany_WhenPutIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        {
+            // Arrange
+            var entityToUpdate = new IntAsIdEntityDto()
+            {
+                Name = "aaaa",
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(entityToUpdate), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PutAsync($"api/IntAsIdEntities?ids=1&ids=2", content);
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
+        }
     }
 }

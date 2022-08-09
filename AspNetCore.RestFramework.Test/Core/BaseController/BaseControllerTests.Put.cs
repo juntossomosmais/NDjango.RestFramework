@@ -85,5 +85,32 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
 
             responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
         }
+
+        [Fact]
+        public async Task Put_WhenPutIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        {
+            // Arrange
+            var dbSet = Context.Set<IntAsIdEntity>();
+            var entity = new IntAsIdEntity() { Name = "abc" };
+            dbSet.Add(entity);
+            Context.SaveChanges();
+
+            var entityToUpdate = new IntAsIdEntityDto()
+            {
+                Id = entity.Id,
+                Name = "aaaa",
+            };
+
+            var content = new StringContent(JsonConvert.SerializeObject(entityToUpdate), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PutAsync($"api/IntAsIdEntities/{entity.Id}", content);
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
+
+            var notUpdatedEntity = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == entity.Id);
+            notUpdatedEntity.Name.Should().Be(entity.Name);
+        }
     }
 }
