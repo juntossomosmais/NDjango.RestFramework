@@ -7,4 +7,6 @@
     <Property Name="sonar.cs.vstest.reportsPaths">**/*/*.trx</Property>
     <Property Name="sonar.exclusions">**/Migrations/*.cs</Property>
 	<Property Name="sonar.exclusions">**/Swagger/*.cs</Property>
+    <Property Name="sonar.exclusions">**/FakeData/FakeDataGenerator.cs</Property>
+    <Property Name="sonar.exclusions">**/Program.cs</Property>
 </SonarQubeAnalysisProperties> 
