@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Web;
 using Xunit;
 
 namespace AspNetCore.RestFramework.Test.Core.BaseController
@@ -52,6 +53,49 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(1);
             customers.Data.FirstOrDefault().Name.Should().Be("ghi");
+        }
+
+        [Fact]
+        public async Task ListPaged_WithIdQueryStringFilter_ShouldReturnSingleRecord()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
+            dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
+            dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+            Context.SaveChanges();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?id=35d948bd-ab3d-4446-912b-2d20c57c4935");
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+            customers.Data.Count.Should().Be(1);
+            customers.Data.FirstOrDefault().Name.Should().Be("abc");
+        }
+
+        [Fact]
+        public async Task ListPaged_WithIdRangeQueryStringFilter_ShouldReturnSingleRecord()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"), CNPJ = "456", Name = "def" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("22ee1df9-c543-4509-a755-e7cd5dc0045e"), CNPJ = "789", Name = "ghi" });
+            Context.SaveChanges();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?ids=6bdc2b9e-3710-40b9-93dd-c7558b446e21&ids=22ee1df9-c543-4509-a755-e7cd5dc0045e");
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+            customers.Data.Count.Should().Be(2);
+            customers.Data.ElementAt(0).Name.Should().Be("def");
+            customers.Data.ElementAt(1).Name.Should().Be("ghi");
         }
 
         [Fact]
@@ -327,7 +371,6 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             customers.Data.Should().BeEmpty();
         }
 
-
         [Fact]
         public async Task ListPaged_WithPageSize1AndPageSize3_ShouldReturn1RecordAnd3Pages()
         {
@@ -369,6 +412,41 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             customers.Data.Count.Should().Be(1);
             customers.Total.Should().Be(3);
             customers.Data.First().Name.Should().Be("ghi");
+        }
+
+        [Theory]
+        [InlineData("", 5)]
+        [InlineData(" ", 5)]
+        [InlineData("1a91f9ec-920b-4c92-83b0-6bf40d0209c2", 1)]
+        [InlineData("10", 2)]
+        [InlineData("12", 1)]
+        [InlineData("%0001%", 5)]
+        [InlineData("5%", 2)]
+        [InlineData("%7", 2)]
+        [InlineData("Agua Alta", 1)]
+        [InlineData("Agua%", 2)]
+        [InlineData("% Inc", 2)]
+        [InlineData("aaa", 0)]
+        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int expectedCount)
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.Parse("1a91f9ec-920b-4c92-83b0-6bf40d0209c2"), Age = 10, CNPJ = "76.637.568/0001-80", Name = "Agua Alta" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("a71bf8fa-0714-4281-8c51-23e763442919"), Age = 12, CNPJ = "24.451.215/0001-97", Name = "Agua Baixa" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("555b437e-3cd8-493c-b502-94cb9ba69a6b"), Age = 10, CNPJ = "81.517.224/0001-77", Name = "Bailão 12 Inc" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("f10ca31e-f60b-4d4e-8ca3-a754c4fda6bc"), Age = 25, CNPJ = "59.732.451/0001-66", Name = "Xablau Inc" });
+            dbSet.Add(new Customer() { Id = Guid.Parse("c2710e39-f17a-469e-8994-28fd621819b4"), Age = 28, CNPJ = "55.387.453/0001-04", Name = "Problem Solver" });
+            Context.SaveChanges();
+
+            // Act
+            var response = await Client.GetAsync($"api/Customers?search={HttpUtility.UrlEncode(term)}");
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+            customers.Data.Count.Should().Be(expectedCount);
+            customers.Total.Should().Be(expectedCount);
         }
     }
 }
