@@ -1,6 +1,7 @@
 ﻿using AspNetCore.RestFramework.Core.Base;
 using AspNetRestFramework.Sample.Models;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -77,7 +78,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
         }
 
         [Fact]
-        public async Task ListPaged_WithIdRangeQueryStringFilter_ShouldReturnSingleRecord()
+        public async Task ListPaged_WithIdRangeQueryStringFilter_ShouldReturnTwoRecords()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -93,6 +94,31 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+            customers.Data.Count.Should().Be(2);
+            customers.Data.ElementAt(0).Name.Should().Be("def");
+            customers.Data.ElementAt(1).Name.Should().Be("ghi");
+        }
+
+        [Fact]
+        public async Task ListPaged_WithIdRangeQueryStringFilterAndIdIsNotGuid_ShouldReturnTwoRecords()
+        {
+            // Arrange
+            var dbSet = Context.Set<IntAsIdEntity>();
+            dbSet.Add(new IntAsIdEntity() { Name = "abc" });
+            dbSet.Add(new IntAsIdEntity() { Name = "def" });
+            dbSet.Add(new IntAsIdEntity() { Name = "ghi" });
+            dbSet.Add(new IntAsIdEntity() { Name = "jkl" });
+            Context.SaveChanges();
+
+            var entities = dbSet.Where(m => new[] { "def", "ghi" }.Contains(m.Name)).AsNoTracking().ToList();
+
+            // Act
+            var response = await Client.GetAsync($"api/IntAsIdEntities?ids={entities[0].Id}&ids={entities[1].Id}");
+
+            // Assert
+            response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<IntAsIdEntity>>>(responseData);
             customers.Data.Count.Should().Be(2);
             customers.Data.ElementAt(0).Name.Should().Be("def");
             customers.Data.ElementAt(1).Name.Should().Be("ghi");

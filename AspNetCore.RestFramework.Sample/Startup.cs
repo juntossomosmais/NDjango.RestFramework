@@ -57,6 +57,7 @@ namespace AspNetRestFramework.Sample
             services.AddScoped<CustomerSerializer>();
             services.AddScoped<Serializer<SellerDto, Seller, Guid, ApplicationDbContext>>();
             services.AddScoped<Serializer<CustomerDocumentDto, CustomerDocument, Guid, ApplicationDbContext>>();
+            services.AddScoped<Serializer<IntAsIdEntityDto, IntAsIdEntity, int, ApplicationDbContext>>();
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
