@@ -61,9 +61,7 @@ namespace AspNetCore.RestFramework.Core.Base
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
@@ -94,9 +92,7 @@ namespace AspNetCore.RestFramework.Core.Base
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
@@ -130,9 +126,7 @@ namespace AspNetCore.RestFramework.Core.Base
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PostAsync(entity);
@@ -163,9 +157,7 @@ namespace AspNetCore.RestFramework.Core.Base
                 if (!_actionOptions.AllowPatch)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PatchAsync(entity, id);
@@ -199,9 +191,7 @@ namespace AspNetCore.RestFramework.Core.Base
                 if (!_actionOptions.AllowPut)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PutAsync(origin, id);
@@ -251,9 +241,7 @@ namespace AspNetCore.RestFramework.Core.Base
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.DeleteAsync(id);
@@ -295,16 +283,18 @@ namespace AspNetCore.RestFramework.Core.Base
         #region Methods
 
         [NonAction]
-        private static string[] GetFieldsFromModel()
+        private static bool TryGetFieldsFromModel(out string[] fields)
         {
             try
             {
                 var instanceMethod = typeof(TDestination).GetMethod("GetFields");
-                return (string[])instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+                fields = (string[])instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+                return true;
             }
             catch
             {
-                return Array.Empty<string>();
+                fields = null;
+                return false;
             }
         }
 
