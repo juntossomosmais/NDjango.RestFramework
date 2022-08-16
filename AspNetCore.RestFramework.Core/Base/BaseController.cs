@@ -137,7 +137,7 @@ namespace AspNetCore.RestFramework.Core.Base
                 );
 
                 var jObject = JObject.Parse(json);
-                return CreatedAtAction(nameof(GetSingle), new { Id = data.Id }, jObject);
+                return CreatedAtAction(nameof(GetSingle), new { id = data.Id }, jObject);
             }
             catch (Exception e)
             {
