@@ -136,11 +136,6 @@ namespace AspNetCore.RestFramework.Core.Serializer
 
             return deletedObjects.Select(m => m.Id).ToList();
         }
-
-        private async Task<TDestination> GetFromDB(TPrimaryKey id)
-        {
-            return await _dbContext.Set<TDestination>().FindAsync(id);
-        }
         
         public async Task<TDestination> GetFromDB(TPrimaryKey id, IQueryable<TDestination> query)
         {
@@ -150,7 +145,12 @@ namespace AspNetCore.RestFramework.Core.Serializer
             return data;
         }
 
-        private async Task<IList<TDestination>> GetManyFromDB(IList<TPrimaryKey> entityIds)
+        protected async Task<TDestination> GetFromDB(TPrimaryKey id)
+        {
+            return await _dbContext.Set<TDestination>().FindAsync(id);
+        }
+
+        protected async Task<IList<TDestination>> GetManyFromDB(IList<TPrimaryKey> entityIds)
         {
             return await _dbContext.Set<TDestination>().Where(m => entityIds.Contains(m.Id)).ToListAsync();
         }
