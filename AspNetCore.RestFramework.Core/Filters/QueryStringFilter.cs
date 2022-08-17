@@ -6,13 +6,13 @@ using System.Linq.Expressions;
 
 namespace AspNetCore.RestFramework.Core.Filters
 {
-    public class QueryStringFilter<Tcontext, TEntity> : Filter<TEntity>
+    public class QueryStringFilter<TEntity> : Filter<TEntity>
     {
-        private string[] _allowedFields;
+        private readonly string[] _allowedFields;
 
-        public QueryStringFilter(string[] allowedFilters)
+        public QueryStringFilter(string[] allowedFields)
         {
-            _allowedFields = allowedFilters;
+            _allowedFields = allowedFields;
         }
 
         public override IQueryable<TEntity> AddFilter(IQueryable<TEntity> query, HttpRequest request)
@@ -20,40 +20,47 @@ namespace AspNetCore.RestFramework.Core.Filters
             return Builder(query, request);
         }
 
-
-        private IQueryable<T> Builder<T>(IQueryable<T> query, HttpRequest httpRequest)
+        private IQueryable<TEntity> Builder(IQueryable<TEntity> query, HttpRequest httpRequest)
         {
             Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
 
             foreach (var item in httpRequest.Query)
-                if (_allowedFields.Contains(item.Key))
-                    fieldsToFilter.Add(item.Key, item.Value);
-
-            List<Expression<Func<T, bool>>> lst = new List<Expression<Func<T, bool>>>();
+            {
+                var allowedField = _allowedFields.FirstOrDefault(f => f.Equals(item.Key, StringComparison.OrdinalIgnoreCase));
+                if (allowedField != null)
+                    fieldsToFilter.Add(allowedField, item.Value);
+            }
 
             foreach (var queryItem in fieldsToFilter)
             {
-                query = query.Where(GetColumnEquality<T>(queryItem.Key, queryItem.Value));
+                query = query.Where(GetColumnEquality(queryItem.Key, queryItem.Value));
             }
 
             return query;
         }
 
-
-        private static Expression<Func<T, bool>> GetColumnEquality<T>(string property, string term)
+        private static Expression<Func<TEntity, bool>> GetColumnEquality(string property, string term)
         {
-            #region .:: Stackoverflow ::.
-            // https://stackoverflow.com/questions/17832989/linq-iqueryable-generic-filter/17833880#17833880
-            var obj = Expression.Parameter(typeof(T), "obj");
+            /*
+             * Modified the following solution to support Guid parsing:
+             * https://stackoverflow.com/questions/17832989/linq-iqueryable-generic-filter/17833880#17833880
+             * */
+
+            var obj = Expression.Parameter(typeof(TEntity), "obj");
             
             var objProperty = Expression.PropertyOrField(obj, property);
-            var converted = Convert.ChangeType(term, objProperty.Type);
-            var objEquality = Expression.Equal(objProperty, Expression.Constant(converted));
 
-            var lambda = Expression.Lambda<Func<T, bool>>(objEquality, obj);
+            object convertedValue;
+            if (objProperty.Type.IsAssignableTo(typeof(Guid)))
+                convertedValue = Guid.Parse(term);
+            else
+                convertedValue = Convert.ChangeType(term, objProperty.Type);
+
+            var objEquality = Expression.Equal(objProperty, Expression.Constant(convertedValue));
+
+            var lambda = Expression.Lambda<Func<TEntity, bool>>(objEquality, obj);
 
             return lambda;
-#endregion
         }
     }
 }

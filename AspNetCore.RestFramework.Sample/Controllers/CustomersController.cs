@@ -13,13 +13,27 @@ namespace AspNetRestFramework.Sample.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CustomersController : BaseController<CustomerDTO, Customer, Guid, ApplicationDbContext>
+    public class CustomersController : BaseController<CustomerDto, Customer, Guid, ApplicationDbContext>
     {
-        public CustomersController(CustomerSerializer serializer,
-                                   ApplicationDbContext dbContext, ILogger<Customer> logger) : base(serializer, dbContext, logger)
+        public CustomersController(
+            CustomerSerializer serializer,
+            ApplicationDbContext dbContext,
+            ILogger<Customer> logger)
+            : base(
+                  serializer,
+                  dbContext,
+                  logger)
         {
-            AllowedFields = new[] {"Name", "CNPJ", "Age"};
-            Filters.Add(new QueryStringFilter<ApplicationDbContext, Customer>(AllowedFields));
+            AllowedFields = new[] {
+                nameof(Customer.Id),
+                nameof(Customer.Name),
+                nameof(Customer.CNPJ),
+                nameof(Customer.Age),
+            };
+
+            Filters.Add(new QueryStringFilter<Customer>(AllowedFields));
+            Filters.Add(new QueryStringSearchFilter<Customer>(AllowedFields));
+            Filters.Add(new QueryStringIdRangeFilter<Customer, Guid>());
             Filters.Add(new DocumentFilter());
             Filters.Add(new CustomerDocumentIncludeFilter());
         }

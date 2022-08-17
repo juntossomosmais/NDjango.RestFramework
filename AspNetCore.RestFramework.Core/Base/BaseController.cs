@@ -11,68 +11,69 @@ using AspNetCore.RestFramework.Core.Serializer;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using AspNetCore.RestFramework.Core.Errors;
 
 namespace AspNetCore.RestFramework.Core.Base
 {
     [Produces("application/json")]
-    public class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
+    public abstract class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
         where TOrigin : BaseDto<TPrimaryKey>
         where TDestination : BaseModel<TPrimaryKey>
         where TContext : DbContext
 
     {
         private readonly Serializer<TOrigin, TDestination, TPrimaryKey, TContext> _serializer;
+        private readonly ILogger _logger;
+        private readonly TContext _context;
+        private readonly ActionOptions _actionOptions;
+
         public IQueryable<TDestination> Query { get; set; }
-        private TContext _context { get; set; }
-        private ActionOptions _actionOptions { get; set; }
         public List<Filter<TDestination>> Filters { get; set; } = new List<Filter<TDestination>>();
         public string[] AllowedFields { get; set; } = Array.Empty<string>();
-        
-        private readonly ILogger _logger;
 
         #region .:: Constructors ::.
 
-        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context,
-            ActionOptions actionOptions, ILogger<TDestination> logger)
+        protected BaseController(
+            Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer,
+            TContext context,
+            ActionOptions actionOptions,
+            ILogger<TDestination> logger)
         {
             _serializer = serializer;
-            _actionOptions = actionOptions ?? new ActionOptions();
             _context = context;
-            Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
+            _actionOptions = actionOptions ?? new ActionOptions();
             _logger = logger;
+            Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
 
-        public BaseController(Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer, TContext context, ILogger<TDestination> logger)
-        {
-            _serializer = serializer;
-            _actionOptions = new ActionOptions();
-            _context = context;
-            Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
-            _logger = logger;
-        }
+        protected BaseController(
+            Serializer<TOrigin, TDestination, TPrimaryKey, TContext> serializer,
+            TContext context,
+            ILogger<TDestination> logger)
+            : this(serializer, context, new ActionOptions(), logger)
+        { }
 
         #endregion
 
-
         [HttpGet]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> GetSingle(TPrimaryKey Id)
+        [Route("{id}")]
+        public virtual async Task<IActionResult> GetSingle([FromRoute] TPrimaryKey id)
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
-                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
-                var data = await _serializer.GetFromDB(Id, query);
+                var data = await _serializer.GetFromDB(id, query);
                 if (data == null)
-                    return NotFound(BaseMessages.NOT_FOUND);
+                    return NotFound();
 
-                string json = JsonConvert.SerializeObject(data,
-                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
 
                 var jObject = JObject.Parse(json);
                 return Ok(jObject);
@@ -80,32 +81,35 @@ namespace AspNetCore.RestFramework.Core.Base
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
         }
 
         [HttpGet]
-        public virtual async Task<IActionResult> ListPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 5)
+        public virtual async Task<IActionResult> ListPaged(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 5)
         {
             try
             {
-                var listOfProps = GetFieldsFromModel();
-
-                if (listOfProps == null || listOfProps.Length == 0)
-                    return BadRequest(BaseMessages.ERROR_GET_FIELDS);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
-                query = Sort(AllowedFields, query);
-                var (pages, data) = await _serializer.List(page, pageSize, query);
+                query = SortQuery(AllowedFields, query);
+                var (total, data) = await _serializer.ListAsync(page, pageSize, query);
 
-                string json = JsonConvert.SerializeObject(data,
-                    new JsonSerializerSettings {ContractResolver = new JsonTransform(listOfProps)});
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
+
                 var jArray = JArray.Parse(json);
 
                 var result = new PagedBaseResponse<JArray>()
                 {
                     Data = jArray,
-                    Pages = pages
+                    Total = total
                 };
 
                 return Ok(result);
@@ -113,102 +117,189 @@ namespace AspNetCore.RestFramework.Core.Base
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
         }
 
         [HttpPost]
-        public virtual async Task<IActionResult> Post(TOrigin entity)
+        public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
             try
             {
-                var isSaved = await _serializer.Save(entity, OperationType.Create);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                if (!isSaved)
-                    return BadRequest(_serializer.Errors);
+                var data = await _serializer.PostAsync(entity);
+
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
+
+                var jObject = JObject.Parse(json);
+                return CreatedAtAction(nameof(GetSingle), new { id = data.Id }, jObject);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
-
-            return Created(BaseMessages.SUCESS, new { });
         }
 
         [HttpPatch]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Patch([FromBody] PartialJsonObject<TOrigin> entity,
-            [FromRoute] TPrimaryKey Id)
+        [Route("{id}")]
+        public virtual async Task<IActionResult> Patch(
+            [FromBody] PartialJsonObject<TOrigin> entity,
+            [FromRoute] TPrimaryKey id)
         {
             try
             {
                 if (!_actionOptions.AllowPatch)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                await _serializer.Patch(entity, Id);
-                return Ok(BaseMessages.SUCESS);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+
+                var data = await _serializer.PatchAsync(entity, id);
+                
+                if (data == null)
+                    return NotFound();
+
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
+
+                var jObject = JObject.Parse(json);
+                return Ok(jObject);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
         }
 
         [HttpPut]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Put([FromBody] TOrigin origin, [FromRoute] TPrimaryKey Id)
+        [Route("{id}")]
+        public virtual async Task<IActionResult> Put(
+            [FromBody] TOrigin origin,
+            [FromRoute] TPrimaryKey id)
         {
             try
             {
                 if (!_actionOptions.AllowPut)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                await _serializer.Save(origin, OperationType.Update, Id);
-                return Ok(BaseMessages.SUCESS);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+
+                var data = await _serializer.PutAsync(origin, id);
+
+                if (data == null)
+                    return NotFound();
+
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
+
+                var jObject = JObject.Parse(json);
+                return Ok(jObject);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
+            }
+        }
+
+        [HttpPut]
+        public virtual async Task<IActionResult> PutMany(
+            [FromBody] TOrigin origin,
+            [FromQuery] IList<TPrimaryKey> ids)
+        {
+            try
+            {
+                if (!_actionOptions.AllowPut)
+                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+                var updatedIds = await _serializer.PutManyAsync(origin, ids);
+
+                return Ok(updatedIds);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
         }
 
         [HttpDelete]
-        [Route("{Id}")]
-        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey Id)
+        [Route("{id}")]
+        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
         {
             try
             {
-                await _serializer.Delete(Id);
-                return Ok(BaseMessages.SUCESS);
+                if (!TryGetFieldsFromModel(out string[] listOfProps))
+                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+
+                var data = await _serializer.DeleteAsync(id);
+
+                if (data == null)
+                    return NotFound();
+
+                string json = JsonConvert.SerializeObject(
+                    data,
+                    new JsonSerializerSettings { ContractResolver = new JsonTransform(listOfProps) }
+                );
+
+                var jObject = JObject.Parse(json);
+                return Ok(jObject);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
             }
         }
 
-        #region methods
+        [HttpDelete]
+        public virtual async Task<IActionResult> DeleteMany([FromQuery] IList<TPrimaryKey> ids)
+        {
+            try
+            {
+                var deletedIds = await _serializer.DeleteManyAsync(ids);
+
+                return Ok(deletedIds);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
+            }
+        }
+
+        #region Methods
 
         [NonAction]
-        public string[] GetFieldsFromModel()
+        private static bool TryGetFieldsFromModel(out string[] fields)
         {
             try
             {
                 var instanceMethod = typeof(TDestination).GetMethod("GetFields");
-                return (string[]) instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+                fields = (string[])instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
+                return true;
             }
-            catch (Exception e)
+            catch
             {
-                return Array.Empty<string>();
+                fields = null;
+                return false;
             }
         }
 
         [NonAction]
-        public IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
+        public virtual IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
         {
             foreach (var filter in Filters)
                 query = filter.AddFilter(query, request);
@@ -216,7 +307,7 @@ namespace AspNetCore.RestFramework.Core.Base
         }
 
         [NonAction]
-        public IQueryable<TDestination> Sort(string[] allowedFilters, IQueryable<TDestination> query)
+        public virtual IQueryable<TDestination> SortQuery(string[] allowedFilters, IQueryable<TDestination> query)
         {
             return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
         }
