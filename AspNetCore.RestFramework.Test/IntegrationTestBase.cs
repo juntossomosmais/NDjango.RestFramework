@@ -32,7 +32,6 @@ namespace AspNetCore.RestFramework.Test
             Context = (ApplicationDbContext)Server.Services.GetService(typeof(ApplicationDbContext));
 
             Client = Server.CreateClient();
-            Client.BaseAddress = new Uri("http://localhost:35185");
 
             ClearDatabase();
         }
