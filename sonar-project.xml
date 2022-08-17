@@ -5,5 +5,6 @@
     <Property Name="sonar.host.url">http://localhost:9000</Property>
     <Property Name="sonar.cs.opencover.reportsPaths">**/*/coverage.opencover.xml</Property>
     <Property Name="sonar.cs.vstest.reportsPaths">**/*/*.trx</Property>
-    <Property Name="sonar.exclusions">**/Migrations/*.cs,**/Swagger/*.cs,AspNetCore.RestFramework.Sample/FakeData/FakeDataGenerator.cs,AspNetCore.RestFramework.Sample/Program.cs</Property>
+    <Property Name="sonar.exclusions">**/Migrations/*.cs,**/Swagger/*.cs</Property>
+    <Property Name="sonar.coverage.exclusions">AspNetCore.RestFramework.Sample/*.cs</Property>
 </SonarQubeAnalysisProperties> 
