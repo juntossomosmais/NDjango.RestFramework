@@ -23,7 +23,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var dbSet = Context.Set<Customer>();
             var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
             dbSet.Add(customer);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var customerToUpdate = new
             {
@@ -39,7 +39,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
 
             // Assert
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-            var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
             updatedCustomer.Name.Should().Be(customerToUpdate.Name);
             updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
         }
@@ -51,7 +51,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var dbSet = Context.Set<Customer>();
             var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
             dbSet.Add(customer);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var customerToUpdate = new
             {
@@ -66,7 +66,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
 
             // Assert
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-            var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
             updatedCustomer.Name.Should().Be(customer.Name);
             updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
         }
@@ -120,7 +120,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var dbSet = Context.Set<IntAsIdEntity>();
             var entity = new IntAsIdEntity() { Name = "abc" };
             dbSet.Add(entity);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var entityToUpdate = new IntAsIdEntityDto()
             {
@@ -136,7 +136,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             // Assert
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed);
             
-            var notUpdatedEntity = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == entity.Id);
+            var notUpdatedEntity = dbSet.AsNoTracking().First(x => x.Id == entity.Id);
             notUpdatedEntity.Name.Should().Be(entity.Name);
         }
     }

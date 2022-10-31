@@ -20,7 +20,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { Id = Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"), CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { Id = Guid.Parse("22ee1df9-c543-4509-a755-e7cd5dc0045e"), CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var expectedGuids = new[] {
                 Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"),

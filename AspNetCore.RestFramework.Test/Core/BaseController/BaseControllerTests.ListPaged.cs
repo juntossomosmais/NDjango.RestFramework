@@ -23,7 +23,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers");
@@ -44,7 +44,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?Name=ghi&CNPJ=789");
@@ -54,7 +54,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var responseData = await response.Content.ReadAsStringAsync();
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(1);
-            customers.Data.FirstOrDefault().Name.Should().Be("ghi");
+            customers.Data.First().Name.Should().Be("ghi");
         }
 
         [Fact]
@@ -65,7 +65,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?id=35d948bd-ab3d-4446-912b-2d20c57c4935");
@@ -75,7 +75,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var responseData = await response.Content.ReadAsStringAsync();
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(1);
-            customers.Data.FirstOrDefault().Name.Should().Be("abc");
+            customers.Data.First().Name.Should().Be("abc");
         }
 
         [Fact]
@@ -86,7 +86,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { Id = Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"), CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { Id = Guid.Parse("22ee1df9-c543-4509-a755-e7cd5dc0045e"), CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?ids=6bdc2b9e-3710-40b9-93dd-c7558b446e21&ids=22ee1df9-c543-4509-a755-e7cd5dc0045e");
@@ -109,7 +109,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new IntAsIdEntity() { Name = "def" });
             dbSet.Add(new IntAsIdEntity() { Name = "ghi" });
             dbSet.Add(new IntAsIdEntity() { Name = "jkl" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var entities = dbSet.Where(m => new[] { "def", "ghi" }.Contains(m.Name)).AsNoTracking().ToList();
 
@@ -133,7 +133,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi", Age = 25 });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?Age=20");
@@ -154,7 +154,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi", Age = 25 });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?Age=20&SortDesc=Name,CNPJ");
@@ -165,9 +165,9 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(3);
 
-            var first = customers.Data.FirstOrDefault();
-            var second = customers.Data.Skip(1).FirstOrDefault();
-            var third = customers.Data.Skip(2).FirstOrDefault();
+            var first = customers.Data.First();
+            var second = customers.Data.Skip(1).First();
+            var third = customers.Data.Skip(2).First();
 
             first.Name.Should().Be("def");
             first.CNPJ.Should().Be("456");
@@ -186,7 +186,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc", Age = 20 });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi", Age = 25 });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?Age=20&Sort=Name,CNPJ");
@@ -197,9 +197,9 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(3);
 
-            var first = customers.Data.FirstOrDefault();
-            var second = customers.Data.Skip(1).FirstOrDefault();
-            var third = customers.Data.Skip(2).FirstOrDefault();
+            var first = customers.Data.First();
+            var second = customers.Data.Skip(1).First();
+            var third = customers.Data.Skip(2).First();
 
             first.Name.Should().Be("abc");
             first.CNPJ.Should().Be("123");
@@ -244,7 +244,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=1234");
@@ -254,7 +254,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var responseData = await response.Content.ReadAsStringAsync();
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(1);
-            customers.Data.FirstOrDefault().Name.Should().Be("abc");
+            customers.Data.First().Name.Should().Be("abc");
         }
 
         [Fact]
@@ -292,7 +292,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=abc");
@@ -302,7 +302,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var responseData = await response.Content.ReadAsStringAsync();
             var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
             customers.Data.Count.Should().Be(1);
-            customers.Data.FirstOrDefault().Name.Should().Be("abc");
+            customers.Data.First().Name.Should().Be("abc");
         }
 
         [Fact]
@@ -340,7 +340,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=ghi");
@@ -386,7 +386,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=5557");
@@ -406,7 +406,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?pageSize=3&page=1");
@@ -427,7 +427,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
             dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
             dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync("api/Customers?pageSize=1&page=3");
@@ -463,7 +463,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             dbSet.Add(new Customer() { Id = Guid.Parse("555b437e-3cd8-493c-b502-94cb9ba69a6b"), Age = 10, CNPJ = "81.517.224/0001-77", Name = "Bailão 12 Inc" });
             dbSet.Add(new Customer() { Id = Guid.Parse("f10ca31e-f60b-4d4e-8ca3-a754c4fda6bc"), Age = 25, CNPJ = "59.732.451/0001-66", Name = "Xablau Inc" });
             dbSet.Add(new Customer() { Id = Guid.Parse("c2710e39-f17a-469e-8994-28fd621819b4"), Age = 28, CNPJ = "55.387.453/0001-04", Name = "Problem Solver" });
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync($"api/Customers?search={HttpUtility.UrlEncode(term)}");
