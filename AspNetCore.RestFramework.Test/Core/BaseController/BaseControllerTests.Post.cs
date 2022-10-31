@@ -29,7 +29,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var response = await Client.PostAsync("api/Customers", content);
 
             // Assert
-            var addedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+            var addedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
             response.StatusCode.Should().Be(System.Net.HttpStatusCode.Created);
             addedCustomer.Name.Should().Be(customer.Name);
             addedCustomer.CNPJ.Should().Be(customer.CNPJ);

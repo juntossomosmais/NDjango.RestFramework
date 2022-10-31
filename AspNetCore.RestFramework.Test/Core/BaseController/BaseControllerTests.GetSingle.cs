@@ -22,7 +22,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
 
 
             dbSet.AddRange(customer1, customer2, customer3);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync($"api/Customers/{customer1.Id}");
@@ -45,7 +45,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
             var customer3 = new Customer() { Id = Guid.NewGuid(), CNPJ = "789", Name = "ghi" };
 
             dbSet.AddRange(customer1, customer2, customer3);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync($"api/Customers/{Guid.NewGuid()}");
@@ -59,10 +59,10 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
         {
             // Arrange
             var dbSet = Context.Set<Seller>();
-            var seller1 = new Seller() { Id = Guid.NewGuid(), Name = "Teste" };
+            var seller1 = new Seller() { Id = Guid.NewGuid(), Name = "Test" };
 
             dbSet.Add(seller1);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.GetAsync($"api/Sellers/{seller1.Id}");

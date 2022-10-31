@@ -19,7 +19,7 @@ namespace AspNetCore.RestFramework.Test.Core.BaseController
         public async Task SwaggerJson_ShouldReturnStatus200()
         {
             // Arrange
-            var urlSwagger = "/swagger/v1/swagger.json";
+            const string urlSwagger = "/swagger/v1/swagger.json";
 
             // Act
             var response = await Client.GetAsync(urlSwagger);
