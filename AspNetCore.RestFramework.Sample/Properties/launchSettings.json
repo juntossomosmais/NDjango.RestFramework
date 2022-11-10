@@ -17,9 +17,9 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
-    "WebApplication2": {
+    "AspNetCore.RestFramework.Sample": {
       "commandName": "Project",
-      "dotnetRunMessages": "true",
+      "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:5001;http://localhost:5000",
