@@ -1,6 +1,6 @@
 version: "3.6"
 services:
-  sqlserver:
+  db:
     image: "mcr.microsoft.com/mssql/server:2022-latest"
     ports:
       - "1433:1433"
@@ -22,12 +22,12 @@ services:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      sqlserver:
+      db:
         condition: service_healthy
     volumes:
-      - ./scripts/start-tests.sh:/app/scripts/start-tests.sh
+      - .:/app
     environment:
-      - "ConnectionStrings__DefaultConnectionString=Data Source=sqlserver,1433;Initial Catalog=RestFramework;User Id=sa;Password=Password1"
+      - "ConnectionStrings__AppDbContext=Data Source=db,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True"
     command: [ "./scripts/start-tests.sh" ]
 
   lint-formatter:
