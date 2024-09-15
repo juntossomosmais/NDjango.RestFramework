@@ -15,8 +15,8 @@ RUN dotnet tool install --global dotnet-format
 COPY src/AspNetCore.RestFramework.Core/*.csproj ./src/AspNetCore.RestFramework.Core/
 COPY tests/AspNetCore.RestFramework.Core.Test/*.csproj ./tests/AspNetCore.RestFramework.Core.Test/
 
-RUN dotnet restore src/AspNetCore.RestFramework.Core
-RUN dotnet restore tests/AspNetCore.RestFramework.Core.Test
+RUN dotnet restore --locked-mode src/AspNetCore.RestFramework.Core
+RUN dotnet restore --locked-mode tests/AspNetCore.RestFramework.Core.Test
 
 COPY . ./
 
