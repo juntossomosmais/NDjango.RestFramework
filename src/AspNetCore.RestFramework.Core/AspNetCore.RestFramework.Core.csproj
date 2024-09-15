@@ -2,6 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <!-- Version is configured in the build pipeline -->
+    <PackageId>AspNetCore.RestFramework</PackageId>
+    <Authors>andresantarosa,fabio_almeida100,phmonte,ricardochaves,willianantunes</Authors>
+    <Description>Don't code a bunch of code to create CRUD applications. Use AspNetCore REST Framework, inspired by Django REST framework! It aims to provide a robust and flexible foundation for building RESTful APIs using ASP.NET Core.</Description>
+    <PackageLicenseUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework/blob/master/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework</RepositoryUrl>
+    <PackageTags>api rest drf django pagination crud</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>

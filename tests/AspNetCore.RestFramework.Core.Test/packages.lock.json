@@ -1053,7 +1053,7 @@
           "xunit.extensibility.core": "[2.9.0]"
         }
       },
-      "aspnetcore.restframework.core": {
+      "AspNetCore.RestFramework": {
         "type": "Project",
         "dependencies": {
           "Microsoft.AspNetCore.Http.Abstractions": "[2.*, )",
