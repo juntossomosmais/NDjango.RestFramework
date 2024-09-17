@@ -2,7 +2,7 @@
 
 set -e
 
-dotnet test tests/AspNetCore.RestFramework.Core.Test \
+dotnet test tests/NDjango.RestFramework.Test \
 --configuration Release \
 --logger trx \
 --logger "console;verbosity=normal" \

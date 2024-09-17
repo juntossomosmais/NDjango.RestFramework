@@ -1,6 +1,6 @@
-# AspNetCore.RestFramework
+# NDjango.RestFramework
 
-AspNetCore REST Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines." 🤺
+NDjango Rest Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines." 🤺
 
 This is a copy of the convention established by [Django REST framework](https://github.com/encode/django-rest-framework), though translated to C# and adapted to the .NET Core framework.
 

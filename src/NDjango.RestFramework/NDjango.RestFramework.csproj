@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- Version is configured in the build pipeline -->
+    <PackageId>NDjango.RestFramework</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>andresantarosa,fabio_almeida100,phmonte,ricardochaves,willianantunes</Authors>
+    <Description>Don't code a bunch of code to create CRUD applications. Use NDjango Rest Framework, inspired by Django REST framework! It aims to provide a robust and flexible foundation for building RESTful APIs using ASP.NET Core.</Description>
+    <PackageLicenseUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework/blob/main/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework</RepositoryUrl>
+    <PackageTags>api rest drf django ndjango pagination crud</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.*" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+
+</Project>
