@@ -1,129 +1,23 @@
-# csharp-rest-framework
+# AspNetCore.RestFramework
 
-O [csharp-rest-framework](https://github.com/juntossomosmais/csharp-rest-framework), ou `AspNetCore.RestFramework.Core`, é um framework para ASP.NET desenvolvido pela Juntos Somos Mais para tornar mais prática e uniforme a criação de APIs REST.
+AspNetCore REST Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines." 🤺
 
-## Sumário
+This is a copy of the convention established by [Django REST framework](https://github.com/encode/django-rest-framework), though translated to C# and adapted to the .NET Core framework.
 
-- [csharp-rest-framework](#csharp-rest-framework)
-  - [Sumário](#sumário)
-  - [Ordenação](#ordenação)
-  - [Filtros](#filtros)
-    - [QueryStringFilter](#querystringfilter)
-    - [QueryStringIdRangeFilter](#querystringidrangefilter)
-    - [QueryStringSearchFilter](#querystringsearchfilter)
-    - [Implementando um filtro](#implementando-um-filtro)
-  - [Erros](#erros)
-  - [Validação](#validação)
-  - [Serializer](#serializer)
-  - [Exemplo de uso](#exemplo-de-uso)
-    - [Entidade](#entidade)
-    - [Entity Framework](#entity-framework)
-    - [DTO](#dto)
-    - [Validação](#validação-1)
-    - [Include de entidades filhas/pais](#include-de-entidades-filhaspais)
-    - [Controller](#controller)
-  - [Dicionário](#dicionário)
+## Quickstart with an example
 
-## Ordenação
+Let's create a CRUD API for a `Customer` entity with a `CustomerDocument` child entity.
 
-No método `ListPaged`, usamos os _query parameters_ `sort` ou `sortDesc` para fazer a ordenação por um campo. Se não for informado, usaremos sempre o campo `Id` da entidade para ordenação crescente.
+### Entity
 
-## Filtros
+Some characteristics of the entities:
 
-Filtros são mecanismos aplicados sempre que tentamos obter os dados de uma entidade nos métodos `GetSingle` e `ListPaged`.
+- We should inherit from `BaseModel<TPrimaryKey>`.
+  - The `TPrimaryKey` is the type of the primary key. In this case, we are using `Guid`.
+- The `GetFields` method is mandatory. It informs which fields of the entity will be serialized in the API response.
+  - For fields of child or parent entities, we can use `:` to indicate them to be serialized as well. In this case, it is necessary to perform the `Include` with a filter.
 
-### QueryStringFilter
-
-O `QueryStringFilter`, talvez o mais relevante, é um filtro que faz _match_ dos campos passados nos _query parameters_ com os campos da entidade cujo filtro é permitido. Todos os filtros são criados usando como operador o _equals_ (`==`).
-
-### QueryStringIdRangeFilter
-
-O `QueryStringIdRangeFilter` é um filtro cujo objetivo principal é atender o método `getMany` do React Admin, um framework utilizado em um dos nossos produtos, o Portal Admin (novo). Seu objetivo é, caso o parâmetro `ids` seja passado, filtrar as entidades pelo `Id` baseado em todos os `ids` informados nos _query parameters_.
-
-### QueryStringSearchFilter
-
-O `QueryStringSearchFilter` é um filtro que permite que seja informado um parâmetro `search` nos _query parameters_ para fazer uma busca, através de um único input, em vários campos da entidade, inclusive fazendo `LIKE` em strings.
-
-### Implementando um filtro
-
-Dado um `IQueryable<T>` e um `HttpRequest`, você pode implementar o filtro da maneira como preferir. Basta herdar da classe base e adicionar ao seu _controller_:
-
-```cs
-public class MyFilter : AspNetCore.RestFramework.Core.Filters.Filter<Seller>
-{
-    private readonly string _forbiddenName;
-
-    public MyFilter(string forbiddenName)
-    {
-        _forbiddenName = forbiddenName;
-    }
-
-    public IQueryable<TEntity> AddFilter(IQueryable<TEntity> query, HttpRequest request)
-    {
-        return query.Where(m => m.Name != forbiddenName);
-    }
-}
-```
-
-```cs
-public class SellerController
-{
-    public SellerController(...)
-        : base(...)
-    {
-        Filters.Add(new MyFilter("Exemplo"));
-    }
-}
-```
-
-## Erros
-
-Utilizamos como padrão de erros [este aqui](https://votorantimindustrial.sharepoint.com/:w:/r/sites/juntos_somos_mais/_layouts/15/Doc.aspx?sourcedoc=%7BE8895835-9397-4E19-9046-26D7168A931A%7D&file=Padr%C3%A3o%20de%20retorno%20das%20APIs.docx&action=default&mobileredirect=true), que é o padrão indicado no nosso [playbook de C#](https://github.com/juntossomosmais/playbook/blob/master/backend/csharp.md).
-
-No framework, as classes `ValidationErrors` e `UnexpectedError` já implementam esse contrato, sendo retornadas no `BaseController` em caso de erros de validação ou outra exception.
-
-## Validação
-
-Para validação, também conforme o playbook, devemos utilizar **FluentValidation**. Basta implementar os _validators_ dos DTOs e configurar sua aplicação com a extensão (2) `ModelStateValidationExtensions.ConfigureValidationResponseFormat` para garantir que, caso o `ModelState` seja inválido, um `ValidationErrors` seja retornado com um `400 Not Found`.
-
-Além disso
-- (1) Devemos usar o `JSM.FluentValidations.AspNet.AsyncFilter`;
-- (3) **Talvez** se faça necessário acessar o `HttpContext` nos _validators_, para isso basta adicionar o acessor aos serviços.
-
-```cs
-services.AddControllers()
-    ...
-    // no final do AddControllers, adicione o seguinte:
-    // 1 - JSM.FluentValidations.AspNet.AsyncFilter
-    .AddModelValidationAsyncActionFilter(options =>
-    {
-        options.OnlyApiController = true;
-    })
-    // 2 - ModelStateValidationExtensions
-    .ConfigureValidationResponseFormat();
-
-// 3 - acessor do HttpContext
-services.AddHttpContextAccessor();
-```
-
-## Serializer
-
-O `Serializer` é um mecanismo utilizado pelo `BaseController` como se fosse um _service_. Nele, estão as lógicas utilizadas pelo _controller_, e este _serializer_ é injetado em cada um. Ele pode ter seus métodos sobrescritos, por exemplo, para lógicas adicionais ou diferentes em entidades específicas.
-
-## Exemplo de uso
-
-Vamos, como exemplo, criar uma API para uma suposta entidade `Customer`.
-
-### Entidade
-
-Algumas características das entidades:
-
-- Devemos herdar de `BaseModel<TPrimaryKey>`.
-  - O `TPrimaryKey` é o tipo da chave primária, no marketplace costumamos usar `Guid`.
-- O `GetFields` é um método cuja implementação é obrigatória. Ele informa quais campos de uma entidade serão serializados na _response_ da API.
-  - Para campos de entidades filhas ou pais, podemos usar o `:` para indicá-las para que também sejam serializadas. Nesse caso, é necessário fazer o `Include` com um filtro.
-
-```cs
+```csharp
 public class Customer : BaseModel<Guid>
 {
     public string Name { get; set; }
@@ -141,9 +35,9 @@ public class Customer : BaseModel<Guid>
 
 ### Entity Framework
 
-Basta adicionar a collection ao `DbContext` da aplicação:
+Add the collection to the application's `DbContext`:
 
-```cs
+```csharp
 public class ApplicationDbContext : DbContext
 {
     public DbSet<Customer> Customer { get; set; }
@@ -152,27 +46,25 @@ public class ApplicationDbContext : DbContext
 
 ### DTO
 
-No DTO, precisamos apenas herdar de `BaseDto<TPrimaryKey>`, parecido com a entidade, e colocar lá.
+The DTO is required to inherit from `BaseDto<TPrimaryKey>`, like the entity.
 
-```cs
+```csharp
 public class CustomerDto : BaseDto<Guid>
 {
-    public CustomerDto()
-    {
-    }
+    public CustomerDto() { }
 
     public string Name { get; set; }
     public string CNPJ { get; set; }
-    
+
     public ICollection<CustomerDocumentDto> CustomerDocuments { get; set; }
 }
 ```
 
-### Validação
+### Validation
 
-Com o DTO criado, se necessário, devemos criar o _validator_ para ele. Abaixo, temos um exemplo bem simples dessa implementação:
+A validation is not mandatory, but it is recommended to ensure that the data is correct. The validation is done using the `FluentValidation` library.
 
-```cs
+```csharp
 public class CustomerDtoValidator : AbstractValidator<CustomerDto>
 {
     public CustomerDtoValidator(IHttpContextAccessor context)
@@ -189,12 +81,11 @@ public class CustomerDtoValidator : AbstractValidator<CustomerDto>
 }
 ```
 
+### Include child/parent entities
 
-### Include de entidades filhas/pais
+Previously, we included the `CustomerDocument` entity in the `Customer` entity. Check out the `GetFields` method in the `Customer` entity.
 
-Precisamos criar um filtro para dar o `Include` na entidade filha `CustomerDocument`. Simples assim:
-
-```cs
+```csharp
 public class CustomerDocumentIncludeFilter : Filter<Customer>
 {
     public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
@@ -206,11 +97,9 @@ public class CustomerDocumentIncludeFilter : Filter<Customer>
 
 ### Controller
 
-Agora, basta criar o _controller_ da entidade para criar a API.
+The CRUD API is created by inheriting from the `BaseController` and passing the necessary parameters. Note how `AllowedFields` and `Filters` are set.
 
-Perceba que o `AllowedFields` é usado para configurar a maioria dos filtros de _query string_.
-
-```cs
+```csharp
 [Route("api/[controller]")]
 [ApiController]
 public class CustomersController : BaseController<CustomerDto, Customer, Guid, ApplicationDbContext>
@@ -239,16 +128,96 @@ public class CustomersController : BaseController<CustomerDto, Customer, Guid, A
 }
 ```
 
-**Importante!** Perceba que o o nome está no plural, isso se deve às convenções padrões do React Admin.
+## API Guide
 
-## Dicionário
+### Sorting
 
-Para facilitar o entendimento de alguns termos e tipos, eis um dicionário com suas descrições:
+In the `ListPaged` method, we use the query parameters `sort` or `sortDesc` to sort by a field. If not specified, we will always use the entity's `Id` field for ascending sorting.
 
-| Termo | Descrição
-|---|---|
-| `TPrimaryKey` | Tipo da chave primária de uma entidade, geralmente é `Guid`.
-| `TEntity` | Tipo da entidade da qual estamos falando numa classe genérica.
-| `TOrigin` | No `BaseController`, é o mesmo que o `TEntity`.
-| `TDestination` | Tipo do DTO.
-| `TContext` | Tipo do contexto do Entity Framework.
+### Filters
+
+Filters are mechanisms applied whenever we try to retrieve entity data in the `GetSingle` and `ListPaged` methods.
+
+#### QueryStringFilter
+
+The `QueryStringFilter`, perhaps the most relevant, is a filter that matches the fields passed in the query parameters with the fields of the entity whose filter is allowed. All filters are created using the equals (`==`) operator.
+
+#### QueryStringIdRangeFilter
+
+The `QueryStringIdRangeFilter` goal is to filter the entities by `Id` based on all the `ids` provided in the query parameters.
+
+#### QueryStringSearchFilter
+
+The `QueryStringSearchFilter` is a filter that allows a `search` parameter to be provided in the query parameters to search, through a single input, in several fields of the entity, even performing `LIKE` on strings.
+
+#### Implementing a filter
+
+Given an `IQueryable<T>` and an `HttpRequest`, you can implement the filter as you prefer. Just inherit from the base class and add it to your controller:
+
+```csharp
+public class MyFilter : AspNetCore.RestFramework.Core.Filters.Filter<Seller>
+{
+    private readonly string _forbiddenName;
+
+    public MyFilter(string forbiddenName)
+    {
+        _forbiddenName = forbiddenName;
+    }
+
+    public IQueryable<TEntity> AddFilter(IQueryable<TEntity> query, HttpRequest request)
+    {
+        return query.Where(m => m.Name != forbiddenName);
+    }
+}
+```
+
+```csharp
+public class SellerController
+{
+    public SellerController(...)
+        : base(...)
+    {
+        Filters.Add(new MyFilter("Example"));
+    }
+}
+```
+
+### Errors
+
+The `ValidationErrors` and `UnexpectedError` might be returned in the `BaseController` in case of validation errors or other exceptions.
+
+### Validation
+
+Implement validators for the DTOs and configure your application with the extension `ModelStateValidationExtensions.ConfigureValidationResponseFormat` to ensure that in case of the `ModelState` being invalid, a `ValidationErrors` is returned. It might be necessary to add the `HttpContext` accessor to the services. Check the example below:
+
+```csharp
+services.AddControllers()
+    // ...
+    // At the end of AddControllers, add the following:
+    .AddModelValidationAsyncActionFilter(options =>
+    {
+        options.OnlyApiController = true;
+    })
+    // ModelStateValidationExtensions
+    .ConfigureValidationResponseFormat();
+// ...
+services.AddHttpContextAccessor();
+```
+
+### Serializer
+
+`Serializer` is a mechanism used by the `BaseController`. Each controller has its own serializer. The serializer's methods can be overridden to add additional or different logic for specific entities. It works more or less similar to the [Django REST framework's serializers](https://www.django-rest-framework.org/api-guide/serializers/).
+
+### Glossary
+
+| Term           | Description                                                 |
+|----------------|-------------------------------------------------------------|
+| `TPrimaryKey`  | Type of the primary key of an entity, usually `Guid`.       |
+| `TEntity`      | Type of the entity we are talking about in a generic class. |
+| `TOrigin`      | In the `BaseController`, it is the same as `TEntity`.       |
+| `TDestination` | Type of the DTO.                                            |
+| `TContext`     | Type of the Entity Framework context.                       |
+
+## Notice
+
+This project is still in the early stages of development. We recommend that you do not use it in production environments and check the written tests to understand the current functionality.

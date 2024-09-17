@@ -1,0 +1,40 @@
+name: Validate PR
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '*.sln'
+      - 'Dockerfile'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8'
+      - name: Check if the project is well formatted
+        run: |
+          ./scripts/start-check-formatting.sh
+      - name: Install dotnet-sonarscanner
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+      - name: Build the project, run all tests, and publish the test results
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_SOURCE_BRANCH: ${{ github.head_ref }}
+          PR_TARGET_BRANCH: ${{ github.base_ref }}
+          GITHUB_PR_NUMBER: ${{github.event.pull_request.number}}
+        run: |
+          set -e
+          docker compose up -d db
+          ./scripts/start-sonarcloud.sh

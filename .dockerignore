@@ -1,0 +1,7 @@
+*
+!src
+!tests
+**/bin
+**/obj
+!AspNetCore.RestFramework.sln
+!scripts/*.sh

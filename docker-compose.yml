@@ -1,24 +1,42 @@
 version: "3.6"
 services:
-
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:latest
-    environment:
-      SA_PASSWORD: Password1
-      ACCEPT_EULA: "Y"
+  db:
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
     ports:
-      - 1433:1433
+      - "1433:1433"
+    environment:
+      SA_PASSWORD: "Password1"
+      ACCEPT_EULA: "Y"
+      # Developer / Express / Standard / Enterprise  / EnterpriseCore
+      MSSQL_PID: Developer
+      MSSQL_TCP_PORT: 1433
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
   
   integration-tests:
-    container_name: csharp-rest-framework-integration-tests
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      - sqlserver
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
     environment:
-      - "ConnectionStrings__DefaultConnectionString=Data Source=sqlserver,1433;Initial Catalog=RestFramework;User Id=sa;Password=Password1"
-    command:
-      [
-        "./Scripts/start-tests.sh"
-      ]
+      - "ConnectionStrings__AppDbContext=Data Source=db,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True"
+    command: [ "./scripts/start-tests.sh" ]
+
+  lint-formatter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    # Uncomment the following line to run the checker
+    # command: [ "./scripts/start-check-formatting.sh" ]
+    # Uncomment the following line to run the formatter
+    command: [ "./scripts/start-formatter.sh" ]
