@@ -7,8 +7,8 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>andresantarosa,fabio_almeida100,phmonte,ricardochaves,willianantunes</Authors>
     <Description>Don't code a bunch of code to create CRUD applications. Use NDjango Rest Framework, inspired by Django REST framework! It aims to provide a robust and flexible foundation for building RESTful APIs using ASP.NET Core.</Description>
-    <PackageLicenseUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework/blob/main/LICENSE</PackageLicenseUrl>
-    <RepositoryUrl>https://github.com/juntossomosmais/AspNetCore.RestFramework</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/juntossomosmais/NDjango.RestFramework/blob/main/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/juntossomosmais/NDjango.RestFramework</RepositoryUrl>
     <PackageTags>api rest drf django ndjango pagination crud</PackageTags>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
