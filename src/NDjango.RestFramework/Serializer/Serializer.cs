@@ -21,24 +21,6 @@ namespace NDjango.RestFramework.Serializer
             _dbContext = applicationDbContext;
         }
 
-        public async virtual Task<(int Total, List<TDestination> Data)> ListAsync(int page, int pageSize, IQueryable<TDestination> query)
-        {
-            if (pageSize < 1)
-                throw new Exception("pageSize should be greater than 0");
-
-            if (page < 1)
-                throw new Exception("page should be greater than 0");
-
-            int total = query.Count();
-
-            int skip = page - 1;
-            query = query.Skip(skip * pageSize).Take(pageSize);
-
-            var data = await query.ToListAsync();
-
-            return (total, data);
-        }
-
         public virtual async Task<TDestination> PostAsync(TOrigin data)
         {
             var stringDeserialized = JsonConvert.SerializeObject(data);

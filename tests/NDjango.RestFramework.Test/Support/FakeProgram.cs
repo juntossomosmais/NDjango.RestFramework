@@ -55,7 +55,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CustomerDtoValidator>();
 var defaultConnectionString =
-    $"Data Source=localhost,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True";
+    "Data Source=localhost,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True";
 var connectionString = configuration.GetConnectionString("AppDbContext") ?? defaultConnectionString;
 connectionString = connectionString.Replace("REPLACE_ME_PROGRAMATICALLY", Guid.NewGuid().ToString());
 builder.Services.AddDbContext<AppDbContext>(options =>

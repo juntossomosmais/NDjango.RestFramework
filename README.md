@@ -182,6 +182,45 @@ public class SellerController
 }
 ```
 
+### Paginations
+
+By default, the `BaseController` uses the class `PageNumberPagination`. [It behaves the same as DRF's `PageNumberPagination`](https://www.django-rest-framework.org/api-guide/pagination/#pagenumberpagination). Sample response:
+
+```json
+{
+  "count": 13,
+  "next": "http://localhost:8000/api/v1/Persons?page=3&page_size=5",
+  "previous": "http://localhost:8000/api/v1/Persons?page=1&page_size=5",
+  "results": [
+    {
+      "name": "Sal Paradise",
+      "createdAt": "2024-10-19T19:22:12.0524797",
+      "id": 6
+    },
+    {
+      "name": "Odulor",
+      "createdAt": "2024-10-19T19:22:15.4483365",
+      "id": 7
+    },
+    {
+      "name": "Iago",
+      "createdAt": "2024-10-19T19:22:18.1077698",
+      "id": 8
+    },
+    {
+      "name": "Jafar",
+      "createdAt": "2024-10-19T19:22:21.5425118",
+      "id": 9
+    },
+    {
+      "name": "Wig",
+      "createdAt": "2024-10-19T19:22:23.9046811",
+      "id": 10
+    }
+  ]
+}
+```
+
 ### Errors
 
 The `ValidationErrors` and `UnexpectedError` might be returned in the `BaseController` in case of validation errors or other exceptions.

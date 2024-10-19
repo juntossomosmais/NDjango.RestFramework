@@ -16,5 +16,6 @@ public class IntegrationTests
         WebApplicationFactory<FakeProgram> factory = new();
         Client = factory.CreateClient();
         Context = factory.Services.GetRequiredService<AppDbContext>();
+        Context.Database.EnsureCreated();
     }
 }

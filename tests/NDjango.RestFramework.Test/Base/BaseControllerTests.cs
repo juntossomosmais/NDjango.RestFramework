@@ -6,13 +6,12 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
+using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Base;
 using NDjango.RestFramework.Errors;
+using NDjango.RestFramework.Paginations;
 using NDjango.RestFramework.Test.Support;
-using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Xunit;
 
@@ -22,21 +21,17 @@ public class BaseControllerTests
 {
     public class Delete : IntegrationTests
     {
-        private readonly WebApplicationFactory<FakeProgram> _factory = new();
-
         [Fact]
         public async Task Delete_WithObject_ShouldDeleteEntityFromDatabaseAndReturnOk()
         {
             // Arrange
-            var client = _factory.CreateClient();
-            var context = _factory.Services.GetRequiredService<AppDbContext>();
-            var dbSet = context.Set<Customer>();
+            var dbSet = Context.Set<Customer>();
             var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
             dbSet.Add(customer);
-            await context.SaveChangesAsync();
+            await Context.SaveChangesAsync();
 
             // Act
-            var response = await client.DeleteAsync($"api/Customers/{customer.Id}");
+            var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -184,9 +179,12 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
 
-            customers.Data.Count.Should().Be(3);
+            paginatedResponse.Results.Count.Should().Be(3);
+            paginatedResponse.Count.Should().Be(3);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -205,9 +203,13 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(1);
-            customers.Data.First().Name.Should().Be("ghi");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(1);
+            paginatedResponse.Results.First().Name.Should().Be("ghi");
+            paginatedResponse.Count.Should().Be(1);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -227,9 +229,13 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(1);
-            customers.Data.First().Name.Should().Be("abc");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(1);
+            paginatedResponse.Results.First().Name.Should().Be("abc");
+            paginatedResponse.Count.Should().Be(1);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -254,10 +260,14 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(2);
-            customers.Data.ElementAt(0).Name.Should().Be("def");
-            customers.Data.ElementAt(1).Name.Should().Be("ghi");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(2);
+            paginatedResponse.Results.ElementAt(0).Name.Should().Be("def");
+            paginatedResponse.Results.ElementAt(1).Name.Should().Be("ghi");
+            paginatedResponse.Count.Should().Be(2);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -279,10 +289,14 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<IntAsIdEntity>>>(responseData);
-            customers.Data.Count.Should().Be(2);
-            customers.Data.ElementAt(0).Name.Should().Be("def");
-            customers.Data.ElementAt(1).Name.Should().Be("ghi");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(2);
+            paginatedResponse.Results.ElementAt(0).Name.Should().Be("def");
+            paginatedResponse.Results.ElementAt(1).Name.Should().Be("ghi");
+            paginatedResponse.Count.Should().Be(2);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -301,8 +315,12 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(2);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(2);
+            paginatedResponse.Count.Should().Be(2);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -322,12 +340,17 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(3);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
 
-            var first = customers.Data.First();
-            var second = customers.Data.Skip(1).First();
-            var third = customers.Data.Skip(2).First();
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(3);
+            paginatedResponse.Count.Should().Be(3);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
+
+            var first = customers.First();
+            var second = customers.Skip(1).First();
+            var third = customers.Skip(2).First();
 
             first.Name.Should().Be("def");
             first.CNPJ.Should().Be("456");
@@ -354,12 +377,17 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(3);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
 
-            var first = customers.Data.First();
-            var second = customers.Data.Skip(1).First();
-            var third = customers.Data.Skip(2).First();
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(3);
+            paginatedResponse.Count.Should().Be(3);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
+
+            var first = customers.First();
+            var second = customers.Skip(1).First();
+            var third = customers.Skip(2).First();
 
             first.Name.Should().Be("abc");
             first.CNPJ.Should().Be("123");
@@ -418,9 +446,14 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(1);
-            customers.Data.First().Name.Should().Be("abc");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(1);
+            paginatedResponse.Count.Should().Be(1);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
+            customers.First().Name.Should().Be("abc");
         }
 
         [Fact]
@@ -472,9 +505,14 @@ public class BaseControllerTests
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(1);
-            customers.Data.First().Name.Should().Be("abc");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(1);
+            paginatedResponse.Count.Should().Be(1);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
+            customers.First().Name.Should().Be("abc");
         }
 
         [Fact]
@@ -482,19 +520,19 @@ public class BaseControllerTests
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
-            dbSet.Add(new Customer()
+            dbSet.Add(new Customer
             {
                 CNPJ = "123",
                 Name = "abc",
                 CustomerDocument = new List<CustomerDocument>()
                 {
-                    new CustomerDocument
+                    new()
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cnpj",
                         Document = "XYZ"
                     },
-                    new CustomerDocument
+                    new()
                     {
                         Id = Guid.NewGuid(),
                         DocumentType = "cpf",
@@ -524,10 +562,7 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=ghi");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Should().BeEmpty();
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         [Fact]
@@ -577,10 +612,7 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?cpf=5557");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Should().BeEmpty();
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         [Fact]
@@ -594,14 +626,18 @@ public class BaseControllerTests
             await Context.SaveChangesAsync();
 
             // Act
-            var response = await Client.GetAsync("api/Customers?pageSize=3&page=1");
+            var response = await Client.GetAsync("api/Customers?page_size=3&page=1");
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(3);
-            customers.Total.Should().Be(3);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(3);
+            paginatedResponse.Count.Should().Be(3);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -615,15 +651,19 @@ public class BaseControllerTests
             await Context.SaveChangesAsync();
 
             // Act
-            var response = await Client.GetAsync("api/Customers?pageSize=1&page=3");
+            var response = await Client.GetAsync("api/Customers?page_size=1&page=3");
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(1);
-            customers.Total.Should().Be(3);
-            customers.Data.First().Name.Should().Be("ghi");
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(1);
+            customers.First().Name.Should().Be("ghi");
+            paginatedResponse.Count.Should().Be(3);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().Be("http://localhost/api/Customers?page_size=1&page=2");
         }
 
         [Theory]
@@ -638,8 +678,8 @@ public class BaseControllerTests
         [InlineData("Agua Alta", 1)]
         [InlineData("Agua%", 2)]
         [InlineData("% Inc", 2)]
-        [InlineData("aaa", 0)]
-        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int expectedCount)
+        [InlineData("aaa", null)]
+        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int? expectedCount)
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -684,11 +724,20 @@ public class BaseControllerTests
             var response = await Client.GetAsync($"api/Customers?search={HttpUtility.UrlEncode(term)}");
 
             // Assert
+            if (expectedCount == null)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+                return;
+            }
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
-            var customers = JsonConvert.DeserializeObject<PagedBaseResponse<List<Customer>>>(responseData);
-            customers.Data.Count.Should().Be(expectedCount);
-            customers.Total.Should().Be(expectedCount);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            var customers = paginatedResponse.Results;
+            customers.Count.Should().Be(expectedCount);
+            paginatedResponse.Count.Should().Be(expectedCount);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
