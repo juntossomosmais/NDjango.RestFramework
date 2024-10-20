@@ -753,6 +753,34 @@ public class BaseControllerTests
 
             responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
         }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ListPaged_WhenIDsAreProvidedBetweenBrackets_ShouldReturn2Records(bool withBrackets)
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { CNPJ = "123", Name = "abc" });
+            dbSet.Add(new Customer() { CNPJ = "456", Name = "def" });
+            dbSet.Add(new Customer() { CNPJ = "789", Name = "ghi" });
+            await Context.SaveChangesAsync();
+            var entities = dbSet.AsNoTracking().ToList();
+            // Act
+            var queryString = withBrackets ? $"ids=[{entities[0].Id},{entities[1].Id}]" : $"ids={entities[0].Id},{entities[1].Id}";
+            var response = await Client.GetAsync($"api/Customers?{queryString}");
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            paginatedResponse.Results.Count.Should().Be(2);
+            paginatedResponse.Results[0].Id.Should().Be(entities[0].Id);
+            paginatedResponse.Results[1].Id.Should().Be(entities[1].Id);
+            paginatedResponse.Count.Should().Be(2);
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
+        }
     }
 
     public class Patch : IntegrationTests
