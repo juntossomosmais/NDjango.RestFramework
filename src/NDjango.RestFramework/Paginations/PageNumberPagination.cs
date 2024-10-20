@@ -28,7 +28,7 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         _pageNumberQueryParam = pageNumberQueryParam;
     }
 
-    public override async Task<Paginated<TDestination>?> ListAsync(IQueryable<TDestination> source, HttpRequest request)
+    public override async Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source, HttpRequest request)
     {
         var queryParams = request.Query.ToList();
         _url = _url ?? request.GetDisplayUrl();

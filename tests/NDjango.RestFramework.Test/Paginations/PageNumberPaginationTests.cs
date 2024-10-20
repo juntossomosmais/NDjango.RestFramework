@@ -60,7 +60,7 @@ public class PageNumberPaginationTests
         var queryParams = Http.RetrieveQueryCollectionFromQueryString(String.Empty);
         mockHttpRequest.Setup(req => req.Query).Returns(queryParams);
         // Act
-        var paginated = await _pagination.ListAsync(query, mockHttpRequest.Object);
+        var paginated = await _pagination.PaginateAsync(query, mockHttpRequest.Object);
         // Assert
         paginated.Count.Should().Be(50);
         paginated.Results.Should().HaveCount(_defaultPageSize);

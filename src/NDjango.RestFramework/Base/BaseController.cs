@@ -59,6 +59,8 @@ namespace NDjango.RestFramework.Base
 
         #endregion
 
+        #region Actions
+
         /// <summary>
         /// Retrieves a single entity by its primary key.
         /// </summary>
@@ -104,7 +106,7 @@ namespace NDjango.RestFramework.Base
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
                 query = SortQuery(AllowedFields, query);
-                var paginated = await _pagination.ListAsync(query, HttpContext.Request);
+                var paginated = await _pagination.PaginateAsync(query, HttpContext.Request);
                 if (paginated == null)
                     return NotFound();
 
@@ -318,7 +320,9 @@ namespace NDjango.RestFramework.Base
             }
         }
 
-        #region Methods
+        #endregion
+
+        #region Utils
 
         [NonAction]
         private static bool TryGetFieldsFromModel(out string[] fields)

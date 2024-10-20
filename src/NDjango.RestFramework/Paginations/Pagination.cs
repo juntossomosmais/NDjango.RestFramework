@@ -13,7 +13,7 @@ public record PaginatedResponse<TDestination>(int? Count, string? Next, string? 
 
 public interface IPagination<TDestination>
 {
-    public Task<Paginated<TDestination>?> ListAsync(IQueryable<TDestination> source, HttpRequest queryParams);
+    public Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source, HttpRequest queryParams);
 }
 
 public abstract class Pagination<TDestination> : IPagination<TDestination>
@@ -46,6 +46,6 @@ public abstract class Pagination<TDestination> : IPagination<TDestination>
         return _defaultLimit;
     }
 
-    public abstract Task<Paginated<TDestination>?> ListAsync(IQueryable<TDestination> source,
+    public abstract Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source,
         HttpRequest queryParams);
 }
