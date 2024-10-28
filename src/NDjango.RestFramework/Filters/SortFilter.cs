@@ -75,7 +75,7 @@ namespace NDjango.RestFramework.Filters
         private static IQueryable<TEntity> Order(IQueryable<TEntity> query, string orderByProperty, string operation)
         {
             /*
-             * Modified the following solution to be case insensitive:
+             * Modified the following solution to be case-insensitive:
              * https://stackoverflow.com/questions/7265186/how-do-i-specify-the-linq-orderby-argument-dynamically
              */
 
@@ -83,11 +83,31 @@ namespace NDjango.RestFramework.Filters
             var objProperty = type.GetProperties().First(p => p.Name.Equals(orderByProperty, StringComparison.OrdinalIgnoreCase));
             var parameter = Expression.Parameter(type, "param");
             var propertyAccess = Expression.MakeMemberAccess(parameter, objProperty);
-            var orderByExpression = Expression.Lambda(propertyAccess, parameter);
-            var resultExpression = Expression.Call(typeof(Queryable), operation, new Type[] { type, objProperty.PropertyType },
-                                          query.Expression, Expression.Quote(orderByExpression));
-            return query.Provider.CreateQuery<TEntity>(resultExpression);
-        }
 
+            if (objProperty.PropertyType == typeof(DateTime))
+            {
+                var dateProperty = Expression.Property(propertyAccess, "Date");
+                var timeOfDayProperty = Expression.Property(propertyAccess, "TimeOfDay");
+
+                var dateOrderByExpression = Expression.Lambda(dateProperty, parameter);
+                var timeOfDayOrderByExpression = Expression.Lambda(timeOfDayProperty, parameter);
+
+                var dateResultExpression = Expression.Call(typeof(Queryable), operation, new Type[] { type, typeof(DateTime) },
+                    query.Expression, Expression.Quote(dateOrderByExpression));
+                var dateQuery = query.Provider.CreateQuery<TEntity>(dateResultExpression);
+
+                var timeOfDayResultExpression = Expression.Call(typeof(Queryable), operation == "OrderBy" ? "ThenBy" : "ThenByDescending",
+                    new Type[] { type, typeof(TimeSpan) },
+                    dateQuery.Expression, Expression.Quote(timeOfDayOrderByExpression));
+                return dateQuery.Provider.CreateQuery<TEntity>(timeOfDayResultExpression);
+            }
+            else
+            {
+                var orderByExpression = Expression.Lambda(propertyAccess, parameter);
+                var resultExpression = Expression.Call(typeof(Queryable), operation, new Type[] { type, objProperty.PropertyType },
+                    query.Expression, Expression.Quote(orderByExpression));
+                return query.Provider.CreateQuery<TEntity>(resultExpression);
+            }
+        }
     }
 }

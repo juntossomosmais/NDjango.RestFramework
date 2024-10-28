@@ -1,9 +1,9 @@
 using System;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NDjango.RestFramework.Base;
 using NDjango.RestFramework.Filters;
 using NDjango.RestFramework.Serializer;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace NDjango.RestFramework.Test.Support;
 
@@ -47,11 +47,12 @@ public class IntAsIdEntitiesController : BaseController<IntAsIdEntityDto, IntAsI
             new ActionOptions() { AllowPatch = false, AllowPut = false },
             logger)
     {
-        AllowedFields = new[]
-        {
+        AllowedFields =
+        [
             nameof(IntAsIdEntity.Id),
             nameof(IntAsIdEntity.Name),
-        };
+            nameof(IntAsIdEntity.CreatedAt)
+        ];
 
         Filters.Add(new QueryStringFilter<IntAsIdEntity>(AllowedFields));
         Filters.Add(new QueryStringSearchFilter<IntAsIdEntity>(AllowedFields));

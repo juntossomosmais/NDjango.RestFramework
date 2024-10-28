@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web;
+using Bogus;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Base;
@@ -163,6 +164,8 @@ public class BaseControllerTests
 
     public class ListPaged : IntegrationTests
     {
+        const int DefaultPageSize = 5;
+
         [Fact]
         public async Task ListPaged_ShouldReturn200OK()
         {
@@ -395,6 +398,93 @@ public class BaseControllerTests
             second.CNPJ.Should().Be("124");
             third.Name.Should().Be("def");
             third.CNPJ.Should().Be("456");
+        }
+
+        [Theory(DisplayName = "When sorting by ID")]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Sort1(bool isDesc)
+        {
+            // Arrange
+            const int numberOfEntities = 50;
+            var entities = Enumerable
+                .Range(0, numberOfEntities)
+                .Select(_ => new Faker<IntAsIdEntity>()
+                    .RuleFor(m => m.Name, m => m.Company.CompanyName())
+                    .Generate())
+                .ToList();
+            var dbSet = Context.Set<IntAsIdEntity>();
+            await dbSet.AddRangeAsync(entities);
+            await Context.SaveChangesAsync();
+            var sortRequestString = "Sort";
+            if (isDesc) sortRequestString += "Desc";
+            sortRequestString += "=Id";
+            var requestString = $"api/IntAsIdEntities?{sortRequestString}";
+            // Act
+            var response = await Client.GetAsync(requestString);
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
+            paginatedResponse.Count.Should().Be(numberOfEntities);
+            var sortedEntities = paginatedResponse.Results;
+            sortedEntities.Count.Should().Be(DefaultPageSize);
+            if (isDesc)
+            {
+                var expectedIds = entities.Select(m => m.Id).OrderByDescending(m => m).Take(DefaultPageSize).ToList();
+                var actualIds = sortedEntities.Select(m => m.Id).ToList();
+                actualIds.Should().BeEquivalentTo(expectedIds);
+            }
+            else
+            {
+                var expectedIds = entities.Select(m => m.Id).OrderBy(m => m).Take(DefaultPageSize).ToList();
+                var actualIds = sortedEntities.Select(m => m.Id).ToList();
+                actualIds.Should().BeEquivalentTo(expectedIds);
+            }
+        }
+
+        [Theory(DisplayName = "When sorting by CreatedAt")]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Sort2(bool isDesc)
+        {
+            // Arrange
+            const int numberOfEntities = 50;
+            var entities = Enumerable
+                .Range(0, numberOfEntities)
+                .Select(index => new Faker<IntAsIdEntity>()
+                    .RuleFor(m => m.Name, m => m.Company.CompanyName())
+                    .RuleFor(m => m.CreatedAt, m => m.Date.Past(index + 1, DateTime.Now))
+                    .Generate())
+                .ToList();
+            var dbSet = Context.Set<IntAsIdEntity>();
+            await dbSet.AddRangeAsync(entities);
+            await Context.SaveChangesAsync();
+            var sortRequestString = "Sort";
+            if (isDesc) sortRequestString += "Desc";
+            sortRequestString += "=CreatedAt";
+            var requestString = $"api/IntAsIdEntities?{sortRequestString}";
+            // Act
+            var response = await Client.GetAsync(requestString);
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
+            paginatedResponse.Count.Should().Be(numberOfEntities);
+            var sortedEntities = paginatedResponse.Results;
+            sortedEntities.Count.Should().Be(DefaultPageSize);
+            if (isDesc)
+            {
+                var expectedValues = entities.Select(m => m.CreatedAt).OrderByDescending(m => m.Date).ThenBy(m => m.TimeOfDay).Take(DefaultPageSize).ToList();
+                var actualValues = sortedEntities.Select(m => m.CreatedAt).ToList();
+                actualValues.Should().BeEquivalentTo(expectedValues);
+            }
+            else
+            {
+                var expectedValues = entities.Select(m => m.CreatedAt).OrderBy(m => m.Date).ThenBy(m => m.TimeOfDay).Take(DefaultPageSize).ToList();
+                var actualValues = sortedEntities.Select(m => m.CreatedAt).ToList();
+                actualValues.Should().BeEquivalentTo(expectedValues);
+            }
         }
 
         [Fact]

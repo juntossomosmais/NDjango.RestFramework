@@ -14,7 +14,16 @@ public class Customer : BaseModel<Guid>
 
     public override string[] GetFields()
     {
-        return new[] { "Name", "CNPJ", "Age", "Id", "CustomerDocument", "CustomerDocument:DocumentType", "CustomerDocument:Document" };
+        return
+        [
+            "Name",
+            "CNPJ",
+            "Age",
+            "Id",
+            "CustomerDocument",
+            "CustomerDocument:DocumentType",
+            "CustomerDocument:Document"
+        ];
     }
 }
 
@@ -24,18 +33,31 @@ public class CustomerDocument : BaseModel<Guid>
     public string DocumentType { get; set; }
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; }
+
     public override string[] GetFields()
     {
-        return new[] { "Id", "Document", "DocumentType", "CustomerId", "Customer", "Customer:CNPJ", "Customer:Age" };
+        return
+        [
+            "Id",
+            "Document",
+            "DocumentType",
+            "CustomerId",
+            "Customer",
+            "Customer:CNPJ",
+            "Customer:Age"
+        ];
     }
 }
 
 public class IntAsIdEntity : BaseModel<int>
 {
     public string Name { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     public override string[] GetFields()
-        => new[] { nameof(Id), nameof(Name) };
+    {
+        return [nameof(Id), nameof(Name), nameof(CreatedAt)];
+    }
 }
 
 public class Seller : BaseModel<Guid>
