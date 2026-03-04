@@ -12,11 +12,11 @@ RUN dotnet tool install --global dotnet-ef
 RUN dotnet tool install --global dotnet-format
 
 # Restores (downloads) all NuGet packages from all projects of the solution on a separate layer
-COPY src/AspNetCore.RestFramework.Core/*.csproj ./src/AspNetCore.RestFramework.Core/
-COPY tests/AspNetCore.RestFramework.Core.Test/*.csproj ./tests/AspNetCore.RestFramework.Core.Test/
+COPY src/NDjango.RestFramework/*.csproj ./src/NDjango.RestFramework/
+COPY tests/NDjango.RestFramework.Test/*.csproj ./tests/NDjango.RestFramework.Test/
 
-RUN dotnet restore --locked-mode src/AspNetCore.RestFramework.Core
-RUN dotnet restore --locked-mode tests/AspNetCore.RestFramework.Core.Test
+RUN dotnet restore --locked-mode src/NDjango.RestFramework
+RUN dotnet restore --locked-mode tests/NDjango.RestFramework.Test
 
 COPY . ./
 
