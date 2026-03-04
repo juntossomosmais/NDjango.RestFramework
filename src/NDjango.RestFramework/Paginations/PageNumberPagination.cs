@@ -36,7 +36,7 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         var limitQueryParam = queryParams.FirstOrDefault(pair => pair.Key == _pageSizeQueryParam);
         var pageNumberQueryParam = queryParams.FirstOrDefault(pair => pair.Key == _pageNumberQueryParam);
         var allOthersParams = queryParams
-            .Where(pair => pair.Key != _pageSizeQueryParam || pair.Key != _pageNumberQueryParam).ToList();
+            .Where(pair => pair.Key != _pageSizeQueryParam && pair.Key != _pageNumberQueryParam).ToList();
         // Basic data
         var numberOfRowsToTake = RetrieveConfiguredLimit(limitQueryParam.Value);
         var desiredPageNumber = RetrieveConfiguredPageNumber(pageNumberQueryParam.Value);
@@ -74,10 +74,9 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         if (!hasPrevious) return null;
         var previousPageNumber = pageNumber - 1;
 
-        // Now we have everything we need to build the next link
+        // Build from scratch to avoid duplicates from URL query string
         var uriBuilder = new UriBuilder(_url);
-        var query = HttpUtility.ParseQueryString(uriBuilder.Query);
-        // In case the user has added some filters, let's add them all, even the invalid ones
+        var query = HttpUtility.ParseQueryString(string.Empty);
         foreach (var paramForFiltering in paramsForFiltering)
         {
             var key = paramForFiltering.Key;
@@ -99,10 +98,9 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         if (!hasNext) return null;
         var nextPageNumber = pageNumber + 1;
 
-        // Now we have everything we need to build the next link
+        // Build from scratch to avoid duplicates from URL query string
         var uriBuilder = new UriBuilder(_url);
-        var query = HttpUtility.ParseQueryString(uriBuilder.Query);
-        // When you add some filters, we must repass the valid ones
+        var query = HttpUtility.ParseQueryString(string.Empty);
         foreach (var paramForFiltering in paramsForFiltering)
         {
             var key = paramForFiltering.Key;

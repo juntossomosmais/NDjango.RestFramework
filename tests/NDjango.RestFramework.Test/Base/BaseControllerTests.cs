@@ -970,7 +970,10 @@ public class BaseControllerTests
             customers.First().Name.Should().Be("ghi");
             paginatedResponse.Count.Should().Be(3);
             paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().Be("http://localhost/api/Customers?page_size=1&page=2");
+            var prevUri = new Uri(paginatedResponse.Previous);
+            var prevQuery = HttpUtility.ParseQueryString(prevUri.Query);
+            prevQuery["page"].Should().Be("2");
+            prevQuery["page_size"].Should().Be("1");
         }
 
         [Theory]
@@ -1362,6 +1365,37 @@ public class BaseControllerTests
             Assert.Single(prevPageValues);
             Assert.NotNull(prevPageSizeValues);
             Assert.Single(prevPageSizeValues);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithFilterAndPagination_ShouldNotDuplicateFilterParamsInLinks()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 15; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "sameCnpj", Name = $"name{i}", Age = 20 });
+            await Context.SaveChangesAsync();
+
+            // Act — combine a filter (Age=20) with pagination
+            var response = await Client.GetAsync("api/Customers?Age=20&page=2&page_size=5");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            // The next link should contain Age=20 exactly once, not duplicated.
+            // Bug: PageNumberPagination.cs:39 uses || instead of && in the Where clause,
+            // so allOthersParams includes page/page_size (and all other params).
+            // Since the URL already contains Age=20, and allOthersParams also has it,
+            // query.Add duplicates it. page/page_size duplicates are masked by the
+            // subsequent Set call, but filter params like Age are not.
+            Assert.NotNull(paginatedResponse.Next);
+            var nextUri = new Uri(paginatedResponse.Next);
+            var nextQuery = HttpUtility.ParseQueryString(nextUri.Query);
+            var ageValues = nextQuery.GetValues("Age");
+            Assert.NotNull(ageValues);
+            Assert.Single(ageValues);
         }
 
         #endregion
