@@ -1,190 +1,288 @@
 # NDjango.RestFramework
 
-NDjango Rest Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines." 🤺
+NDjango Rest Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines."
 
 This is a copy of the convention established by [Django REST framework](https://github.com/encode/django-rest-framework), though translated to C# and adapted to the .NET Core framework.
 
-## Quickstart with an example
+## Quickstart
 
-Let's create a CRUD API for a `Customer` entity with a `CustomerDocument` child entity.
+We'll build a CRUD API for `Person` and `TodoItem` entities step by step.
 
-### Entity
+### 1. Define your entities
 
-Some characteristics of the entities:
-
-- We should inherit from `BaseModel<TPrimaryKey>`.
-  - The `TPrimaryKey` is the type of the primary key. In this case, we are using `Guid`.
-- The `GetFields` method is mandatory. It informs which fields of the entity will be serialized in the API response.
-  - For fields of child or parent entities, we can use `:` to indicate them to be serialized as well. In this case, it is necessary to perform the `Include` with a filter.
+Entities inherit from `BaseModel<TPrimaryKey>` and implement `GetFields()` to control which fields appear in API responses.
 
 ```csharp
-public class Customer : BaseModel<Guid>
-{
-    public string Name { get; set; }
-    public string CNPJ { get; set; }
-    public int Age { get; set; }
+using NDjango.RestFramework.Base;
 
-    public ICollection<CustomerDocument> CustomerDocument { get; set; }
+public abstract class StandardEntity : BaseModel<int>
+{
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class Person : StandardEntity
+{
+    public IList<TodoItem>? TodoItems { get; set; }
+    public string Name { get; set; }
 
     public override string[] GetFields()
     {
-        return new[] { "Id", "Name", "CNPJ", "Age", "CustomerDocument", "CustomerDocument:DocumentType", "CustomerDocument:Document" };
+        return ["Id", "Name", "CreatedAt", "UpdatedAt"];
+    }
+}
+
+public class TodoItem : StandardEntity
+{
+    public string? Name { get; set; }
+    public bool IsComplete { get; set; }
+    public Person Person { get; set; }
+    public int UserId { get; set; }
+
+    public override string[] GetFields()
+    {
+        return
+        [
+            "Id", "Name", "IsComplete", "CreatedAt", "UpdatedAt",
+            "UserId",
+            "Person",        // Include the navigation property
+            "Person:Name",   // Include specific fields from Person using ":"
+        ];
     }
 }
 ```
 
-### Entity Framework
+The `:` syntax in `GetFields()` controls nested serialization. `"Person"` alone would include the entire `Person` object; `"Person:Name"` restricts it to only the `Name` field.
 
-Add the collection to the application's `DbContext`:
+### 2. Define your DTOs
 
-```csharp
-public class ApplicationDbContext : DbContext
-{
-    public DbSet<Customer> Customer { get; set; }
-}
-```
-
-### DTO
-
-The DTO is required to inherit from `BaseDto<TPrimaryKey>`, like the entity.
+DTOs inherit from `BaseDto<TPrimaryKey>`. They represent the shape of data accepted in request bodies (POST, PUT, PATCH).
 
 ```csharp
-public class CustomerDto : BaseDto<Guid>
-{
-    public CustomerDto() { }
+using NDjango.RestFramework.Base;
 
+public class PersonDto : BaseDto<int>
+{
     public string Name { get; set; }
-    public string CNPJ { get; set; }
-
-    public ICollection<CustomerDocumentDto> CustomerDocuments { get; set; }
 }
-```
 
-### Validation
-
-A validation is not mandatory, but it is recommended to ensure that the data is correct. The validation is done using the `FluentValidation` library.
-
-```csharp
-public class CustomerDtoValidator : AbstractValidator<CustomerDto>
+public class TodoItemDto : BaseDto<int>
 {
-    public CustomerDtoValidator(IHttpContextAccessor context)
-    {
-        RuleFor(m => m.Name)
-            .MinimumLength(3)
-            .WithMessage("Name should have at least 3 characters");
-
-        if (context.HttpContext.Request.Method == HttpMethods.Post)
-            RuleFor(m => m.CNPJ)
-                .NotEqual("567")
-                .WithMessage("CNPJ cannot be 567");
-    }
+    public string Name { get; set; }
+    public bool IsComplete { get; set; }
+    public int UserId { get; set; }
 }
 ```
 
-### Include child/parent entities
-
-Previously, we included the `CustomerDocument` entity in the `Customer` entity. Check out the `GetFields` method in the `Customer` entity.
+### 3. Set up the DbContext
 
 ```csharp
-public class CustomerDocumentIncludeFilter : Filter<Customer>
+public class AppDbContext : DbContext
 {
-    public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
-    {
-        return query.Include(x => x.CustomerDocument);
-    }
+    public DbSet<Person> Person { get; set; }
+    public DbSet<TodoItem> TodoItem { get; set; }
+
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 }
 ```
 
-### Controller
+### 4. Create the controllers
 
-The CRUD API is created by inheriting from the `BaseController` and passing the necessary parameters. Note how `AllowedFields` and `Filters` are set.
+Inherit from `BaseController<TOrigin, TDestination, TPrimaryKey, TContext>` where:
+
+| Parameter      | Meaning                  |
+|----------------|--------------------------|
+| `TOrigin`      | The DTO type             |
+| `TDestination` | The entity type          |
+| `TPrimaryKey`  | The primary key type     |
+| `TContext`      | The DbContext type       |
+
+Set `AllowedFields` to control which fields can be filtered, searched, and sorted. Add filters in the constructor:
 
 ```csharp
-[Route("api/[controller]")]
+using Microsoft.AspNetCore.Mvc;
+using NDjango.RestFramework.Base;
+using NDjango.RestFramework.Filters;
+using NDjango.RestFramework.Serializer;
+
 [ApiController]
-public class CustomersController : BaseController<CustomerDto, Customer, Guid, ApplicationDbContext>
+[Route("api/v1/[controller]")]
+public class PersonsController : BaseController<PersonDto, Person, int, AppDbContext>
 {
-    public CustomersController(
-        CustomerSerializer serializer,
-        ApplicationDbContext dbContext,
-        ILogger<Customer> logger)
-        : base(
-                serializer,
-                dbContext,
-                logger)
+    public PersonsController(
+        Serializer<PersonDto, Person, int, AppDbContext> serializer,
+        AppDbContext context,
+        ILogger<Person> logger
+    ) : base(serializer, context, logger)
     {
-        AllowedFields = new[] {
-            nameof(Customer.Id),
-            nameof(Customer.Name),
-            nameof(Customer.CNPJ),
-            nameof(Customer.Age),
-        };
+        AllowedFields =
+        [
+            nameof(Person.Id),
+            nameof(Person.Name),
+            nameof(Person.CreatedAt),
+            nameof(Person.UpdatedAt),
+        ];
 
-        Filters.Add(new QueryStringFilter<Customer>(AllowedFields));
-        Filters.Add(new QueryStringSearchFilter<Customer>(AllowedFields));
-        Filters.Add(new QueryStringIdRangeFilter<Customer, Guid>());
-        Filters.Add(new CustomerDocumentIncludeFilter());
+        Filters.Add(new QueryStringFilter<Person>(AllowedFields));
+        Filters.Add(new QueryStringSearchFilter<Person>(AllowedFields));
+        Filters.Add(new QueryStringIdRangeFilter<Person, int>());
     }
 }
 ```
+
+This single controller gives you all these endpoints:
+
+| Method   | Route                   | Description                    |
+|----------|-------------------------|--------------------------------|
+| `GET`    | `/api/v1/Persons`       | List with pagination & sorting |
+| `GET`    | `/api/v1/Persons/{id}`  | Get single                     |
+| `POST`   | `/api/v1/Persons`       | Create                         |
+| `PUT`    | `/api/v1/Persons/{id}`  | Full update                    |
+| `PUT`    | `/api/v1/Persons?ids=`  | Bulk full update               |
+| `PATCH`  | `/api/v1/Persons/{id}`  | Partial update                 |
+| `DELETE` | `/api/v1/Persons/{id}`  | Delete                         |
+| `DELETE` | `/api/v1/Persons?ids=`  | Bulk delete                    |
+
+### 5. Include navigation properties with a custom filter
+
+To eagerly load related entities (like `Person` inside `TodoItem`), create a filter:
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using NDjango.RestFramework.Filters;
+
+public class TodoItemIncludePersonFilter : Filter<TodoItem>
+{
+    public override IQueryable<TodoItem> AddFilter(IQueryable<TodoItem> query, HttpRequest request)
+    {
+        return query.Include(x => x.Person);
+    }
+}
+```
+
+Then add it to the controller alongside other filters:
+
+```csharp
+[ApiController]
+[Route("api/v1/[controller]")]
+public class TodoItemsController : BaseController<TodoItemDto, TodoItem, int, AppDbContext>
+{
+    public TodoItemsController(
+        Serializer<TodoItemDto, TodoItem, int, AppDbContext> serializer,
+        AppDbContext context,
+        ILogger<TodoItem> logger
+    ) : base(serializer, context, logger)
+    {
+        AllowedFields =
+        [
+            nameof(TodoItem.UserId),
+            nameof(TodoItem.Name),
+            nameof(TodoItem.IsComplete),
+            nameof(TodoItem.CreatedAt),
+            nameof(TodoItem.UpdatedAt)
+        ];
+
+        Filters.Add(new QueryStringFilter<TodoItem>(AllowedFields));
+        Filters.Add(new QueryStringIdRangeFilter<TodoItem, int>());
+        Filters.Add(new TodoItemIncludePersonFilter());
+    }
+}
+```
+
+### 6. Configure Program.cs
+
+Register Newtonsoft.Json (required), the validation response format, and each serializer:
+
+```csharp
+using NDjango.RestFramework.Extensions;
+using NDjango.RestFramework.Serializer;
+using Newtonsoft.Json;
+
+// Database
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(configuration.GetConnectionString("AppDbContext")));
+
+// Controllers + Newtonsoft.Json + validation format
+builder.Services.AddControllers()
+    .AddNewtonsoftJson(config =>
+    {
+        config.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        config.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+    })
+    .ConfigureValidationResponseFormat();
+
+// Register one serializer per controller
+builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>>();
+builder.Services.AddScoped<Serializer<TodoItemDto, TodoItem, int, AppDbContext>>();
+```
+
+`AddNewtonsoftJson` is required because the library uses Newtonsoft.Json internally for serialization and field filtering. `ConfigureValidationResponseFormat()` ensures validation errors return a structured `ValidationErrors` response.
 
 ## API Guide
 
-### Sorting
-
-In the `ListPaged` method, we use the query parameters `sort` or `sortDesc` to sort by a field. If not specified, we will always use the entity's `Id` field for ascending sorting.
-
 ### Filters
 
-Filters are mechanisms applied whenever we try to retrieve entity data in the `GetSingle` and `ListPaged` methods.
+Filters are applied to `GET /{id}` and `GET /` (list) requests. They are composed sequentially — each filter receives the `IQueryable` from the previous one.
 
 #### QueryStringFilter
 
-The `QueryStringFilter`, perhaps the most relevant, is a filter that matches the fields passed in the query parameters with the fields of the entity whose filter is allowed. All filters are created using the equals (`==`) operator.
+Matches query parameters to entity fields using exact equality. Only fields listed in `AllowedFields` are accepted.
 
-#### QueryStringIdRangeFilter
-
-The `QueryStringIdRangeFilter` goal is to filter the entities by `Id` based on all the `ids` provided in the query parameters.
+```
+GET /api/v1/Persons?Name=Iago
+GET /api/v1/TodoItems?IsComplete=true&UserId=1
+```
 
 #### QueryStringSearchFilter
 
-The `QueryStringSearchFilter` is a filter that allows a `search` parameter to be provided in the query parameters to search, through a single input, in several fields of the entity, even performing `LIKE` on strings.
+Searches across all `AllowedFields` with a single `search` parameter. Uses `LIKE` for string fields, exact match for other types. Results are combined with OR.
 
-#### Implementing a filter
+```
+GET /api/v1/Persons?search=Iago
+```
 
-Given an `IQueryable<T>` and an `HttpRequest`, you can implement the filter as you prefer. Just inherit from the base class and add it to your controller:
+#### QueryStringIdRangeFilter
+
+Filters by multiple IDs using the `ids` parameter:
+
+```
+GET /api/v1/Persons?ids=1,2,3
+GET /api/v1/Persons?ids=1&ids=2&ids=3
+```
+
+#### Custom filters
+
+`Filter<TEntity>` receives an `IQueryable` and an `HttpRequest`, so you can use it for any query modification — not just filtering. Eager loading (`.Include()`), conditional joins, or any EF Core operation:
 
 ```csharp
-public class MyFilter : AspNetCore.RestFramework.Core.Filters.Filter<Seller>
+public class ActiveOnlyFilter : Filter<Person>
 {
-    private readonly string _forbiddenName;
-
-    public MyFilter(string forbiddenName)
+    public override IQueryable<Person> AddFilter(IQueryable<Person> query, HttpRequest request)
     {
-        _forbiddenName = forbiddenName;
-    }
-
-    public IQueryable<TEntity> AddFilter(IQueryable<TEntity> query, HttpRequest request)
-    {
-        return query.Where(m => m.Name != forbiddenName);
+        return query.Where(p => p.IsActive);
     }
 }
 ```
 
-```csharp
-public class SellerController
-{
-    public SellerController(...)
-        : base(...)
-    {
-        Filters.Add(new MyFilter("Example"));
-    }
-}
+### Sorting
+
+Sorting is built-in and driven by `AllowedFields`. Use `sort` for ascending or `sortDesc` for descending. Multiple fields are comma-separated. Default: ascending by `Id`.
+
+```
+GET /api/v1/Persons?sort=Name
+GET /api/v1/Persons?sortDesc=CreatedAt
+GET /api/v1/Persons?sort=Name,CreatedAt
 ```
 
-### Paginations
+### Pagination
 
-By default, the `BaseController` uses the class `PageNumberPagination`. [It behaves the same as DRF's `PageNumberPagination`](https://www.django-rest-framework.org/api-guide/pagination/#pagenumberpagination). Sample response:
+The default pagination is `PageNumberPagination`, which behaves like [DRF's PageNumberPagination](https://www.django-rest-framework.org/api-guide/pagination/#pagenumberpagination). Use `page` and `page_size` query parameters:
+
+```
+GET /api/v1/Persons?page=2&page_size=5
+```
+
+Response:
 
 ```json
 {
@@ -196,66 +294,102 @@ By default, the `BaseController` uses the class `PageNumberPagination`. [It beha
       "name": "Sal Paradise",
       "createdAt": "2024-10-19T19:22:12.0524797",
       "id": 6
-    },
-    {
-      "name": "Odulor",
-      "createdAt": "2024-10-19T19:22:15.4483365",
-      "id": 7
-    },
-    {
-      "name": "Iago",
-      "createdAt": "2024-10-19T19:22:18.1077698",
-      "id": 8
-    },
-    {
-      "name": "Jafar",
-      "createdAt": "2024-10-19T19:22:21.5425118",
-      "id": 9
-    },
-    {
-      "name": "Wig",
-      "createdAt": "2024-10-19T19:22:23.9046811",
-      "id": 10
     }
   ]
 }
 ```
 
-### Errors
+Defaults: `page_size=5`, max `page_size=50`. You can customize by passing your own `IPagination<TDestination>` to the `BaseController` constructor.
 
-The `ValidationErrors` and `UnexpectedError` might be returned in the `BaseController` in case of validation errors or other exceptions.
+### Partial updates (PATCH)
 
-### Validation
+`PATCH` only updates the fields present in the request body. Absent fields are left unchanged. This is handled internally by `PartialJsonObject<T>`, which tracks which JSON fields were actually sent.
 
-Implement validators for the DTOs and configure your application with the extension `ModelStateValidationExtensions.ConfigureValidationResponseFormat` to ensure that in case of the `ModelState` being invalid, a `ValidationErrors` is returned. It might be necessary to add the `HttpContext` accessor to the services. Check the example below:
+```
+PATCH /api/v1/Persons/1
+Content-Type: application/json
+
+{"name": "New Name"}
+```
+
+Only `Name` is updated; `CreatedAt`, `UpdatedAt`, etc. remain untouched.
+
+### Disabling endpoints
+
+Use `ActionOptions` to disable PUT or PATCH:
 
 ```csharp
-services.AddControllers()
-    // ...
-    // At the end of AddControllers, add the following:
-    .AddModelValidationAsyncActionFilter(options =>
-    {
-        options.OnlyApiController = true;
-    })
-    // ModelStateValidationExtensions
-    .ConfigureValidationResponseFormat();
-// ...
-services.AddHttpContextAccessor();
+public PersonsController(...)
+    : base(serializer, context, new ActionOptions { AllowPatch = false }, logger)
+{ }
 ```
+
+Disabled endpoints return `405 Method Not Allowed`.
 
 ### Serializer
 
-`Serializer` is a mechanism used by the `BaseController`. Each controller has its own serializer. The serializer's methods can be overridden to add additional or different logic for specific entities. It works more or less similar to the [Django REST framework's serializers](https://www.django-rest-framework.org/api-guide/serializers/).
+The `Serializer` handles DTO-to-entity conversion and database operations. The default serializer works for most cases. Override it for custom logic:
 
-### Glossary
+```csharp
+public class PersonSerializer : Serializer<PersonDto, Person, int, AppDbContext>
+{
+    public PersonSerializer(AppDbContext context) : base(context) { }
 
-| Term           | Description                                                 |
-|----------------|-------------------------------------------------------------|
-| `TPrimaryKey`  | Type of the primary key of an entity, usually `Guid`.       |
-| `TEntity`      | Type of the entity we are talking about in a generic class. |
-| `TOrigin`      | In the `BaseController`, it is the same as `TEntity`.       |
-| `TDestination` | Type of the DTO.                                            |
-| `TContext`     | Type of the Entity Framework context.                       |
+    public override async Task<Person> PostAsync(PersonDto data)
+    {
+        // Custom logic before/after creation
+        var result = await base.PostAsync(data);
+        return result;
+    }
+}
+```
+
+Register the custom serializer instead of the base one:
+
+```csharp
+builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>, PersonSerializer>();
+```
+
+### Validation
+
+Use [FluentValidation](https://docs.fluentvalidation.net/) for DTO validation. The `IHttpContextAccessor` lets you apply rules conditionally based on the HTTP method:
+
+```csharp
+public class PersonDtoValidator : AbstractValidator<PersonDto>
+{
+    public PersonDtoValidator(IHttpContextAccessor context)
+    {
+        RuleFor(m => m.Name)
+            .MinimumLength(3)
+            .WithMessage("Name should have at least 3 characters");
+
+        if (context.HttpContext.Request.Method == HttpMethods.Post)
+            RuleFor(m => m.Name)
+                .NotEmpty()
+                .WithMessage("Name is required");
+    }
+}
+```
+
+Make sure to register `AddHttpContextAccessor()` in your `Program.cs` if you use `IHttpContextAccessor` in validators:
+
+```csharp
+builder.Services.AddHttpContextAccessor();
+```
+
+### Errors
+
+Two error types may be returned by `BaseController`:
+
+- **ValidationErrors** — When model state validation fails (requires `ConfigureValidationResponseFormat()`):
+  ```json
+  {"type": "VALIDATION_ERRORS", "error": {"Name": ["Name should have at least 3 characters"]}}
+  ```
+
+- **UnexpectedError** — When an unhandled exception occurs:
+  ```json
+  {"type": "UNEXPECTED_ERROR", "error": {"msg": "An unexpected error occurred."}}
+  ```
 
 ## Notice
 
