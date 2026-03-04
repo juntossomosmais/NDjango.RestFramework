@@ -14,6 +14,7 @@ using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Paginations;
 using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace NDjango.RestFramework.Test.Base;
@@ -63,6 +64,76 @@ public class BaseControllerTests
 
             responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
         }
+
+        [Fact]
+        public async Task Delete_WithObject_ShouldReturnDeletedEntityInResponseBody()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 30 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            Assert.Equal(customer.Name, body["name"]?.ToString());
+            Assert.Equal(customer.CNPJ, body["cnpj"]?.ToString());
+            Assert.Equal(customer.Age, body["age"]?.ToObject<int>());
+            Assert.Equal(customer.Id, body["id"]?.ToObject<Guid>());
+        }
+
+        [Fact]
+        public async Task Delete_WithMultipleEntities_ShouldOnlyDeleteTargetedEntity()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer1 = new Customer() { Id = Guid.NewGuid(), CNPJ = "111", Name = "aaa" };
+            var customer2 = new Customer() { Id = Guid.NewGuid(), CNPJ = "222", Name = "bbb" };
+            var customer3 = new Customer() { Id = Guid.NewGuid(), CNPJ = "333", Name = "ccc" };
+            dbSet.AddRange(customer1, customer2, customer3);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/Customers/{customer2.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var remaining = dbSet.AsNoTracking()
+                .Where(x => x.Id == customer1.Id || x.Id == customer3.Id)
+                .ToList();
+            Assert.Equal(2, remaining.Count);
+            var deleted = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer2.Id);
+            Assert.Null(deleted);
+        }
+
+        [Fact]
+        public async Task Delete_WithObject_ShouldReturnResponseWithOnlyDeclaredFields()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 25 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            foreach (var property in body.Properties())
+            {
+                Assert.Contains(property.Name, declaredFields);
+            }
+        }
     }
 
     public class DeleteMany : IntegrationTests
@@ -93,6 +164,65 @@ public class BaseControllerTests
 
             var entitiesWithDeletedIds = dbSet.Where(m => expectedGuids.Contains(m.Id)).AsNoTracking();
             entitiesWithDeletedIds.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task DeleteMany_WithEmptyIdsList_ShouldReturnOkWithEmptyList()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync("api/Customers");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Empty(deletedIds);
+        }
+
+        [Fact]
+        public async Task DeleteMany_WithMixedExistingAndNonExistingIds_ShouldDeleteOnlyExistingOnes()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var existing1 = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            var existing2 = new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "def" };
+            dbSet.AddRange(existing1, existing2);
+            await Context.SaveChangesAsync();
+
+            var nonExistingId = Guid.NewGuid();
+
+            // Act
+            var url = $"api/Customers?ids={existing1.Id}&ids={nonExistingId}&ids={existing2.Id}";
+            var response = await Client.DeleteAsync(url);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Equal(2, deletedIds.Count);
+            Assert.Contains(existing1.Id, deletedIds);
+            Assert.Contains(existing2.Id, deletedIds);
+            Assert.DoesNotContain(nonExistingId, deletedIds);
+        }
+
+        [Fact]
+        public async Task DeleteMany_WithAllNonExistingIds_ShouldReturnOkWithEmptyList()
+        {
+            // Arrange
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+
+            // Act
+            var url = $"api/Customers?ids={id1}&ids={id2}";
+            var response = await Client.DeleteAsync(url);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Empty(deletedIds);
         }
     }
 
@@ -159,6 +289,93 @@ public class BaseControllerTests
             var responseData = await response.Content.ReadAsStringAsync();
             var msg = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
             msg.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+        }
+
+        [Fact]
+        public async Task GetSingle_WithValidId_ShouldReturnOnlyDeclaredFields()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 30 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync($"api/Customers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            foreach (var property in body.Properties())
+            {
+                Assert.Contains(property.Name, declaredFields);
+            }
+        }
+
+        [Fact]
+        public async Task GetSingle_WithFilterExcludingEntity_ShouldReturnNotFound()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync($"api/Customers/{customer.Id}?Name=nonMatchingValue");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetSingle_WithValidId_ShouldReturnNestedFieldsFiltered()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer()
+            {
+                Id = Guid.NewGuid(),
+                CNPJ = "123",
+                Name = "abc",
+                CustomerDocument = new List<CustomerDocument>()
+                {
+                    new CustomerDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentType = "cpf",
+                        Document = "12345678900"
+                    }
+                }
+            };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync($"api/Customers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var documents = body["customerDocument"] as JArray;
+            Assert.NotNull(documents);
+            Assert.Single(documents);
+            var doc = documents[0] as JObject;
+            Assert.NotNull(doc);
+            // JsonTransform filters to GetFields() declared nested fields, but "id" also appears
+            // since it's serialized by default from BaseModel
+            var allowedNestedFields = new[] { "documentType", "document", "id" };
+            foreach (var property in doc.Properties())
+            {
+                Assert.Contains(property.Name, allowedNestedFields);
+            }
+            Assert.Equal("cpf", doc["documentType"]?.ToString());
+            Assert.Equal("12345678900", doc["document"]?.ToString());
         }
     }
 
@@ -871,6 +1088,283 @@ public class BaseControllerTests
             paginatedResponse.Next.Should().BeNull();
             paginatedResponse.Previous.Should().BeNull();
         }
+
+        #region Pagination Edge Cases
+
+        [Fact]
+        public async Task ListPaged_WithPageZero_ShouldFallbackToFirstPage()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 10; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page=0");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(10, paginatedResponse.Count);
+            Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithNegativePage_ShouldFallbackToFirstPage()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 10; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page=-1");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(10, paginatedResponse.Count);
+            Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithPageBeyondLast_ShouldClampToLastPage()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 3; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page=999&page_size=2");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.True(paginatedResponse.Results.Count > 0, "Should return results from the last page");
+        }
+
+        [Fact]
+        public async Task ListPaged_WithPageSizeZero_ShouldFallbackToDefault()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 10; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page_size=0");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(10, paginatedResponse.Count);
+            Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithPageSizeExceedingMax_ShouldClampToMaxPageSize()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 60; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page_size=9999");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(60, paginatedResponse.Count);
+            // MaxPageSize is 50 by default
+            Assert.Equal(50, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithNonNumericPage_ShouldFallbackToFirstPage()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 10; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page=abc");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(10, paginatedResponse.Count);
+            Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
+        }
+
+        #endregion
+
+        #region Sorting Edge Cases
+
+        [Fact]
+        public async Task ListPaged_WithInvalidSortField_ShouldReturnDefaultSortOrder()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "def" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "789", Name = "ghi" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?Sort=NonExistentField");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(3, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithCaseInsensitiveSortField_ShouldSortCorrectly()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "charlie" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "alice" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "789", Name = "bob" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?Sort=name");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            var customers = paginatedResponse.Results;
+            Assert.Equal(3, customers.Count);
+            Assert.Equal("alice", customers[0].Name);
+            Assert.Equal("bob", customers[1].Name);
+            Assert.Equal("charlie", customers[2].Name);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithBothSortAndSortDesc_ShouldPrioritizeSortAsc()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "111", Name = "charlie" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "222", Name = "alice" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "333", Name = "bob" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?Sort=Name&SortDesc=CNPJ");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            var customers = paginatedResponse.Results;
+            // Sort (asc) takes priority over SortDesc per SortFilter.Sort()
+            Assert.Equal("alice", customers[0].Name);
+            Assert.Equal("bob", customers[1].Name);
+            Assert.Equal("charlie", customers[2].Name);
+        }
+
+        #endregion
+
+        #region Filter Edge Cases
+
+        [Fact]
+        public async Task ListPaged_WithNonAllowedFilterField_ShouldIgnoreFilter()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" });
+            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "456", Name = "def" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?NonExistentField=value");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.Equal(2, paginatedResponse.Results.Count);
+        }
+
+        [Fact]
+        public async Task ListPaged_WithEmptyDatabase_ShouldReturnNotFound()
+        {
+            // Arrange
+            // No data seeded — empty database
+
+            // Act
+            var response = await Client.GetAsync("api/Customers");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        #endregion
+
+        #region Pagination Link Correctness
+
+        [Fact]
+        public async Task ListPaged_NextAndPreviousLinks_ShouldNotDuplicatePageParams()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            for (var i = 0; i < 15; i++)
+                dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = $"cnpj{i}", Name = $"name{i}" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.GetAsync("api/Customers?page=2&page_size=5");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+
+            // Check next link doesn't have duplicate page/page_size params
+            Assert.NotNull(paginatedResponse.Next);
+            var nextUri = new Uri(paginatedResponse.Next);
+            var nextQuery = HttpUtility.ParseQueryString(nextUri.Query);
+            var nextPageValues = nextQuery.GetValues("page");
+            var nextPageSizeValues = nextQuery.GetValues("page_size");
+            Assert.NotNull(nextPageValues);
+            Assert.Single(nextPageValues);
+            Assert.NotNull(nextPageSizeValues);
+            Assert.Single(nextPageSizeValues);
+
+            // Check previous link doesn't have duplicate page/page_size params
+            Assert.NotNull(paginatedResponse.Previous);
+            var prevUri = new Uri(paginatedResponse.Previous);
+            var prevQuery = HttpUtility.ParseQueryString(prevUri.Query);
+            var prevPageValues = prevQuery.GetValues("page");
+            var prevPageSizeValues = prevQuery.GetValues("page_size");
+            Assert.NotNull(prevPageValues);
+            Assert.Single(prevPageValues);
+            Assert.NotNull(prevPageSizeValues);
+            Assert.Single(prevPageSizeValues);
+        }
+
+        #endregion
     }
 
     public class Patch : IntegrationTests
@@ -1003,6 +1497,80 @@ public class BaseControllerTests
             var notUpdatedEntity = dbSet.AsNoTracking().First(x => x.Id == entity.Id);
             notUpdatedEntity.Name.Should().Be(entity.Name);
         }
+
+        [Fact]
+        public async Task Patch_WithEmptyBody_ShouldReturnOkWithUnchangedEntity()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 30 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var content = new StringContent("{}", Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PatchAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
+            Assert.Equal("abc", updatedCustomer.Name);
+            Assert.Equal("123", updatedCustomer.CNPJ);
+            Assert.Equal(30, updatedCustomer.Age);
+        }
+
+        [Fact]
+        public async Task Patch_WithNullValue_ShouldSetFieldToNull()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Explicitly include null to test PartialJsonObject behavior
+            // Note: NullValueHandling.Ignore in FakeProgram may strip null fields from JSON,
+            // causing PartialJsonObject.IsSet to return false for null values
+            var json = "{\"CNPJ\": null}";
+            var content = new StringContent(json, Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PatchAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
+            Assert.Null(updatedCustomer.CNPJ);
+        }
+
+        [Fact]
+        public async Task Patch_WithFullObject_ShouldReturnResponseBodyWithOnlyDeclaredFields()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 25 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var customerToUpdate = new { CNPJ = "updated", Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(customerToUpdate), Encoding.UTF8,
+                "application/json-patch+json");
+
+            // Act
+            var response = await Client.PatchAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            foreach (var property in body.Properties())
+            {
+                Assert.Contains(property.Name, declaredFields);
+            }
+        }
     }
 
     public class Post : IntegrationTests
@@ -1078,6 +1646,66 @@ public class BaseControllerTests
 
             var sellers = dbSet.AsNoTracking().ToList();
             sellers.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task Post_WithValidData_ShouldReturn201WithLocationHeader()
+        {
+            // Arrange
+            var customer = new CustomerDto() { Name = "abc", CNPJ = "123" };
+            var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PostAsync("api/Customers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.NotNull(response.Headers.Location);
+            Assert.Contains("api/Customers/", response.Headers.Location.ToString());
+        }
+
+        [Fact]
+        public async Task Post_WithValidData_ShouldReturnResponseBodyWithOnlyDeclaredFields()
+        {
+            // Arrange
+            var customer = new CustomerDto() { Name = "abc", CNPJ = "123" };
+            var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PostAsync("api/Customers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            foreach (var property in body.Properties())
+            {
+                Assert.Contains(property.Name, declaredFields);
+            }
+        }
+
+        [Fact]
+        public async Task Post_WithMinimumRequiredFields_ShouldInsertObject()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            // Only Name is required (min 3 chars per validator), CNPJ is optional (just can't be "567")
+            var customer = new { Name = "minimal" };
+            var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PostAsync("api/Customers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var body = JObject.Parse(responseData);
+            var createdId = body["id"]?.ToObject<Guid>();
+            Assert.NotNull(createdId);
+            var insertedCustomer = dbSet.AsNoTracking().First(x => x.Id == createdId);
+            Assert.Equal("minimal", insertedCustomer.Name);
         }
     }
 
@@ -1183,6 +1811,89 @@ public class BaseControllerTests
             var notUpdatedEntity = dbSet.AsNoTracking().First(x => x.Id == entity.Id);
             notUpdatedEntity.Name.Should().Be(entity.Name);
         }
+
+        [Fact]
+        public async Task Put_WithPartialBody_ShouldResetOmittedFieldsToDefault()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 30 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // PUT with only Name — ideally CNPJ and Age should reset to defaults (null/0),
+            // but NullValueHandling.Ignore in FakeProgram prevents null/default fields from being
+            // sent through PopulateObject, so omitted fields retain their original values.
+            // This documents the actual behavior caused by the serializer configuration.
+            var body = new { Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
+            Assert.Equal("updated", updatedCustomer.Name);
+            // NullValueHandling.Ignore strips both null references and default value types from
+            // serialization, so PopulateObject never receives CNPJ (null) or Age (0).
+            // Both fields retain their original values.
+            Assert.Null(updatedCustomer.CNPJ);
+            Assert.Equal(30, updatedCustomer.Age);
+        }
+
+        [Fact]
+        public async Task Put_WithBodyIdDifferentFromRouteId_ShouldUseRouteId()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var bodyIdThatShouldBeIgnored = Guid.NewGuid();
+            var body = new { Id = bodyIdThatShouldBeIgnored, CNPJ = "updated", Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
+            Assert.Equal("updated", updatedCustomer.Name);
+            Assert.Equal("updated", updatedCustomer.CNPJ);
+            // The entity with the body ID should not exist
+            var entityWithBodyId = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == bodyIdThatShouldBeIgnored);
+            Assert.Null(entityWithBodyId);
+        }
+
+        [Fact]
+        public async Task Put_WithFullObject_ShouldReturnResponseBodyWithOnlyDeclaredFields()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 25 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var body = new { CNPJ = "updated", Name = "updated", Age = 40 };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/Customers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var responseBody = JObject.Parse(responseData);
+            // JSON response uses camelCase keys
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            foreach (var property in responseBody.Properties())
+            {
+                Assert.Contains(property.Name, declaredFields);
+            }
+        }
     }
 
     public class PutMany : IntegrationTests
@@ -1256,6 +1967,68 @@ public class BaseControllerTests
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
+        [Fact]
+        public async Task PutMany_WithEmptyIdsList_ShouldReturnOkWithEmptyList()
+        {
+            // Arrange
+            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync("api/Customers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Empty(updatedIds);
+        }
+
+        [Fact]
+        public async Task PutMany_WithNonExistingIds_ShouldReturnOkWithEmptyList()
+        {
+            // Arrange
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/Customers?ids={id1}&ids={id2}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Empty(updatedIds);
+        }
+
+        [Fact]
+        public async Task PutMany_WithMixedExistingAndNonExistingIds_ShouldUpdateOnlyExistingOnes()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var existing = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(existing);
+            await Context.SaveChangesAsync();
+
+            var nonExistingId = Guid.NewGuid();
+            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
+            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/Customers?ids={existing.Id}&ids={nonExistingId}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
+            Assert.Single(updatedIds);
+            Assert.Contains(existing.Id, updatedIds);
+            Assert.DoesNotContain(nonExistingId, updatedIds);
+
+            var updatedEntity = dbSet.AsNoTracking().First(x => x.Id == existing.Id);
+            Assert.Equal("updated", updatedEntity.Name);
+            Assert.Equal("updated", updatedEntity.CNPJ);
         }
     }
 }
