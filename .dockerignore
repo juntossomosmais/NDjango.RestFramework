@@ -3,5 +3,7 @@
 !tests
 **/bin
 **/obj
-!AspNetCore.RestFramework.sln
+!NDjango.RestFramework.sln
 !scripts/*.sh
+!runsettings.xml
+!dotnet-tools.json

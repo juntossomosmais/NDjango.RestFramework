@@ -1,13 +1,9 @@
-version: "3.6"
 services:
   db:
-    image: "mcr.microsoft.com/mssql/server:2022-latest"
-    ports:
-      - "1433:1433"
+    image: "mcr.microsoft.com/mssql/server:2022-CU21-ubuntu-22.04"
     environment:
       SA_PASSWORD: "Password1"
       ACCEPT_EULA: "Y"
-      # Developer / Express / Standard / Enterprise  / EnterpriseCore
       MSSQL_PID: Developer
       MSSQL_TCP_PORT: 1433
     healthcheck:
