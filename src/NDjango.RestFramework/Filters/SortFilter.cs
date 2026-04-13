@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Http;
 
 namespace NDjango.RestFramework.Filters
 {

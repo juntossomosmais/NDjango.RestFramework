@@ -1,11 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Base;
 using NDjango.RestFramework.Helpers;
+using Newtonsoft.Json;
 
 namespace NDjango.RestFramework.Serializer
 {
@@ -34,7 +34,7 @@ namespace NDjango.RestFramework.Serializer
 
         public virtual async Task<TDestination> PatchAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
-            TDestination destinationObject = await GetFromDB(entityId);
+            var destinationObject = await GetFromDB(entityId);
 
             if (destinationObject == null)
                 return null;
@@ -60,7 +60,7 @@ namespace NDjango.RestFramework.Serializer
 
         public virtual async Task<TDestination> PutAsync(TOrigin origin, TPrimaryKey entityId)
         {
-            TDestination destinationObject = await GetFromDB(entityId);
+            var destinationObject = await GetFromDB(entityId);
 
             if (destinationObject == null)
                 return null;
@@ -79,7 +79,7 @@ namespace NDjango.RestFramework.Serializer
 
         public virtual async Task<IList<TPrimaryKey>> PutManyAsync(TOrigin origin, IList<TPrimaryKey> entityIds)
         {
-            IList<TDestination> destinationObjects = await GetManyFromDB(entityIds);
+            var destinationObjects = await GetManyFromDB(entityIds);
 
             var stringDeserialized = JsonConvert.SerializeObject(origin);
             dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);

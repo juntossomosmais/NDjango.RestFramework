@@ -1,4 +1,4 @@
-﻿namespace NDjango.RestFramework.Base
+namespace NDjango.RestFramework.Base
 {
     public abstract class BaseDto<TPrimaryKey>
     {

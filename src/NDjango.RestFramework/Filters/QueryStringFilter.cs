@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Http;
 
 namespace NDjango.RestFramework.Filters
 {
@@ -22,7 +22,7 @@ namespace NDjango.RestFramework.Filters
 
         private IQueryable<TEntity> Builder(IQueryable<TEntity> query, HttpRequest httpRequest)
         {
-            Dictionary<string, string> fieldsToFilter = new Dictionary<string, string>();
+            var fieldsToFilter = new Dictionary<string, string>();
 
             foreach (var item in httpRequest.Query)
             {
@@ -50,11 +50,7 @@ namespace NDjango.RestFramework.Filters
 
             var objProperty = Expression.PropertyOrField(obj, property);
 
-            object convertedValue;
-            if (objProperty.Type.IsAssignableTo(typeof(Guid)))
-                convertedValue = Guid.Parse(term);
-            else
-                convertedValue = Convert.ChangeType(term, objProperty.Type);
+            var convertedValue = objProperty.Type.IsAssignableTo(typeof(Guid)) ? Guid.Parse(term) : Convert.ChangeType(term, objProperty.Type);
 
             var objEquality = Expression.Equal(objProperty, Expression.Constant(convertedValue));
 

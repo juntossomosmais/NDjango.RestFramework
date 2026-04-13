@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using NDjango.RestFramework.Errors;
 
 namespace NDjango.RestFramework.Extensions

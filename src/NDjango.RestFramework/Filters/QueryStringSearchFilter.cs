@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace NDjango.RestFramework.Filters
 {
@@ -29,7 +29,7 @@ namespace NDjango.RestFramework.Filters
 
             foreach (var field in _allowedFields)
             {
-                if (TryGetColumnFilter(field, searchFilter.Value, parameter, out Expression expression))
+                if (TryGetColumnFilter(field, searchFilter.Value, parameter, out var expression))
                     expressions.Add(expression);
             }
 
@@ -45,8 +45,8 @@ namespace NDjango.RestFramework.Filters
 
                 if (expressions.Count > 1)
                 {
-                    Expression outerExpression = expressions[0];
-                    for (int i = 1; i < expressions.Count; ++i)
+                    var outerExpression = expressions[0];
+                    for (var i = 1; i < expressions.Count; ++i)
                     {
                         var aux = outerExpression;
                         outerExpression = Expression.Or(aux, expressions[i]);
@@ -65,7 +65,7 @@ namespace NDjango.RestFramework.Filters
         {
             var objProperty = Expression.PropertyOrField(parameter, property);
 
-            if (objProperty.Type.IsAssignableTo(typeof(Guid)) && Guid.TryParse(term, out Guid id))
+            if (objProperty.Type.IsAssignableTo(typeof(Guid)) && Guid.TryParse(term, out var id))
             {
                 expression = Expression.Equal(objProperty, Expression.Constant(id));
             }
@@ -78,7 +78,7 @@ namespace NDjango.RestFramework.Filters
                 );
                 expression = Expression.Call(efLikeMethod, Expression.Constant(EF.Functions), objProperty, Expression.Constant(term));
             }
-            else if (TryConvertValue(term, objProperty.Type, out object convertedValue))
+            else if (TryConvertValue(term, objProperty.Type, out var convertedValue))
             {
                 expression = Expression.Equal(objProperty, Expression.Constant(convertedValue));
             }

@@ -10,7 +10,7 @@ public static class Http
 {
     public static IQueryCollection RetrieveQueryCollectionFromQueryString(string queryString)
     {
-        var queryParamsDictionary = new Dictionary<String, StringValues>();
+        var queryParamsDictionary = new Dictionary<string, StringValues>();
         var queryStringCollection = HttpUtility.ParseQueryString(queryString);
 
         foreach (string key in queryStringCollection)

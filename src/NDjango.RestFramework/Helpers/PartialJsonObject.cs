@@ -1,9 +1,9 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NDjango.RestFramework.Helpers
 {
@@ -16,7 +16,7 @@ namespace NDjango.RestFramework.Helpers
         public T Instance => _instance ?? (_instance = ToObject());
 
         [JsonIgnore]
-        private Dictionary<string, bool> _cache = new Dictionary<string, bool>();
+        private readonly Dictionary<string, bool> _cache = new Dictionary<string, bool>();
 
         public PartialJsonObject(JObject jsonObject)
         {

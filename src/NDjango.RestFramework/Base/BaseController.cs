@@ -1,18 +1,18 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Filters;
 using NDjango.RestFramework.Helpers;
 using NDjango.RestFramework.Paginations;
 using NDjango.RestFramework.Serializer;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NDjango.RestFramework.Base
 {
@@ -72,7 +72,7 @@ namespace NDjango.RestFramework.Base
         {
             try
             {
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
@@ -81,7 +81,7 @@ namespace NDjango.RestFramework.Base
                 if (data == null)
                     return NotFound();
 
-                string json = JsonConvert.SerializeObject(
+                var json = JsonConvert.SerializeObject(
                     data,
                     new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
                 );
@@ -101,7 +101,7 @@ namespace NDjango.RestFramework.Base
         {
             try
             {
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var query = FilterQuery(GetQuerySet(), HttpContext.Request);
@@ -138,12 +138,12 @@ namespace NDjango.RestFramework.Base
         {
             try
             {
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PostAsync(entity);
 
-                string json = JsonConvert.SerializeObject(
+                var json = JsonConvert.SerializeObject(
                     data,
                     new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
                 );
@@ -175,7 +175,7 @@ namespace NDjango.RestFramework.Base
                 if (!_actionOptions.AllowPatch)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PatchAsync(entity, id);
@@ -183,7 +183,7 @@ namespace NDjango.RestFramework.Base
                 if (data == null)
                     return NotFound();
 
-                string json = JsonConvert.SerializeObject(
+                var json = JsonConvert.SerializeObject(
                     data,
                     new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
                 );
@@ -215,7 +215,7 @@ namespace NDjango.RestFramework.Base
                 if (!_actionOptions.AllowPut)
                     return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.PutAsync(origin, id);
@@ -223,7 +223,7 @@ namespace NDjango.RestFramework.Base
                 if (data == null)
                     return NotFound();
 
-                string json = JsonConvert.SerializeObject(
+                var json = JsonConvert.SerializeObject(
                     data,
                     new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
                 );
@@ -276,7 +276,7 @@ namespace NDjango.RestFramework.Base
         {
             try
             {
-                if (!TryGetFieldsFromModel(out string[] fieldsToBeRendered))
+                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
                     return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
                 var data = await _serializer.DeleteAsync(id);
@@ -284,7 +284,7 @@ namespace NDjango.RestFramework.Base
                 if (data == null)
                     return NotFound();
 
-                string json = JsonConvert.SerializeObject(
+                var json = JsonConvert.SerializeObject(
                     data,
                     new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
                 );

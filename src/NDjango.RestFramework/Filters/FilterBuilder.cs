@@ -1,5 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Base;
 
 namespace NDjango.RestFramework.Filters

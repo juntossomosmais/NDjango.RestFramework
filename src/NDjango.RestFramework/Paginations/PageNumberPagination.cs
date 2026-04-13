@@ -42,7 +42,8 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         var desiredPageNumber = RetrieveConfiguredPageNumber(pageNumberQueryParam.Value);
         // Building list
         var count = await source.CountAsync();
-        if (count == 0) return null;
+        if (count == 0)
+            return null;
         var totalNumberOfPages = (int)Math.Ceiling((double)count / numberOfRowsToTake);
         var actualPageNumber = desiredPageNumber > totalNumberOfPages ? totalNumberOfPages : desiredPageNumber;
         var numberOfRowsToSkip = (actualPageNumber - 1) * numberOfRowsToTake;
@@ -61,7 +62,8 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         if (value is not null)
         {
             var couldBeParsed = int.TryParse(value, out var requestedPageNumberValue);
-            if (couldBeParsed && requestedPageNumberValue > 0) return requestedPageNumberValue;
+            if (couldBeParsed && requestedPageNumberValue > 0)
+                return requestedPageNumberValue;
         }
 
         return 1;
@@ -71,7 +73,8 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         List<KeyValuePair<string, StringValues>> paramsForFiltering)
     {
         var hasPrevious = pageNumber > 1;
-        if (!hasPrevious) return null;
+        if (!hasPrevious)
+            return null;
         var previousPageNumber = pageNumber - 1;
 
         // Build from scratch to avoid duplicates from URL query string
@@ -95,7 +98,8 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         List<KeyValuePair<string, StringValues>> paramsForFiltering)
     {
         var hasNext = pageNumber < totalNumberOfPages;
-        if (!hasNext) return null;
+        if (!hasNext)
+            return null;
         var nextPageNumber = pageNumber + 1;
 
         // Build from scratch to avoid duplicates from URL query string

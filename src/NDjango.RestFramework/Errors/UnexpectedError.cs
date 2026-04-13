@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NDjango.RestFramework.Base;
 
 namespace NDjango.RestFramework.Errors

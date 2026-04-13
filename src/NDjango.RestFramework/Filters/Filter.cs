@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Microsoft.AspNetCore.Http;
 
 namespace NDjango.RestFramework.Filters

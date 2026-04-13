@@ -381,7 +381,7 @@ public class BaseControllerTests
 
     public class ListPaged : IntegrationTests
     {
-        const int DefaultPageSize = 5;
+        private const int DefaultPageSize = 5;
 
         [Fact]
         public async Task ListPaged_ShouldReturn200OK()
@@ -634,7 +634,8 @@ public class BaseControllerTests
             await dbSet.AddRangeAsync(entities);
             await Context.SaveChangesAsync();
             var sortRequestString = "Sort";
-            if (isDesc) sortRequestString += "Desc";
+            if (isDesc)
+                sortRequestString += "Desc";
             sortRequestString += "=Id";
             var requestString = $"api/IntAsIdEntities?{sortRequestString}";
             // Act
@@ -678,7 +679,8 @@ public class BaseControllerTests
             await dbSet.AddRangeAsync(entities);
             await Context.SaveChangesAsync();
             var sortRequestString = "Sort";
-            if (isDesc) sortRequestString += "Desc";
+            if (isDesc)
+                sortRequestString += "Desc";
             sortRequestString += "=CreatedAt";
             var requestString = $"api/IntAsIdEntities?{sortRequestString}";
             // Act

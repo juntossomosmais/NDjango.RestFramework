@@ -19,7 +19,7 @@ public class JsonTransform : DefaultContractResolver
 
     protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
     {
-        JsonProperty property = base.CreateProperty(member, memberSerialization);
+        var property = base.CreateProperty(member, memberSerialization);
         if (_propNamesToShow.Any(m => m.Equals(property.PropertyName, StringComparison.OrdinalIgnoreCase)))
         {
             property.ShouldSerialize = _ => true;
@@ -29,10 +29,9 @@ public class JsonTransform : DefaultContractResolver
             var namespaceArray = member?.DeclaringType?.ToString().Split(".");
             var className = namespaceArray?.Last();
 
-            if (_propNamesToShow.Any(m => m.Equals($"{className}:{property.PropertyName}", StringComparison.OrdinalIgnoreCase)))
-                property.ShouldSerialize = _ => true;
-            else
-                property.ShouldSerialize = _ => false;
+            property.ShouldSerialize = _propNamesToShow.Any(m => m.Equals($"{className}:{property.PropertyName}", StringComparison.OrdinalIgnoreCase))
+                ? (_ => true)
+                : (_ => false);
         }
         return property;
     }

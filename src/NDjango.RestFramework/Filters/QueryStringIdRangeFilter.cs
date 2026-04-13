@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Http;
 using NDjango.RestFramework.Base;
 
 namespace NDjango.RestFramework.Filters

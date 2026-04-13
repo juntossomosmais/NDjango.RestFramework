@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using NDjango.RestFramework.Helpers;
 using FluentAssertions;
+using NDjango.RestFramework.Helpers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -226,7 +226,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // act
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
@@ -241,9 +241,9 @@ public class PartialJsonObjectTests
             obj.IsSet(inst => inst.SubObj).Should().BeFalse();
         }
 
-        private int _index1 = 2;
+        private readonly int _index1 = 2;
         private const int _index2 = 3;
-        private static int _index3 = 3;
+        private static readonly int _index3 = 3;
 
         [Fact(DisplayName = "Field parse expression to path string")]
         public void ShouldParseExpressionToPathString()
@@ -589,7 +589,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsInArrayReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // act
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
@@ -756,7 +756,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsInMatrixArrayReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // act
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
@@ -944,7 +944,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsInListReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // assert
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
@@ -1066,7 +1066,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsInMatrixListReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // act
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
@@ -1194,7 +1194,7 @@ public class PartialJsonObjectTests
         public void ShouldAllFieldsInNestedObjectReturnFalseToIsSet()
         {
             // arrange
-            string json = "{}";
+            var json = "{}";
 
             // assert
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);

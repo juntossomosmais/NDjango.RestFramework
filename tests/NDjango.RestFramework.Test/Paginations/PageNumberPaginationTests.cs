@@ -57,7 +57,7 @@ public class PageNumberPaginationTests
         // Arrange
         var query = await CreateScenarioWith50Things(_dbContext);
         var mockHttpRequest = new Mock<HttpRequest>();
-        var queryParams = Http.RetrieveQueryCollectionFromQueryString(String.Empty);
+        var queryParams = Http.RetrieveQueryCollectionFromQueryString(string.Empty);
         mockHttpRequest.Setup(req => req.Query).Returns(queryParams);
         // Act
         var paginated = await _pagination.PaginateAsync(query, mockHttpRequest.Object);
@@ -88,7 +88,7 @@ public class PageNumberPaginationTests
         var indexForHelloWords = 0;
         var things = new List<Thing>();
 
-        foreach (int index in Enumerable.Range(1, 50))
+        foreach (var index in Enumerable.Range(1, 50))
         {
             var greetingsMessage = helloWords[indexForHelloWords++];
             var IsRobot = index % 2 == 0;
@@ -97,7 +97,8 @@ public class PageNumberPaginationTests
             things.Add(thing);
 
             var shouldRestartIndexForHelloWords = index % 10 == 0;
-            if (shouldRestartIndexForHelloWords) indexForHelloWords = 0;
+            if (shouldRestartIndexForHelloWords)
+                indexForHelloWords = 0;
         }
 
         await dbContext.AddRangeAsync(things);

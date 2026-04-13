@@ -1,9 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using NDjango.RestFramework.Extensions;
-using NDjango.RestFramework.Serializer;
-using NDjango.RestFramework.Test.Support;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
@@ -14,6 +11,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NDjango.RestFramework.Extensions;
+using NDjango.RestFramework.Serializer;
+using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
 
 void InitializeDatabase(IHost app)
