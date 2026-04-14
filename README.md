@@ -1,5 +1,8 @@
 # NDjango.RestFramework
 
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=juntossomosmais_NDjango.RestFramework&metric=coverage&token=93bbe8eaf38e963f74fc77f356cecf3583fe5600)](https://sonarcloud.io/summary/new_code?id=juntossomosmais_NDjango.RestFramework)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=juntossomosmais_NDjango.RestFramework&metric=alert_status&token=93bbe8eaf38e963f74fc77f356cecf3583fe5600)](https://sonarcloud.io/summary/new_code?id=juntossomosmais_NDjango.RestFramework)
+
 NDjango Rest Framework makes you focus on business, not on boilerplate code. It's designed to follow the famous Django's slogan "The web framework for perfectionists with deadlines."
 
 This is a copy of the convention established by [Django REST framework](https://github.com/encode/django-rest-framework), though translated to C# and adapted to the .NET Core framework.
