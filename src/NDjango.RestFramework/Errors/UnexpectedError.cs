@@ -5,10 +5,6 @@ namespace NDjango.RestFramework.Errors
 {
     public class UnexpectedError : BaseErrorResponse<string>
     {
-        public UnexpectedError()
-            : this(BaseMessages.ERROR_MESSAGE)
-        { }
-
         public UnexpectedError(string message)
         {
             Error = new Dictionary<string, string>() {

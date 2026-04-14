@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NDjango.RestFramework.Base;
@@ -108,6 +109,33 @@ public class CustomerDocumentsController : BaseController<CustomerDocumentDto, C
         Filters.Add(new QueryStringFilter<CustomerDocument>(AllowedFields));
         Filters.Add(new QueryStringSearchFilter<CustomerDocument>(AllowedFields));
         Filters.Add(new QueryStringIdRangeFilter<CustomerDocument, Guid>());
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class ThrowingCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public ThrowingCustomersController(
+        ThrowingCustomerSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+        };
+    }
+
+    public override IQueryable<Customer> GetQuerySet()
+    {
+        throw new InvalidOperationException("Simulated query failure");
     }
 }
 

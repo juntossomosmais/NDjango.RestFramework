@@ -22,8 +22,16 @@ namespace NDjango.RestFramework.Base
         where TDestination : BaseModel<TPrimaryKey>
         where TContext : DbContext
     {
-        private readonly Serializer<TOrigin, TDestination, TPrimaryKey, TContext> _serializer;
-        private readonly ILogger _logger;
+        /// <summary>
+        /// Serializer instance available for derived controllers that override actions
+        /// and need direct access to data operations.
+        /// </summary>
+        protected readonly Serializer<TOrigin, TDestination, TPrimaryKey, TContext> _serializer;
+
+        /// <summary>
+        /// Logger instance available for derived controllers to log within overridden actions.
+        /// </summary>
+        protected readonly ILogger _logger;
         private readonly TContext _context;
         private readonly ActionOptions _actionOptions;
         private readonly IPagination<TDestination> _pagination;
@@ -70,62 +78,46 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> GetSingle([FromRoute] TPrimaryKey id)
         {
-            try
-            {
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+            var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
-                var data = await _serializer.GetFromDB(id, query);
-                if (data == null)
-                    return NotFound();
+            var data = await _serializer.GetFromDB(id, query);
+            if (data == null)
+                return NotFound();
 
-                var json = JsonConvert.SerializeObject(
-                    data,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var json = JsonConvert.SerializeObject(
+                data,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var jObject = JObject.Parse(json);
-                return Ok(jObject);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            var jObject = JObject.Parse(json);
+            return Ok(jObject);
         }
 
         [HttpGet]
         public async Task<IActionResult> ListPaged()
         {
-            try
-            {
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var query = FilterQuery(GetQuerySet(), HttpContext.Request);
-                query = SortQuery(AllowedFields, query);
-                var paginated = await _pagination.PaginateAsync(query, HttpContext.Request);
-                if (paginated == null)
-                    return NotFound();
+            var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+            query = SortQuery(AllowedFields, query);
+            var paginated = await _pagination.PaginateAsync(query, HttpContext.Request);
+            if (paginated == null)
+                return NotFound();
 
-                var paginatedResultsAsJson = JsonConvert.SerializeObject(
-                    paginated.Results,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var paginatedResultsAsJson = JsonConvert.SerializeObject(
+                paginated.Results,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var results = JArray.Parse(paginatedResultsAsJson);
-                var paginatedToBeReturned =
-                    new PaginatedResponse<JArray>(paginated.Count, paginated.Next, paginated.Previous, results);
+            var results = JArray.Parse(paginatedResultsAsJson);
+            var paginatedToBeReturned =
+                new PaginatedResponse<JArray>(paginated.Count, paginated.Next, paginated.Previous, results);
 
-                return Ok(paginatedToBeReturned);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            return Ok(paginatedToBeReturned);
         }
 
         /// <summary>
@@ -136,26 +128,18 @@ namespace NDjango.RestFramework.Base
         [HttpPost]
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
-            try
-            {
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var data = await _serializer.PostAsync(entity);
+            var data = await _serializer.PostAsync(entity);
 
-                var json = JsonConvert.SerializeObject(
-                    data,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var json = JsonConvert.SerializeObject(
+                data,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var jObject = JObject.Parse(json);
-                return CreatedAtAction(nameof(GetSingle), new { id = data.Id }, jObject);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            var jObject = JObject.Parse(json);
+            return CreatedAtAction(nameof(GetSingle), new { id = data.Id }, jObject);
         }
 
         /// <summary>
@@ -170,32 +154,24 @@ namespace NDjango.RestFramework.Base
             [FromBody] PartialJsonObject<TOrigin> entity,
             [FromRoute] TPrimaryKey id)
         {
-            try
-            {
-                if (!_actionOptions.AllowPatch)
-                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            if (!_actionOptions.AllowPatch)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var data = await _serializer.PatchAsync(entity, id);
+            var data = await _serializer.PatchAsync(entity, id);
 
-                if (data == null)
-                    return NotFound();
+            if (data == null)
+                return NotFound();
 
-                var json = JsonConvert.SerializeObject(
-                    data,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var json = JsonConvert.SerializeObject(
+                data,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var jObject = JObject.Parse(json);
-                return Ok(jObject);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            var jObject = JObject.Parse(json);
+            return Ok(jObject);
         }
 
         /// <summary>
@@ -210,32 +186,24 @@ namespace NDjango.RestFramework.Base
             [FromBody] TOrigin origin,
             [FromRoute] TPrimaryKey id)
         {
-            try
-            {
-                if (!_actionOptions.AllowPut)
-                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            if (!_actionOptions.AllowPut)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var data = await _serializer.PutAsync(origin, id);
+            var data = await _serializer.PutAsync(origin, id);
 
-                if (data == null)
-                    return NotFound();
+            if (data == null)
+                return NotFound();
 
-                var json = JsonConvert.SerializeObject(
-                    data,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var json = JsonConvert.SerializeObject(
+                data,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var jObject = JObject.Parse(json);
-                return Ok(jObject);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            var jObject = JObject.Parse(json);
+            return Ok(jObject);
         }
 
         /// <summary>
@@ -249,20 +217,12 @@ namespace NDjango.RestFramework.Base
             [FromBody] TOrigin origin,
             [FromQuery] IList<TPrimaryKey> ids)
         {
-            try
-            {
-                if (!_actionOptions.AllowPut)
-                    return StatusCode(StatusCodes.Status405MethodNotAllowed);
+            if (!_actionOptions.AllowPut)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-                var updatedIds = await _serializer.PutManyAsync(origin, ids);
+            var updatedIds = await _serializer.PutManyAsync(origin, ids);
 
-                return Ok(updatedIds);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            return Ok(updatedIds);
         }
 
         /// <summary>
@@ -274,29 +234,21 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
         {
-            try
-            {
-                if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                    return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
+                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
 
-                var data = await _serializer.DeleteAsync(id);
+            var data = await _serializer.DeleteAsync(id);
 
-                if (data == null)
-                    return NotFound();
+            if (data == null)
+                return NotFound();
 
-                var json = JsonConvert.SerializeObject(
-                    data,
-                    new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
-                );
+            var json = JsonConvert.SerializeObject(
+                data,
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+            );
 
-                var jObject = JObject.Parse(json);
-                return Ok(jObject);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            var jObject = JObject.Parse(json);
+            return Ok(jObject);
         }
 
         /// <summary>
@@ -307,17 +259,9 @@ namespace NDjango.RestFramework.Base
         [HttpDelete]
         public virtual async Task<IActionResult> DeleteMany([FromQuery] IList<TPrimaryKey> ids)
         {
-            try
-            {
-                var deletedIds = await _serializer.DeleteManyAsync(ids);
+            var deletedIds = await _serializer.DeleteManyAsync(ids);
 
-                return Ok(deletedIds);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, BaseMessages.ERROR_MESSAGE);
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_MESSAGE));
-            }
+            return Ok(deletedIds);
         }
 
         #endregion

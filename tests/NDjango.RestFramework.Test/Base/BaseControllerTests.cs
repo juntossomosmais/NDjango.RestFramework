@@ -2067,4 +2067,128 @@ public class BaseControllerTests
             Assert.Equal("updated", updatedEntity.CNPJ);
         }
     }
+
+    public class ExceptionPropagation : IntegrationTests
+    {
+        [Fact]
+        public async Task GetSingle_WhenQuerySetThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var act = () => Client.GetAsync($"api/ThrowingCustomers/{id}");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated query failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task ListPaged_WhenQuerySetThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var act = () => Client.GetAsync("api/ThrowingCustomers");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated query failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task Post_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var customer = new CustomerDto { Name = "abc", CNPJ = "123" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+            var act = () => Client.PostAsync("api/ThrowingCustomers", content);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task Put_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var customer = new CustomerDto { Name = "abc", CNPJ = "123" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+            var act = () => Client.PutAsync($"api/ThrowingCustomers/{id}", content);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task PutMany_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var customer = new CustomerDto { Name = "abc", CNPJ = "123" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+            var act = () => Client.PutAsync($"api/ThrowingCustomers?ids={id}", content);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task Patch_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var content = new StringContent(
+                JsonConvert.SerializeObject(new { Name = "abc" }), Encoding.UTF8, "application/json-patch+json");
+            var act = () => Client.PatchAsync($"api/ThrowingCustomers/{id}", content);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+
+        [Fact]
+        public async Task Delete_WhenSerializerThrowsOperationCanceledException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var act = () => Client.DeleteAsync($"api/ThrowingCustomers/{id}");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(act);
+
+            // Assert
+            Assert.Equal("Simulated client disconnect", exception.Message);
+        }
+
+        [Fact]
+        public async Task DeleteMany_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var act = () => Client.DeleteAsync($"api/ThrowingCustomers?ids={id}");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+    }
 }

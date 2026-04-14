@@ -63,6 +63,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Context.Database.EnsureCreated();
 // Rest framework configuration
 builder.Services.AddScoped<CustomerSerializer>();
+builder.Services.AddScoped<ThrowingCustomerSerializer>();
 builder.Services.AddScoped<Serializer<SellerDto, Seller, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<CustomerDocumentDto, CustomerDocument, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<IntAsIdEntityDto, IntAsIdEntity, int, AppDbContext>>();
