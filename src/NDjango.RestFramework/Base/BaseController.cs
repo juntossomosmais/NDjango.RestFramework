@@ -259,6 +259,12 @@ namespace NDjango.RestFramework.Base
 
         private static string[] ResolveAndValidateFields()
         {
+            // Activator.CreateInstance is used here because GetFields() is an instance method on BaseModel<T>.
+            // This runs once per closed generic type (cached via Lazy<>), and EF Core already requires
+            // a parameterless constructor, so the practical cost is zero. Migrating to static abstract
+            // would require an interface (C# only allows static abstract in interfaces, not abstract classes),
+            // an extra generic constraint, and a breaking change for every consumer — not worth it
+            // unless bundled with a major version bump.
             var instance = (TDestination)Activator.CreateInstance(typeof(TDestination), null);
             var fields = instance.GetFields();
 

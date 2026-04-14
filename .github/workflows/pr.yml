@@ -22,6 +22,9 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
+      - name: Install all tools
+        run: |
+          dotnet tool restore
       - name: Check if the project is well formatted
         run: |
           ./scripts/start-check-formatting.sh
@@ -36,5 +39,5 @@ jobs:
           GITHUB_PR_NUMBER: ${{github.event.pull_request.number}}
         run: |
           set -e
-          docker compose up -d db
+          docker compose up --detach --wait --wait-timeout 120 db
           ./scripts/start-sonarcloud.sh

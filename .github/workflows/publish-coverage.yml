@@ -23,9 +23,9 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
-      - name: Install dotnet-sonarscanner
+      - name: Install all tools
         run: |
-          dotnet tool install --global dotnet-sonarscanner
+          dotnet tool restore
       - name: Build the project, run all tests and publish to SonarCloud
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -33,5 +33,5 @@ jobs:
           SOURCE_BRANCH_NAME: ${{ github.ref_name }}
         run: |
           set -e
-          docker compose up -d db
+          docker compose up --detach --wait --wait-timeout 120 db
           ./scripts/start-sonarcloud.sh
