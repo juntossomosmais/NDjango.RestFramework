@@ -129,7 +129,7 @@ namespace NDjango.RestFramework.Base
         [HttpPost]
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
-            var data = await _serializer.PostAsync(entity);
+            var data = await _serializer.CreateAsync(entity);
 
             var json = JsonConvert.SerializeObject(
                 data,
@@ -155,7 +155,7 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            var data = await _serializer.PatchAsync(entity, id);
+            var data = await _serializer.PartialUpdateAsync(entity, id);
 
             if (data == null)
                 return NotFound();
@@ -184,7 +184,7 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            var data = await _serializer.PutAsync(origin, id);
+            var data = await _serializer.UpdateAsync(origin, id);
 
             if (data == null)
                 return NotFound();
@@ -212,7 +212,7 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            var updatedIds = await _serializer.PutManyAsync(origin, ids);
+            var updatedIds = await _serializer.UpdateManyAsync(origin, ids);
 
             return Ok(updatedIds);
         }
@@ -226,7 +226,7 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
         {
-            var data = await _serializer.DeleteAsync(id);
+            var data = await _serializer.DestroyAsync(id);
 
             if (data == null)
                 return NotFound();
@@ -248,7 +248,7 @@ namespace NDjango.RestFramework.Base
         [HttpDelete]
         public virtual async Task<IActionResult> DeleteMany([FromQuery] IList<TPrimaryKey> ids)
         {
-            var deletedIds = await _serializer.DeleteManyAsync(ids);
+            var deletedIds = await _serializer.DestroyManyAsync(ids);
 
             return Ok(deletedIds);
         }

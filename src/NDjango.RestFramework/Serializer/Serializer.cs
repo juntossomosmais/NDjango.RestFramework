@@ -21,7 +21,7 @@ namespace NDjango.RestFramework.Serializer
             _dbContext = applicationDbContext;
         }
 
-        public virtual async Task<TDestination> PostAsync(TOrigin data)
+        public virtual async Task<TDestination> CreateAsync(TOrigin data)
         {
             var stringDeserialized = JsonConvert.SerializeObject(data);
             var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
@@ -32,7 +32,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<TDestination> PatchAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
+        public virtual async Task<TDestination> PartialUpdateAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
             var destinationObject = await GetFromDB(entityId);
 
@@ -58,7 +58,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<TDestination> PutAsync(TOrigin origin, TPrimaryKey entityId)
+        public virtual async Task<TDestination> UpdateAsync(TOrigin origin, TPrimaryKey entityId)
         {
             var destinationObject = await GetFromDB(entityId);
 
@@ -77,7 +77,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<IList<TPrimaryKey>> PutManyAsync(TOrigin origin, IList<TPrimaryKey> entityIds)
+        public virtual async Task<IList<TPrimaryKey>> UpdateManyAsync(TOrigin origin, IList<TPrimaryKey> entityIds)
         {
             var destinationObjects = await GetManyFromDB(entityIds);
 
@@ -96,7 +96,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObjects.Select(m => m.Id).ToList();
         }
 
-        public virtual async Task<TDestination> DeleteAsync(TPrimaryKey entityId)
+        public virtual async Task<TDestination> DestroyAsync(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
 
@@ -109,7 +109,7 @@ namespace NDjango.RestFramework.Serializer
             return data;
         }
 
-        public virtual async Task<IList<TPrimaryKey>> DeleteManyAsync(IList<TPrimaryKey> entityIds)
+        public virtual async Task<IList<TPrimaryKey>> DestroyManyAsync(IList<TPrimaryKey> entityIds)
         {
             var deletedObjects = await GetManyFromDB(entityIds);
 

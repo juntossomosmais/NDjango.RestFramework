@@ -19,32 +19,32 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
     {
     }
 
-    public override Task<Customer> PostAsync(CustomerDto data)
+    public override Task<Customer> CreateAsync(CustomerDto data)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> PatchAsync(PartialJsonObject<CustomerDto> originObject, Guid entityId)
+    public override Task<Customer> PartialUpdateAsync(PartialJsonObject<CustomerDto> originObject, Guid entityId)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> PutAsync(CustomerDto origin, Guid entityId)
+    public override Task<Customer> UpdateAsync(CustomerDto origin, Guid entityId)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<IList<Guid>> PutManyAsync(CustomerDto origin, IList<Guid> entityIds)
+    public override Task<IList<Guid>> UpdateManyAsync(CustomerDto origin, IList<Guid> entityIds)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> DeleteAsync(Guid entityId)
+    public override Task<Customer> DestroyAsync(Guid entityId)
     {
         throw new OperationCanceledException("Simulated client disconnect");
     }
 
-    public override Task<IList<Guid>> DeleteManyAsync(IList<Guid> entityIds)
+    public override Task<IList<Guid>> DestroyManyAsync(IList<Guid> entityIds)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }

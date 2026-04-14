@@ -334,17 +334,28 @@ Disabled endpoints return `405 Method Not Allowed`.
 
 ### Serializer
 
-The `Serializer` handles DTO-to-entity conversion and database operations. The default serializer works for most cases. Override it for custom logic:
+The `Serializer` handles DTO-to-entity conversion and database operations. It follows Django REST Framework's naming conventions for its core methods:
+
+| Method | Description |
+|---|---|
+| `CreateAsync(data)` | Persists a new entity to the database. Called by the `POST` action. |
+| `UpdateAsync(origin, entityId)` | Fully replaces an existing entity. Called by the `PUT /{id}` action. |
+| `PartialUpdateAsync(origin, entityId)` | Updates only the fields present in the request body. Called by the `PATCH /{id}` action. |
+| `UpdateManyAsync(origin, entityIds)` | Applies the same full update to multiple entities. Called by the `PUT ?ids=` action. |
+| `DestroyAsync(entityId)` | Removes an entity from the database. Called by the `DELETE /{id}` action. |
+| `DestroyManyAsync(entityIds)` | Removes multiple entities from the database. Called by the `DELETE ?ids=` action. |
+
+The default serializer works for most cases. Override any method for custom logic:
 
 ```csharp
 public class PersonSerializer : Serializer<PersonDto, Person, int, AppDbContext>
 {
     public PersonSerializer(AppDbContext context) : base(context) { }
 
-    public override async Task<Person> PostAsync(PersonDto data)
+    public override async Task<Person> CreateAsync(PersonDto data)
     {
         // Custom logic before/after creation
-        var result = await base.PostAsync(data);
+        var result = await base.CreateAsync(data);
         return result;
     }
 }
