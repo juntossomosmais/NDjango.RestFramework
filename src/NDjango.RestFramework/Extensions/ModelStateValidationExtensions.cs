@@ -13,12 +13,12 @@ namespace NDjango.RestFramework.Extensions
             {
                 options.InvalidModelStateResponseFactory = context =>
                 {
-                    var response = new ValidationErrors(new Dictionary<string, string[]>());
+                    var errors = new Dictionary<string, string[]>();
 
                     foreach (var (key, value) in context.ModelState)
-                        response.Error.Add(key, value.Errors.Select(e => e.ErrorMessage).ToArray());
+                        errors.Add(key, value.Errors.Select(e => e.ErrorMessage).ToArray());
 
-                    return new BadRequestObjectResult(response);
+                    return new BadRequestObjectResult(new ValidationErrors(errors));
                 };
             });
     }

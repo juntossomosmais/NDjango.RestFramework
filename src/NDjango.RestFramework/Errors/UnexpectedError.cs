@@ -1,19 +1,35 @@
-using System.Collections.Generic;
-using NDjango.RestFramework.Base;
+using Newtonsoft.Json;
 
 namespace NDjango.RestFramework.Errors
 {
-    public class UnexpectedError : BaseErrorResponse<string>
+    public class UnexpectedError
     {
-        public UnexpectedError(string message)
+        public string Type => "UNEXPECTED_ERROR";
+        public int StatusCode { get; private set; }
+        public UnexpectedErrorDetail Error { get; private set; }
+
+        public UnexpectedError(int statusCode, string msg)
         {
-            Error = new Dictionary<string, string>() {
-                { "msg", message }
-            };
+            StatusCode = statusCode;
+            Error = new UnexpectedErrorDetail(msg);
         }
 
-        public override string Type => "UNEXPECTED_ERROR";
+        [JsonConstructor]
+        private UnexpectedError(int statusCode, UnexpectedErrorDetail error)
+        {
+            StatusCode = statusCode;
+            Error = error;
+        }
+    }
 
-        public override IDictionary<string, string> Error { get; set; }
+    public class UnexpectedErrorDetail
+    {
+        public string Msg { get; private set; }
+
+        [JsonConstructor]
+        public UnexpectedErrorDetail(string msg)
+        {
+            Msg = msg;
+        }
     }
 }

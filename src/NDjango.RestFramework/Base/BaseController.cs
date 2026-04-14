@@ -79,7 +79,7 @@ namespace NDjango.RestFramework.Base
         public virtual async Task<IActionResult> GetSingle([FromRoute] TPrimaryKey id)
         {
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
@@ -100,7 +100,7 @@ namespace NDjango.RestFramework.Base
         public async Task<IActionResult> ListPaged()
         {
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
             query = SortQuery(AllowedFields, query);
@@ -129,7 +129,7 @@ namespace NDjango.RestFramework.Base
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var data = await _serializer.PostAsync(entity);
 
@@ -158,7 +158,7 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var data = await _serializer.PatchAsync(entity, id);
 
@@ -190,7 +190,7 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var data = await _serializer.PutAsync(origin, id);
 
@@ -235,7 +235,7 @@ namespace NDjango.RestFramework.Base
         public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
         {
             if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return BadRequest(new UnexpectedError(BaseMessages.ERROR_GET_FIELDS));
+                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
 
             var data = await _serializer.DeleteAsync(id);
 

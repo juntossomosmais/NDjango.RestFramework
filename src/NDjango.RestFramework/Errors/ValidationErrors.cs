@@ -1,16 +1,18 @@
 using System.Collections.Generic;
-using NDjango.RestFramework.Base;
+using Newtonsoft.Json;
 
 namespace NDjango.RestFramework.Errors
 {
-    public class ValidationErrors : BaseErrorResponse<string[]>
+    public class ValidationErrors
     {
-        public ValidationErrors(IDictionary<string, string[]> errors)
+        public string Type => "VALIDATION_ERRORS";
+        public int StatusCode => 400;
+        public IDictionary<string, string[]> Error { get; private set; }
+
+        [JsonConstructor]
+        public ValidationErrors(IDictionary<string, string[]> error)
         {
+            Error = error;
         }
-
-        public override string Type => "VALIDATION_ERRORS";
-
-        public override IDictionary<string, string[]> Error { get; set; } = new Dictionary<string, string[]>();
     }
 }

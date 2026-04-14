@@ -52,17 +52,17 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Delete_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        public async Task Delete_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Act
             var response = await Client.DeleteAsync($"api/Sellers/{Guid.NewGuid()}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
 
-            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
         }
 
         [Fact]
@@ -272,7 +272,7 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task GetSingle_WithoutFields_ShouldReturnBadRequest()
+        public async Task GetSingle_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Arrange
             var dbSet = Context.Set<Seller>();
@@ -285,10 +285,10 @@ public class BaseControllerTests
             var response = await Client.GetAsync($"api/Sellers/{seller1.Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var msg = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-            msg.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, msg.Error.Msg);
         }
 
         [Fact]
@@ -1053,17 +1053,17 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task ListPaged_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        public async Task ListPaged_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Act
             var response = await Client.GetAsync("api/Sellers");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
 
-            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
         }
 
         [Theory]
@@ -1483,7 +1483,7 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Patch_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        public async Task Patch_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Arrange
             var seller = new SellerDto()
@@ -1499,11 +1499,11 @@ public class BaseControllerTests
             var response = await Client.PatchAsync($"api/Sellers/{seller.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
 
-            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
         }
 
         [Fact]
@@ -1645,19 +1645,19 @@ public class BaseControllerTests
             var response = await Client.PostAsync("api/Customers", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
 
-            responseMessages.Error["Name"].Should().Contain("Name should have at least 3 characters");
-            responseMessages.Error["CNPJ"].Should().Contain("CNPJ cannot be 567");
+            Assert.Contains("Name should have at least 3 characters", responseMessages.Error["Name"]);
+            Assert.Contains("CNPJ cannot be 567", responseMessages.Error["CNPJ"]);
 
             var customers = dbSet.AsNoTracking().ToList();
-            customers.Should().BeEmpty();
+            Assert.Empty(customers);
         }
 
         [Fact]
-        public async Task Post_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        public async Task Post_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Arrange
             var dbSet = Context.Set<Seller>();
@@ -1674,14 +1674,14 @@ public class BaseControllerTests
             var response = await Client.PostAsync("api/Sellers", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
 
-            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
 
             var sellers = dbSet.AsNoTracking().ToList();
-            sellers.Should().BeEmpty();
+            Assert.Empty(sellers);
         }
 
         [Fact]
@@ -1797,7 +1797,7 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Put_WhenEntityDoesntImplementGetFields_ReturnsBadRequest()
+        public async Task Put_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
         {
             // Arrange
             var seller = new SellerDto()
@@ -1813,11 +1813,11 @@ public class BaseControllerTests
             var response = await Client.PutAsync($"api/Sellers/{seller.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
 
-            responseMessages.Error["msg"].Should().Be(BaseMessages.ERROR_GET_FIELDS);
+            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
         }
 
         [Fact]
