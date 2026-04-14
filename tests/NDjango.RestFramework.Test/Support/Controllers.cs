@@ -139,4 +139,31 @@ public class ThrowingCustomersController : BaseController<CustomerDto, Customer,
     }
 }
 
+[Route("api/[controller]")]
+[ApiController]
+public class InvalidFieldEntitiesController : BaseController<InvalidFieldEntityDto, InvalidFieldEntity, Guid, AppDbContext>
+{
+    public InvalidFieldEntitiesController(
+        Serializer<InvalidFieldEntityDto, InvalidFieldEntity, Guid, AppDbContext> serializer,
+        AppDbContext dbContext,
+        ILogger<InvalidFieldEntity> logger)
+        : base(serializer, dbContext, logger)
+    {
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class InvalidAllowedFieldEntitiesController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public InvalidAllowedFieldEntitiesController(
+        CustomerSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(serializer, dbContext, logger)
+    {
+        AllowedFields = new[] { "Name", "NonExistentAllowedField" };
+    }
+}
+
 #endregion

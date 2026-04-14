@@ -1,12 +1,13 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Filters;
 using NDjango.RestFramework.Helpers;
 using NDjango.RestFramework.Paginations;
@@ -17,7 +18,8 @@ using Newtonsoft.Json.Linq;
 namespace NDjango.RestFramework.Base
 {
     [Produces("application/json")]
-    public abstract class BaseController<TOrigin, TDestination, TPrimaryKey, TContext> : ControllerBase
+    public abstract class BaseController<TOrigin, TDestination, TPrimaryKey, TContext>
+        : ControllerBase, IFieldConfigurableController
         where TOrigin : BaseDto<TPrimaryKey>
         where TDestination : BaseModel<TPrimaryKey>
         where TContext : DbContext
@@ -35,6 +37,10 @@ namespace NDjango.RestFramework.Base
         private readonly TContext _context;
         private readonly ActionOptions _actionOptions;
         private readonly IPagination<TDestination> _pagination;
+        private readonly string[] _fieldsToBeRendered;
+
+        private static readonly Lazy<string[]> _cachedFields = new(ResolveAndValidateFields);
+        private static readonly ConcurrentDictionary<Type, bool> _validatedAllowedFields = new();
 
         public IQueryable<TDestination> Query { get; set; }
         public List<Filter<TDestination>> Filters { get; set; } = new();
@@ -55,6 +61,7 @@ namespace NDjango.RestFramework.Base
             _logger = logger;
             _pagination = pagination ?? new PageNumberPagination<TDestination>();
             Query = new FilterBuilder<TContext, TDestination>(_context).DbSet;
+            _fieldsToBeRendered = _cachedFields.Value;
         }
 
         protected BaseController(
@@ -78,9 +85,6 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> GetSingle([FromRoute] TPrimaryKey id)
         {
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
             var data = await _serializer.GetFromDB(id, query);
@@ -89,7 +93,7 @@ namespace NDjango.RestFramework.Base
 
             var json = JsonConvert.SerializeObject(
                 data,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var jObject = JObject.Parse(json);
@@ -99,9 +103,6 @@ namespace NDjango.RestFramework.Base
         [HttpGet]
         public async Task<IActionResult> ListPaged()
         {
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
             query = SortQuery(AllowedFields, query);
             var paginated = await _pagination.PaginateAsync(query, HttpContext.Request);
@@ -110,7 +111,7 @@ namespace NDjango.RestFramework.Base
 
             var paginatedResultsAsJson = JsonConvert.SerializeObject(
                 paginated.Results,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var results = JArray.Parse(paginatedResultsAsJson);
@@ -128,14 +129,11 @@ namespace NDjango.RestFramework.Base
         [HttpPost]
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var data = await _serializer.PostAsync(entity);
 
             var json = JsonConvert.SerializeObject(
                 data,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var jObject = JObject.Parse(json);
@@ -157,9 +155,6 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var data = await _serializer.PatchAsync(entity, id);
 
             if (data == null)
@@ -167,7 +162,7 @@ namespace NDjango.RestFramework.Base
 
             var json = JsonConvert.SerializeObject(
                 data,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var jObject = JObject.Parse(json);
@@ -189,9 +184,6 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var data = await _serializer.PutAsync(origin, id);
 
             if (data == null)
@@ -199,7 +191,7 @@ namespace NDjango.RestFramework.Base
 
             var json = JsonConvert.SerializeObject(
                 data,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var jObject = JObject.Parse(json);
@@ -234,9 +226,6 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
         {
-            if (!TryGetFieldsFromModel(out var fieldsToBeRendered))
-                return StatusCode(StatusCodes.Status500InternalServerError, new UnexpectedError(StatusCodes.Status500InternalServerError, BaseMessages.ERROR_GET_FIELDS));
-
             var data = await _serializer.DeleteAsync(id);
 
             if (data == null)
@@ -244,7 +233,7 @@ namespace NDjango.RestFramework.Base
 
             var json = JsonConvert.SerializeObject(
                 data,
-                new JsonSerializerSettings { ContractResolver = new JsonTransform(fieldsToBeRendered) }
+                new JsonSerializerSettings { ContractResolver = new JsonTransform(_fieldsToBeRendered) }
             );
 
             var jObject = JObject.Parse(json);
@@ -268,25 +257,102 @@ namespace NDjango.RestFramework.Base
 
         #region Utils
 
-        [NonAction]
-        private static bool TryGetFieldsFromModel(out string[] fields)
+        private static string[] ResolveAndValidateFields()
         {
-            try
+            var instance = (TDestination)Activator.CreateInstance(typeof(TDestination), null);
+            var fields = instance.GetFields();
+
+            var properties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var propertyNames = properties.Select(p => p.Name).ToArray();
+            var invalidFields = new List<string>();
+
+            foreach (var field in fields)
             {
-                var instanceMethod = typeof(TDestination).GetMethod("GetFields");
-                fields = (string[])instanceMethod?.Invoke(Activator.CreateInstance(typeof(TDestination), null), null);
-                return true;
+                if (field.Contains(':'))
+                {
+                    var parts = field.Split(':', 2);
+                    var typeName = parts[0];
+                    var nestedPropertyName = parts[1];
+
+                    var navigationProperty = properties.FirstOrDefault(p =>
+                    {
+                        var elementType = GetElementType(p.PropertyType);
+                        return string.Equals(elementType.Name, typeName, StringComparison.OrdinalIgnoreCase);
+                    });
+
+                    if (navigationProperty == null)
+                    {
+                        invalidFields.Add(field);
+                        continue;
+                    }
+
+                    var navType = GetElementType(navigationProperty.PropertyType);
+                    var navProperties = navType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                    var hasNestedProperty = navProperties.Any(p =>
+                        string.Equals(p.Name, nestedPropertyName, StringComparison.OrdinalIgnoreCase));
+
+                    if (!hasNestedProperty)
+                        invalidFields.Add(field);
+                }
+                else
+                {
+                    var hasProperty = propertyNames.Any(p =>
+                        string.Equals(p, field, StringComparison.OrdinalIgnoreCase));
+
+                    if (!hasProperty)
+                        invalidFields.Add(field);
+                }
             }
-            catch
+
+            if (invalidFields.Count > 0)
             {
-                fields = null;
-                return false;
+                throw new InvalidOperationException(
+                    $"{typeof(TDestination).Name}.GetFields() contains invalid fields: [{string.Join(", ", invalidFields)}]. " +
+                    $"Valid properties: [{string.Join(", ", propertyNames)}].");
+            }
+
+            return fields;
+        }
+
+        private static Type GetElementType(Type type)
+        {
+            if (type == typeof(string))
+                return type;
+
+            var enumerableInterface = type.GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            if (enumerableInterface != null)
+                return enumerableInterface.GetGenericArguments()[0];
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                return type.GetGenericArguments()[0];
+
+            return type;
+        }
+
+        private static void ValidateAllowedFields(string[] allowedFields)
+        {
+            var properties = typeof(TDestination).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var propertyNames = properties.Select(p => p.Name).ToArray();
+
+            var invalidFields = allowedFields
+                .Where(field => !propertyNames.Any(p => string.Equals(p, field, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            if (invalidFields.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"AllowedFields for {typeof(TDestination).Name} contains invalid fields: [{string.Join(", ", invalidFields)}]. " +
+                    $"Valid properties: [{string.Join(", ", propertyNames)}].");
             }
         }
 
         [NonAction]
         public virtual IQueryable<TDestination> FilterQuery(IQueryable<TDestination> query, HttpRequest request)
         {
+            EnsureAllowedFieldsValidated();
+
             foreach (var filter in Filters)
                 query = filter.AddFilter(query, request);
             return query;
@@ -295,7 +361,20 @@ namespace NDjango.RestFramework.Base
         [NonAction]
         public virtual IQueryable<TDestination> SortQuery(string[] allowedFilters, IQueryable<TDestination> query)
         {
+            EnsureAllowedFieldsValidated();
+
             return new SortFilter<TDestination>().Sort(query, HttpContext.Request, allowedFilters);
+        }
+
+        private void EnsureAllowedFieldsValidated()
+        {
+            if (_validatedAllowedFields.TryGetValue(GetType(), out _))
+                return;
+
+            if (AllowedFields.Length > 0)
+                ValidateAllowedFields(AllowedFields);
+
+            _validatedAllowedFields.TryAdd(GetType(), true);
         }
 
         [NonAction]
@@ -303,6 +382,14 @@ namespace NDjango.RestFramework.Base
         {
             return Query ?? new FilterBuilder<TContext, TDestination>(_context).DbSet;
         }
+
+        #endregion
+
+        #region IFieldConfigurableController
+
+        string[] IFieldConfigurableController.GetFieldsConfiguration() => _fieldsToBeRendered;
+        string[] IFieldConfigurableController.GetAllowedFieldsConfiguration() => AllowedFields;
+        Type IFieldConfigurableController.GetDestinationType() => typeof(TDestination);
 
         #endregion
     }

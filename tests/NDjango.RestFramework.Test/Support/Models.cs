@@ -65,3 +65,9 @@ public class Seller : BaseModel<Guid>
     public string Name { get; set; }
     public override string[] GetFields() => throw new NotImplementedException();
 }
+
+public class InvalidFieldEntity : BaseModel<Guid>
+{
+    public string Name { get; set; }
+    public override string[] GetFields() => ["Name", "Id", "NonExistentField"];
+}

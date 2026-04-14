@@ -214,9 +214,12 @@ builder.Services.AddControllers()
 // Register one serializer per controller
 builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>>();
 builder.Services.AddScoped<Serializer<TodoItemDto, TodoItem, int, AppDbContext>>();
+
+// Validate controller field configuration at startup (recommended)
+builder.Services.ValidateControllerFieldsOnStartup();
 ```
 
-`AddNewtonsoftJson` is required because the library uses Newtonsoft.Json internally for serialization and field filtering. `ConfigureValidationResponseFormat()` ensures validation errors return a structured `ValidationErrors` response.
+`AddNewtonsoftJson` is required because the library uses Newtonsoft.Json internally for serialization and field filtering. `ConfigureValidationResponseFormat()` ensures validation errors return a structured `ValidationErrors` response. `ValidateControllerFieldsOnStartup()` checks that all field names in `GetFields()` and `AllowedFields` reference actual properties on the entity — the application will fail to start if any controller is misconfigured.
 
 ## API Guide
 
@@ -377,19 +380,23 @@ Make sure to register `AddHttpContextAccessor()` in your `Program.cs` if you use
 builder.Services.AddHttpContextAccessor();
 ```
 
-### Errors
+### Error handling
 
-Two error types may be returned by `BaseController`:
+`BaseController` does **not** catch exceptions. Unhandled exceptions propagate to the ASP.NET Core middleware pipeline, where the host application can handle them using `IExceptionHandler` / `app.UseExceptionHandler()`. This gives the host full control over status codes, error shapes, logging severity, and observability enrichment.
+
+The library produces two structured error responses:
 
 - **ValidationErrors** — When model state validation fails (requires `ConfigureValidationResponseFormat()`):
   ```json
-  {"type": "VALIDATION_ERRORS", "error": {"Name": ["Name should have at least 3 characters"]}}
+  {"type": "VALIDATION_ERRORS", "statusCode": 400, "error": {"Name": ["Name should have at least 3 characters"]}}
   ```
 
-- **UnexpectedError** — When an unhandled exception occurs:
+- **UnexpectedError** — Returned only for library-level configuration errors (e.g., `GetFields()` referencing invalid properties):
   ```json
-  {"type": "UNEXPECTED_ERROR", "error": {"msg": "An unexpected error occurred."}}
+  {"type": "UNEXPECTED_ERROR", "statusCode": 500, "error": {"msg": "..."}}
   ```
+
+For domain exceptions, infrastructure failures, and all other error scenarios, the host's exception middleware is responsible for producing the appropriate response.
 
 ## Notice
 

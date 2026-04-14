@@ -31,3 +31,8 @@ public class SellerDto : BaseDto<Guid>
 {
     public string Name { get; set; }
 }
+
+public class InvalidFieldEntityDto : BaseDto<Guid>
+{
+    public string Name { get; set; }
+}

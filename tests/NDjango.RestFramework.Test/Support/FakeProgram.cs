@@ -67,6 +67,7 @@ builder.Services.AddScoped<ThrowingCustomerSerializer>();
 builder.Services.AddScoped<Serializer<SellerDto, Seller, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<CustomerDocumentDto, CustomerDocument, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<IntAsIdEntityDto, IntAsIdEntity, int, AppDbContext>>();
+builder.Services.AddScoped<Serializer<InvalidFieldEntityDto, InvalidFieldEntity, Guid, AppDbContext>>();
 
 // Configure the HTTP request pipeline.
 var app = builder.Build();

@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<Seller> Seller { get; set; }
     public DbSet<CustomerDocument> CustomerDocument { get; set; }
     public DbSet<IntAsIdEntity> IntAsIdEntities { get; set; }
+    public DbSet<InvalidFieldEntity> InvalidFieldEntities { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -25,5 +26,6 @@ public class AppDbContext : DbContext
                 .IsRequired();
         });
         modelBuilder.Entity<IntAsIdEntity>(entity => { entity.HasKey(b => b.Id); });
+        modelBuilder.Entity<InvalidFieldEntity>(entity => { entity.HasKey(b => b.Id); });
     }
 }

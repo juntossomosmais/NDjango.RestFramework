@@ -9,7 +9,6 @@ using System.Web;
 using Bogus;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using NDjango.RestFramework.Base;
 using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Paginations;
 using NDjango.RestFramework.Test.Support;
@@ -49,20 +48,6 @@ public class BaseControllerTests
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        }
-
-        [Fact]
-        public async Task Delete_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Act
-            var response = await Client.DeleteAsync($"api/Sellers/{Guid.NewGuid()}");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
         }
 
         [Fact]
@@ -269,26 +254,6 @@ public class BaseControllerTests
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        }
-
-        [Fact]
-        public async Task GetSingle_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Arrange
-            var dbSet = Context.Set<Seller>();
-            var seller1 = new Seller() { Id = Guid.NewGuid(), Name = "Test" };
-
-            dbSet.Add(seller1);
-            await Context.SaveChangesAsync();
-
-            // Act
-            var response = await Client.GetAsync($"api/Sellers/{seller1.Id}");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var msg = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, msg.Error.Msg);
         }
 
         [Fact]
@@ -1052,20 +1017,6 @@ public class BaseControllerTests
             paginatedResponse.Previous.Should().BeNull();
         }
 
-        [Fact]
-        public async Task ListPaged_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Act
-            var response = await Client.GetAsync("api/Sellers");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
-        }
-
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -1482,29 +1433,6 @@ public class BaseControllerTests
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
-        [Fact]
-        public async Task Patch_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Arrange
-            var seller = new SellerDto()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Seller",
-            };
-
-            var content = new StringContent(JsonConvert.SerializeObject(seller), Encoding.UTF8,
-                "application/json-patch+json");
-
-            // Act
-            var response = await Client.PatchAsync($"api/Sellers/{seller.Id}", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
-        }
 
         [Fact]
         public async Task Patch_WhenPatchIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
@@ -1657,34 +1585,6 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Post_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Arrange
-            var dbSet = Context.Set<Seller>();
-
-            var seller = new SellerDto()
-            {
-                Name = "Seller",
-            };
-
-            var content = new StringContent(JsonConvert.SerializeObject(seller), Encoding.UTF8,
-                "application/json-patch+json");
-
-            // Act
-            var response = await Client.PostAsync("api/Sellers", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
-
-            var sellers = dbSet.AsNoTracking().ToList();
-            Assert.Empty(sellers);
-        }
-
-        [Fact]
         public async Task Post_WithValidData_ShouldReturn201WithLocationHeader()
         {
             // Arrange
@@ -1796,29 +1696,6 @@ public class BaseControllerTests
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
-        [Fact]
-        public async Task Put_WhenEntityDoesntImplementGetFields_ReturnsInternalServerError()
-        {
-            // Arrange
-            var seller = new SellerDto()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Seller",
-            };
-
-            var content = new StringContent(JsonConvert.SerializeObject(seller), Encoding.UTF8,
-                "application/json-patch+json");
-
-            // Act
-            var response = await Client.PutAsync($"api/Sellers/{seller.Id}", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var responseMessages = JsonConvert.DeserializeObject<UnexpectedError>(responseData);
-
-            Assert.Equal(BaseMessages.ERROR_GET_FIELDS, responseMessages.Error.Msg);
-        }
 
         [Fact]
         public async Task Put_WhenPutIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
@@ -2189,6 +2066,49 @@ public class BaseControllerTests
 
             // Assert
             Assert.Equal("Simulated infrastructure failure", exception.Message);
+        }
+    }
+
+    public class FieldValidation : IntegrationTests
+    {
+        [Fact]
+        public async Task AnyAction_WhenEntityGetFieldsThrows_ShouldThrowDuringControllerConstruction()
+        {
+            // Arrange
+            var act = () => Client.GetAsync($"api/Sellers/{Guid.NewGuid()}");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<NotImplementedException>(act);
+
+            // Assert
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public async Task AnyAction_WhenEntityGetFieldsContainsInvalidField_ShouldThrowDuringControllerConstruction()
+        {
+            // Arrange
+            var act = () => Client.GetAsync("api/InvalidFieldEntities");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Contains("NonExistentField", exception.Message);
+            Assert.Contains("InvalidFieldEntity", exception.Message);
+        }
+
+        [Fact]
+        public async Task AnyAction_WhenAllowedFieldsContainsInvalidField_ShouldThrowOnFirstRequest()
+        {
+            // Arrange
+            var act = () => Client.GetAsync("api/InvalidAllowedFieldEntities");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
+
+            // Assert
+            Assert.Contains("NonExistentAllowedField", exception.Message);
         }
     }
 }
