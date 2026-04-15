@@ -1,28 +1,10 @@
-# NDjango.RestFramework
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What is this?
 
-NDjango.RestFramework is a .NET 8 NuGet library that provides Django REST Framework-inspired CRUD API patterns for ASP.NET Core. It reduces boilerplate for building REST APIs by providing generic base classes for controllers, serializers, filters, and pagination.
-
-## Commands
-
-**All commands must run inside the Docker container.** Never run `dotnet build` directly.
-
-```shell
-# Run all tests (build + test)
-docker compose down --remove-orphans -t 0 && docker compose run --rm --remove-orphans integration-tests 2>&1 | tail -100
-
-# Run a single test by fully qualified name
-docker compose run --rm --remove-orphans integration-tests dotnet test tests/NDjango.RestFramework.Test --configuration Release --filter "FullyQualifiedName~ClassName.MethodName"
-
-# Run formatter (run after all tests pass)
-docker compose run --rm --remove-orphans lint-formatter
-
-# Run any arbitrary dotnet command
-docker compose run --remove-orphans --rm integration-tests dotnet <command>
-```
-
-Coverage reports are written to `./tests-reports/[report-id]/` (mapped from `/app/tests-reports/` in the container).
+NDjango.RestFramework is a .NET 8 library that provides Django REST Framework-inspired CRUD API patterns for ASP.NET Core. It reduces boilerplate for building REST APIs by providing generic base classes for controllers, serializers, filters, and pagination. Published as a NuGet package (`NDjango.RestFramework`).
 
 ## Architecture
 
@@ -32,28 +14,41 @@ The framework is built on a chain of generics: `<TOrigin, TDestination, TPrimary
 
 `BaseController` → `Serializer` → `DbContext`
 
-- **BaseController** (`Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints. Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`.
-- **Serializer** (`Serializer/Serializer.cs`) — Converts between DTOs and entities, handles DB operations (create, update, patch, delete). PATCH uses `PartialJsonObject<T>` to detect which fields were actually sent in the request body.
-- **JsonTransform** (`Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Supports nested field selection via `"ClassName:FieldName"` syntax.
+- **BaseController** (`src/NDjango.RestFramework/Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints (plus bulk `PUT ?ids=` and `DELETE ?ids=`). Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`. Does not catch exceptions — host is expected to wire `IExceptionHandler` / `UseExceptionHandler()`.
+- **Serializer** (`src/NDjango.RestFramework/Serializer/Serializer.cs`) — Converts DTOs ↔ entities and runs DB operations. DRF-style method names: `CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`. Override any of them for custom logic and register the subclass in DI.
+- **PartialJsonObject<T>** (`src/NDjango.RestFramework/Helpers/PartialJsonObject.cs`) — Tracks which fields were actually present in a PATCH body so absent fields stay untouched.
+- **JsonTransform** (`src/NDjango.RestFramework/Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Nested field selection uses `"ClassName:FieldName"` syntax.
 
 ### Filters (applied sequentially via `BaseController.Filters`)
 
-- **QueryStringFilter** (`Filters/QueryStringFilter.cs`) — Exact match on query params mapped to entity fields.
-- **QueryStringSearchFilter** (`Filters/QueryStringSearchFilter.cs`) — Multi-field LIKE search using `EF.Functions.Like()`, combines with OR.
-- **QueryStringIdRangeFilter** (`Filters/QueryStringIdRangeFilter.cs`) — Filter by `ids=id1,id2,id3` query param.
-- **SortFilter** (`Filters/SortFilter.cs`) — Dynamic sorting via `sort`/`sortDesc` query params using reflection + expression trees.
+Each filter receives the `IQueryable` from the previous one, so `Filter<TEntity>` is also the extension point for `.Include()`, conditional joins, or any other query shaping — not just filtering.
+
+- **QueryStringFilter** (`Filters/QueryStringFilter.cs`) — Exact match on query params mapped to entity fields. Only fields in `AllowedFields` are honored.
+- **QueryStringSearchFilter** (`Filters/QueryStringSearchFilter.cs`) — Multi-field `LIKE` search via `EF.Functions.Like()`, combined with OR.
+- **QueryStringIdRangeFilter** (`Filters/QueryStringIdRangeFilter.cs`) — Filter by `ids=1,2,3` or `ids=1&ids=2&ids=3`.
+- **SortFilter** (`Filters/SortFilter.cs`) — Dynamic `sort` / `sortDesc` driven by reflection + expression trees.
 
 ### Pagination
 
-- **IPagination** (`Paginations/Pagination.cs`) — Interface. Implementations receive `IQueryable` and `HttpRequest`, return `Paginated<T>` with count/next/previous/results.
-- **PageNumberPagination** (`Paginations/PageNumberPagination.cs`) — Django-style `?page=1&page_size=10`.
+- **IPagination** (`Paginations/Pagination.cs`) — Receives `IQueryable` + `HttpRequest`, returns `Paginated<T>` (count/next/previous/results).
+- **PageNumberPagination** (`Paginations/PageNumberPagination.cs`) — Django-style `?page=1&page_size=10` (default `page_size=5`, max 50). Swap by passing a custom `IPagination<TDestination>` to the `BaseController` constructor.
 
-### Test infrastructure
+### Startup validation
 
-Tests use `WebApplicationFactory<FakeProgram>` for integration testing against a real SQL Server (via Docker Compose). Test support lives in `tests/.../Support/` with fake controllers, models, DTOs, serializers, validators, and a Bogus-based data generator.
+`builder.Services.ValidateControllerFieldsOnStartup()` (via `Extensions/ControllerFieldValidationExtensions.cs` + `Validation/ControllerFieldValidationHostedService.cs`) asserts at app startup that every name in `GetFields()` and `AllowedFields` resolves to a real property on the entity. Misconfigured controllers fail fast instead of 500'ing at request time.
 
-## Data access rules
+### Error responses
 
-- Always add `.AsNoTracking()` on read-only queries.
-- Add `.AsSplitQuery()` when a query has multiple collection `.Include()` chains.
-- Use `ExecuteDeleteAsync()` / `ExecuteUpdateAsync()` for bulk operations.
+Only two structured shapes are produced by the library:
+
+- `ValidationErrors` (`Errors/ValidationErrors.cs`) — emitted when `ConfigureValidationResponseFormat()` is registered and model state fails. Shape: `{ "type": "VALIDATION_ERRORS", "statusCode": 400, "error": {...} }`.
+- `UnexpectedError` (`Errors/UnexpectedError.cs`) — library-level configuration errors only (e.g., bad `GetFields()`). Shape: `{ "type": "UNEXPECTED_ERROR", "statusCode": 500, "error": {"msg": "..."} }`.
+
+Anything else is the host's responsibility.
+
+## Tests
+
+- Project: `tests/NDjango.RestFramework.Test/` (net8.0, xUnit, Moq, Moq.AutoMock, Bogus).
+- Test harness: `Support/FakeProgram.cs` + `Support/IntegrationTestsFixture.cs` boot an in-process ASP.NET host backed by the real SQL Server container; each test class gets its own database (the connection string in `docker-compose.yml` has `REPLACE_ME_PROGRAMATICALLY` that is rewritten per fixture).
+- Shared test doubles live under `Support/` (`Controllers.cs`, `Serializers.cs`, `Filters.cs`, `Validators.cs`, `Models.cs`, `DTOs.cs`, etc.) — reuse these before inventing new ones.
+- The test project has `InternalsVisibleTo` to the main assembly, so `internal` APIs are reachable from tests.
