@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using NDjango.RestFramework.Helpers;
+using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -1282,6 +1284,52 @@ public class PartialJsonObjectTests
             obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeTrue();
             obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeTrue();
             obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeTrue();
+        }
+    }
+
+    public class SetValueGuard
+    {
+        [Fact]
+        public void SetValue_PresentTopLevelField_ShouldReplaceValue()
+        {
+            // Arrange
+            var json = "{\"Name\": \"OriginalName\", \"CNPJ\": \"12345\"}";
+            var partial = new PartialJsonObject<CustomerDto>(json);
+
+            // Act
+            partial.SetValue(d => d.Name, "ReplacedName");
+
+            // Assert
+            Assert.Equal("ReplacedName", partial.Instance.Name);
+            Assert.True(partial.IsSet(d => d.Name));
+        }
+
+        [Fact]
+        public void SetValue_AbsentTopLevelField_ShouldAddValue()
+        {
+            // Arrange
+            var json = "{\"Name\": \"OnlyName\"}";
+            var partial = new PartialJsonObject<CustomerDto>(json);
+
+            // Act
+            partial.SetValue(d => d.CNPJ, "99999999000199");
+
+            // Assert
+            Assert.Equal("99999999000199", partial.Instance.CNPJ);
+            Assert.True(partial.IsSet(d => d.CNPJ));
+        }
+
+        [Fact]
+        public void SetValue_NestedPathAbsentFromJson_ShouldThrowNotSupportedException()
+        {
+            // Arrange
+            var json = "{\"Name\": \"OnlyName\"}";
+            var partial = new PartialJsonObject<CustomerDto>(json);
+
+            // Act & Assert
+            var ex = Assert.Throws<NotSupportedException>(() =>
+                partial.SetValue(d => d.CustomerDocuments.First().Document, "x"));
+            Assert.Contains("nested", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

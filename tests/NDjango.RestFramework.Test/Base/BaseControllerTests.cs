@@ -1560,11 +1560,11 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Post_WithInvalidData_ShouldNotInsertObjectAndReturn400Error()
+        public async Task Post_WithNameTooShort_ShouldReturn400WithDataAnnotationsError()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
-            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "567", Name = "ac" };
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "ac" };
 
             var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8,
                 "application/json-patch+json");
@@ -1578,6 +1578,29 @@ public class BaseControllerTests
             var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
 
             Assert.Contains("Name should have at least 3 characters", responseMessages.Error["Name"]);
+
+            var customers = dbSet.AsNoTracking().ToList();
+            Assert.Empty(customers);
+        }
+
+        [Fact]
+        public async Task Post_WithForbiddenCNPJ_ShouldReturn400WithValidateAsyncError()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "567", Name = "abc" };
+
+            var content = new StringContent(JsonConvert.SerializeObject(customer), Encoding.UTF8,
+                "application/json-patch+json");
+
+            // Act
+            var response = await Client.PostAsync("api/Customers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var responseData = await response.Content.ReadAsStringAsync();
+            var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
+
             Assert.Contains("CNPJ cannot be 567", responseMessages.Error["CNPJ"]);
 
             var customers = dbSet.AsNoTracking().ToList();

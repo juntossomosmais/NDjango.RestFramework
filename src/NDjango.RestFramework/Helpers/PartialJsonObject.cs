@@ -7,6 +7,14 @@ using Newtonsoft.Json.Linq;
 
 namespace NDjango.RestFramework.Helpers
 {
+    /// <remarks>
+    /// This type is not thread-safe. Do not invoke <see cref="SetValue{R}"/>, <see cref="IsSet(string)"/>,
+    /// <see cref="Add{R}"/>, <see cref="Remove{R}"/>, or any other member from concurrent tasks on the same
+    /// instance — the internal JObject, cache dictionary, and materialized instance cache are all mutated
+    /// without synchronization. Each request receives its own instance via model binding, so this is only
+    /// a concern if a <c>ValidateAsync</c> override launches parallel subtasks (e.g., <c>Task.WhenAll</c>)
+    /// that touch the same partial object.
+    /// </remarks>
     [JsonConverter(typeof(PartialJsonObjectConverter))]
     public class PartialJsonObject<T> : PartialJsonObject where T : class
     {
@@ -76,6 +84,42 @@ namespace NDjango.RestFramework.Helpers
         public R GetIfSet<R>(Expression<Func<T, R>> path, R defaultValue = default)
         {
             return IsSet(path) ? path.Compile()(Instance) : defaultValue;
+        }
+
+        /// <summary>
+        /// Sets or replaces the value of a property in the underlying JSON object. This is
+        /// intended for use inside <c>ValidateAsync</c> overrides to normalize field values
+        /// before the partial update is applied. After calling this method, <see cref="IsSet"/>
+        /// will return <c>true</c> for the property and the materialized <see cref="Instance"/>
+        /// will reflect the new value.
+        /// </summary>
+        /// <typeparam name="R">The type of the property.</typeparam>
+        /// <param name="property">An expression identifying the property to set (e.g., <c>d =&gt; d.CNPJ</c>).</param>
+        /// <param name="value">The new value to assign.</param>
+        public void SetValue<R>(Expression<Func<T, R>> property, R value)
+        {
+            var memberPath = GetMemberPath(property);
+            var paths = memberPath.Split('.');
+            var jsonPath = GetJSONPath(paths);
+
+            var token = JsonObject.SelectToken(jsonPath);
+            var newValue = value == null ? JValue.CreateNull() : JToken.FromObject(value);
+
+            if (token != null)
+            {
+                token.Replace(newValue);
+            }
+            else
+            {
+                JsonObject[paths[0]] = paths.Length == 1
+                    ? newValue
+                    : throw new NotSupportedException(
+                                    $"SetValue cannot create nested properties that are absent from the incoming JSON. " +
+                                    $"Path '{memberPath}' is nested and not present. Only top-level properties can be added.");
+            }
+
+            _instance = null;
+            _cache[memberPath.ToLower()] = true;
         }
 
         public PartialJsonObject<T> Add<R>(Expression<Func<T, R>> expPath)

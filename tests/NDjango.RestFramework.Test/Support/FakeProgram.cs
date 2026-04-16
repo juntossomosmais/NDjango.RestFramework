@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -52,8 +50,6 @@ builder.Services.AddControllers()
     .ConfigureValidationResponseFormat()
     .PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<CustomerDtoValidator>();
 var defaultConnectionString =
     "Data Source=localhost,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True";
 var connectionString = configuration.GetConnectionString("AppDbContext") ?? defaultConnectionString;
@@ -63,6 +59,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Context.Database.EnsureCreated();
 // Rest framework configuration
 builder.Services.AddScoped<CustomerSerializer>();
+builder.Services.AddScoped<ValidatingCustomerSerializer>();
 builder.Services.AddScoped<ThrowingCustomerSerializer>();
 builder.Services.AddScoped<Serializer<SellerDto, Seller, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<CustomerDocumentDto, CustomerDocument, Guid, AppDbContext>>();

@@ -114,6 +114,33 @@ public class CustomerDocumentsController : BaseController<CustomerDocumentDto, C
 
 [Route("api/[controller]")]
 [ApiController]
+public class ValidatingCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public ValidatingCustomersController(
+        ValidatingCustomerSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+            nameof(Customer.Age),
+        };
+
+        Filters.Add(new QueryStringFilter<Customer>(AllowedFields));
+        Filters.Add(new QueryStringSearchFilter<Customer>(AllowedFields));
+        Filters.Add(new QueryStringIdRangeFilter<Customer, Guid>());
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
 public class ThrowingCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
 {
     public ThrowingCustomersController(

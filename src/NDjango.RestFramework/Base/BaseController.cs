@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Filters;
 using NDjango.RestFramework.Helpers;
 using NDjango.RestFramework.Paginations;
@@ -129,6 +130,11 @@ namespace NDjango.RestFramework.Base
         [HttpPost]
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
+            var errors = new Dictionary<string, List<string>>();
+            entity = await _serializer.ValidateAsync(entity, errors);
+            if (errors.Count > 0)
+                return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
+
             var data = await _serializer.CreateAsync(entity);
 
             var json = JsonConvert.SerializeObject(
@@ -154,6 +160,11 @@ namespace NDjango.RestFramework.Base
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+            var errors = new Dictionary<string, List<string>>();
+            entity = await _serializer.ValidateAsync(entity, id, errors);
+            if (errors.Count > 0)
+                return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
             var data = await _serializer.PartialUpdateAsync(entity, id);
 
@@ -184,6 +195,11 @@ namespace NDjango.RestFramework.Base
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
+            var errors = new Dictionary<string, List<string>>();
+            origin = await _serializer.ValidateAsync(origin, id, errors);
+            if (errors.Count > 0)
+                return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
+
             var data = await _serializer.UpdateAsync(origin, id);
 
             if (data == null)
@@ -211,6 +227,11 @@ namespace NDjango.RestFramework.Base
         {
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
+            var errors = new Dictionary<string, List<string>>();
+            origin = await _serializer.ValidateAsync(origin, errors);
+            if (errors.Count > 0)
+                return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
             var updatedIds = await _serializer.UpdateManyAsync(origin, ids);
 
@@ -256,6 +277,10 @@ namespace NDjango.RestFramework.Base
         #endregion
 
         #region Utils
+
+        private static IDictionary<string, string[]> ToValidationErrorsDict(
+            IDictionary<string, List<string>> errors)
+            => errors.ToDictionary(kv => kv.Key, kv => kv.Value.ToArray());
 
         private static string[] ResolveAndValidateFields()
         {

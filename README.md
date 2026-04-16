@@ -369,30 +369,134 @@ builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>, Per
 
 ### Validation
 
-Use [FluentValidation](https://docs.fluentvalidation.net/) for DTO validation. The `IHttpContextAccessor` lets you apply rules conditionally based on the HTTP method:
+Validation happens at two layers:
+
+1. **DataAnnotations on DTOs** -- Standard `[Required]`, `[MinLength]`, `[Range]`, etc. attributes on your DTO properties. These are evaluated during model binding (before the controller action runs) and produce `ValidationErrors` responses via `ConfigureValidationResponseFormat()`.
+
+2. **`ValidateAsync` on the Serializer** -- For rules that need async I/O (database uniqueness checks), cross-field logic, or DTO mutation (normalizing values before persistence). Override `ValidateAsync` on your serializer subclass.
 
 ```csharp
-public class PersonDtoValidator : AbstractValidator<PersonDto>
-{
-    public PersonDtoValidator(IHttpContextAccessor context)
-    {
-        RuleFor(m => m.Name)
-            .MinimumLength(3)
-            .WithMessage("Name should have at least 3 characters");
+using System.ComponentModel.DataAnnotations;
+using NDjango.RestFramework.Base;
 
-        if (context.HttpContext.Request.Method == HttpMethods.Post)
-            RuleFor(m => m.Name)
-                .NotEmpty()
-                .WithMessage("Name is required");
+public class PersonDto : BaseDto<int>
+{
+    [MinLength(3, ErrorMessage = "Name should have at least 3 characters")]
+    public string Name { get; set; }
+}
+```
+
+### Custom validation and normalization
+
+Override `ValidateAsync` on a serializer subclass to add business rules that require async operations or value normalization. The method receives the DTO (which you can mutate) and an error dictionary. Populate the dictionary to signal validation failures; the controller short-circuits to `400 ValidationErrors` when the dictionary is non-empty.
+
+Three overloads are available, matching the CRUD operations:
+
+| Overload | Used by | Purpose |
+|---|---|---|
+| `ValidateAsync(TOrigin data, errors)` | POST, PutMany | Create and bulk-update validation |
+| `ValidateAsync(TOrigin data, TPrimaryKey entityId, errors)` | PUT | Update validation with entity ID for skip-self checks |
+| `ValidateAsync(PartialJsonObject<TOrigin> partialData, TPrimaryKey entityId, errors)` | PATCH | Partial update; check `partialData.IsSet(d => d.Field)` before validating |
+
+Example -- CNPJ normalization and uniqueness check:
+
+```csharp
+public class StoreSerializer : Serializer<StoreDto, Store, Guid, AppDbContext>
+{
+    public StoreSerializer(AppDbContext context) : base(context) { }
+
+    public override async Task<StoreDto> ValidateAsync(
+        StoreDto data, IDictionary<string, List<string>> errors)
+    {
+        if (data.CNPJ != null)
+        {
+            // Normalize: strip non-digits
+            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
+            data.CNPJ = cnpj;
+
+            if (cnpj.Length != 14)
+                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
+
+            if (cnpj.Length == 14
+                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj))
+                errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
+        }
+
+        return data;
+    }
+
+    public override async Task<StoreDto> ValidateAsync(
+        StoreDto data, Guid entityId, IDictionary<string, List<string>> errors)
+    {
+        if (data.CNPJ != null)
+        {
+            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
+            data.CNPJ = cnpj;
+
+            if (cnpj.Length != 14)
+                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
+
+            // Skip-self uniqueness check (the DRF self.instance equivalent)
+            if (cnpj.Length == 14
+                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj && s.Id != entityId))
+                errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
+        }
+
+        return data;
+    }
+
+    public override async Task<PartialJsonObject<StoreDto>> ValidateAsync(
+        PartialJsonObject<StoreDto> partialData, Guid entityId,
+        IDictionary<string, List<string>> errors)
+    {
+        if (partialData.IsSet(d => d.CNPJ))
+        {
+            var cnpj = Regex.Replace(partialData.Instance.CNPJ ?? "", @"\D", "");
+            partialData.SetValue(d => d.CNPJ, cnpj);
+
+            if (cnpj.Length != 14)
+                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
+
+            if (cnpj.Length == 14
+                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj && s.Id != entityId))
+                errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
+        }
+
+        return partialData;
     }
 }
 ```
 
-Make sure to register `AddHttpContextAccessor()` in your `Program.cs` if you use `IHttpContextAccessor` in validators:
+Register the custom serializer in DI:
 
 ```csharp
-builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<StoreSerializer>();
 ```
+
+The `GetOrAdd` extension method is a **public** API in `NDjango.RestFramework.Helpers`. Add the following `using` to your serializer file:
+
+```csharp
+using NDjango.RestFramework.Helpers;
+```
+
+For PATCH, use `partialData.SetValue(d => d.Field, value)` to write normalized values back into the partial JSON object.
+
+#### Guidelines for `ValidateAsync`
+
+- **Use `.AsNoTracking()` on any DB reads** inside `ValidateAsync`. Validation should never track entities.
+- **Never call `SaveChangesAsync()`** inside `ValidateAsync`. The base CRUD method (`CreateAsync`, `UpdateAsync`, etc.) saves after validation succeeds. Calling it during validation interacts badly with the change tracker and may persist entities prematurely.
+- **Do not attach, add, or remove entities during validation** -- only read.
+- **The non-ID overload is called by both POST and PutMany.** PutMany does not pass entity IDs because the same payload applies to many rows. Entity-specific checks (e.g., "uniqueness excluding all target entities") cannot be expressed in this overload. If your PutMany needs per-entity validation context, override `UpdateManyAsync` and perform the checks there before the bulk update.
+- **The `errors` dictionary and `PartialJsonObject<T>` are not thread-safe.** Do not share them across `Task.WhenAll` subtasks without external synchronization. Each request receives its own instances, so this only matters if your `ValidateAsync` override launches parallel work.
+- **`PartialJsonObject.SetValue` only supports top-level properties** for absent fields. If the property path is nested (e.g., `d => d.Address.Street`) and the path is not present in the incoming JSON, `SetValue` throws `NotSupportedException`. Nested paths that already exist in the JSON can be replaced normally.
+
+#### Overload reference
+
+| Overload | HTTP verb | Receives entity ID? | Notes |
+|---|---|---|---|
+| `ValidateAsync(TOrigin, errors)` | POST, PutMany | No | Shared by create and bulk update |
+| `ValidateAsync(TOrigin, TPrimaryKey, errors)` | PUT | Yes | Skip-self uniqueness checks; defaults to non-ID overload |
+| `ValidateAsync(PartialJsonObject<TOrigin>, TPrimaryKey, errors)` | PATCH | Yes | Use `IsSet()` to check which fields were sent |
 
 ### Error handling
 

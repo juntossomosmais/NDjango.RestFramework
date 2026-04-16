@@ -15,7 +15,7 @@ The framework is built on a chain of generics: `<TOrigin, TDestination, TPrimary
 `BaseController` → `Serializer` → `DbContext`
 
 - **BaseController** (`src/NDjango.RestFramework/Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints (plus bulk `PUT ?ids=` and `DELETE ?ids=`). Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`. Does not catch exceptions — host is expected to wire `IExceptionHandler` / `UseExceptionHandler()`.
-- **Serializer** (`src/NDjango.RestFramework/Serializer/Serializer.cs`) — Converts DTOs ↔ entities and runs DB operations. DRF-style method names: `CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`. Override any of them for custom logic and register the subclass in DI.
+- **Serializer** (`src/NDjango.RestFramework/Serializer/Serializer.cs`) — Converts DTOs ↔ entities and runs DB operations. DRF-style method names: `CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`. Also exposes `ValidateAsync` overloads (POST, PUT+id, PATCH+id) for async validation and DTO normalization — DRF's `validate_<field>` pattern. Override any method for custom logic and register the subclass in DI.
 - **PartialJsonObject<T>** (`src/NDjango.RestFramework/Helpers/PartialJsonObject.cs`) — Tracks which fields were actually present in a PATCH body so absent fields stay untouched.
 - **JsonTransform** (`src/NDjango.RestFramework/Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Nested field selection uses `"ClassName:FieldName"` syntax.
 
@@ -41,7 +41,7 @@ Each filter receives the `IQueryable` from the previous one, so `Filter<TEntity>
 
 Only two structured shapes are produced by the library:
 
-- `ValidationErrors` (`Errors/ValidationErrors.cs`) — emitted when `ConfigureValidationResponseFormat()` is registered and model state fails. Shape: `{ "type": "VALIDATION_ERRORS", "statusCode": 400, "error": {...} }`.
+- `ValidationErrors` (`Errors/ValidationErrors.cs`) — emitted when `ConfigureValidationResponseFormat()` is registered and model state fails, or when a `ValidateAsync` override populates its `errors` dictionary. Shape: `{ "type": "VALIDATION_ERRORS", "statusCode": 400, "error": {...} }`.
 - `UnexpectedError` (`Errors/UnexpectedError.cs`) — library-level configuration errors only (e.g., bad `GetFields()`). Shape: `{ "type": "UNEXPECTED_ERROR", "statusCode": 500, "error": {"msg": "..."} }`.
 
 Anything else is the host's responsibility.
@@ -50,5 +50,5 @@ Anything else is the host's responsibility.
 
 - Project: `tests/NDjango.RestFramework.Test/` (net8.0, xUnit, Moq, Moq.AutoMock, Bogus).
 - Test harness: `Support/FakeProgram.cs` + `Support/IntegrationTestsFixture.cs` boot an in-process ASP.NET host backed by the real SQL Server container; each test class gets its own database (the connection string in `docker-compose.yml` has `REPLACE_ME_PROGRAMATICALLY` that is rewritten per fixture).
-- Shared test doubles live under `Support/` (`Controllers.cs`, `Serializers.cs`, `Filters.cs`, `Validators.cs`, `Models.cs`, `DTOs.cs`, etc.) — reuse these before inventing new ones.
+- Shared test doubles live under `Support/` (`Controllers.cs`, `Serializers.cs`, `Filters.cs`, `Models.cs`, `DTOs.cs`, etc.) — reuse these before inventing new ones.
 - The test project has `InternalsVisibleTo` to the main assembly, so `internal` APIs are reachable from tests.

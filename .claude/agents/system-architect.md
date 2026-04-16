@@ -23,7 +23,7 @@ The framework is built on a generics chain: `<TOrigin, TDestination, TPrimaryKey
 The core pipeline is: **BaseController → Serializer → DbContext**
 
 - **BaseController** (`Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints. Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`.
-- **Serializer** (`Serializer/Serializer.cs`) — Converts between DTOs and entities, handles DB operations (create, update, patch, delete). PATCH uses `PartialJsonObject<T>` to detect which fields were actually sent.
+- **Serializer** (`Serializer/Serializer.cs`) — Converts between DTOs and entities, handles DB operations (create, update, patch, delete), and exposes `ValidateAsync` overloads for async validation and DTO normalization. PATCH uses `PartialJsonObject<T>` to detect which fields were actually sent.
 - **JsonTransform** (`Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Supports nested field selection via `"ClassName:FieldName"` syntax.
 
 ### Filters (applied sequentially via `BaseController.Filters`)
@@ -45,7 +45,7 @@ Use this as a starting point when cross-referencing DRF. **Pin all DRF lookups t
 | Ours | DRF | Translation note |
 |---|---|---|
 | `Base/BaseController.cs` | `views.py` + `generics.py` + `mixins.py` + `viewsets.py` (`ModelViewSet`) | DRF splits base / generic / per-action mixin / composite across four files; we fuse into one. `ActionOptions` emulates mixin opt-in. |
-| `Serializer/Serializer.cs` | `serializers.py` (`Serializer`, `ModelSerializer`) | DRF's Serializer also owns validation; ours delegates validation to ASP.NET `ModelState` and keeps only DTO↔entity mapping + DB ops. |
+| `Serializer/Serializer.cs` | `serializers.py` (`Serializer`, `ModelSerializer`) | DTO↔entity mapping + DB ops + async/mutation-capable `ValidateAsync` (mirrors DRF's `validate_<field>` / `validate`). Attribute-level validation is delegated to ASP.NET `ModelState`. |
 | `Base/BaseDto.cs` | `serializers.py` (declarative field pattern) | DRF declares fields on the serializer; we use POCO DTOs + ASP.NET model binding. |
 | `Base/BaseModel.cs` (`GetFields()`) | `serializers.py` (`Meta.fields`, `get_fields()`) | Field visibility lives on the model here, on the serializer there. |
 | `Serializer/JsonTransform.cs` | `serializers.py` (dynamic-fields pattern, `to_representation`) | Contract-resolver level here; serializer-level in DRF. |
@@ -74,7 +74,7 @@ Use this as a starting point when cross-referencing DRF. **Pin all DRF lookups t
 |---|---|
 | `Errors/ValidationErrors.cs` | `exceptions.py` (`ValidationError`) |
 | `Errors/UnexpectedError.cs` | `exceptions.py` (`APIException`) |
-| `Extensions/ModelStateValidationExtensions.cs` | `serializers.py` (`is_valid(raise_exception=True)`) — validation lives inside the serializer in DRF; in model binding here |
+| `Extensions/ModelStateValidationExtensions.cs` + `Serializer.ValidateAsync` | `serializers.py` (`is_valid`, `validate`, `validate_<field>`) — DRF runs everything inside the serializer; we split it: DataAnnotations fire at model binding (extension maps to `ValidationErrors`), async/mutation rules fire inside `Serializer.ValidateAsync` |
 | `Validation/ControllerFieldValidationHostedService.cs` | `checks.py` (Django system-check framework) — both are startup integrity checks |
 
 **No DRF counterpart**
