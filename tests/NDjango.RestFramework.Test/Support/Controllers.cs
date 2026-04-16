@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NDjango.RestFramework.Base;
 using NDjango.RestFramework.Filters;
+using NDjango.RestFramework.Paginations;
 using NDjango.RestFramework.Serializer;
 
 namespace NDjango.RestFramework.Test.Support;
@@ -163,6 +164,124 @@ public class ThrowingCustomersController : BaseController<CustomerDto, Customer,
     public override IQueryable<Customer> GetQuerySet()
     {
         throw new InvalidOperationException("Simulated query failure");
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class PerFieldCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public PerFieldCustomersController(
+        PerFieldCustomerSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+            nameof(Customer.Age),
+        };
+
+        Filters.Add(new QueryStringFilter<Customer>(AllowedFields));
+        Filters.Add(new QueryStringSearchFilter<Customer>(AllowedFields));
+        Filters.Add(new QueryStringIdRangeFilter<Customer, Guid>());
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class PerFieldCrossFieldCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public PerFieldCrossFieldCustomersController(
+        PerFieldWithCrossFieldSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+            nameof(Customer.Age),
+        };
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class PerFieldShortCircuitCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public PerFieldShortCircuitCustomersController(
+        PerFieldShortCircuitSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+            nameof(Customer.Age),
+        };
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class ContextCapturingCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public ContextCapturingCustomersController(
+        ContextCapturingSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+            nameof(Customer.Age),
+        };
+    }
+}
+
+[Route("api/[controller]")]
+[ApiController]
+public class MisnamedHookCustomersController : BaseController<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public MisnamedHookCustomersController(
+        MisnamedHookSerializer serializer,
+        AppDbContext dbContext,
+        ILogger<Customer> logger)
+        : base(
+            serializer,
+            dbContext,
+            logger)
+    {
+        AllowedFields = new[]
+        {
+            nameof(Customer.Id),
+            nameof(Customer.Name),
+            nameof(Customer.CNPJ),
+        };
     }
 }
 

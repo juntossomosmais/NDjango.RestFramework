@@ -45,6 +45,15 @@
           "Microsoft.Extensions.Hosting": "8.0.1"
         }
       },
+      "Microsoft.EntityFrameworkCore.InMemory": {
+        "type": "Direct",
+        "requested": "[8.*, )",
+        "resolved": "8.0.26",
+        "contentHash": "AhCC7Cy+M4tBOq+230WPhMKrQOdBPMuIB6LfQSDE8K9PzYjPOayathWy8dEe97W+RG36nwuc4SAKqTo1yGujDw==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "8.0.26"
+        }
+      },
       "Microsoft.EntityFrameworkCore.SqlServer": {
         "type": "Direct",
         "requested": "[8.*, )",

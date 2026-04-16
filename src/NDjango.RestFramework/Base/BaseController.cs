@@ -131,7 +131,8 @@ namespace NDjango.RestFramework.Base
         public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
         {
             var errors = new Dictionary<string, List<string>>();
-            entity = await _serializer.ValidateAsync(entity, errors);
+            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.Create, default);
+            entity = await _serializer.RunValidationAsync(entity, context, errors);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
@@ -162,7 +163,8 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
-            entity = await _serializer.ValidateAsync(entity, id, errors);
+            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.PartialUpdate, id);
+            entity = await _serializer.RunValidationForPartialAsync(entity, context, errors);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
@@ -196,7 +198,8 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
-            origin = await _serializer.ValidateAsync(origin, id, errors);
+            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.Update, id);
+            origin = await _serializer.RunValidationAsync(origin, context, errors);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
@@ -229,7 +232,8 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
-            origin = await _serializer.ValidateAsync(origin, errors);
+            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.BulkUpdate, default);
+            origin = await _serializer.RunValidationAsync(origin, context, errors);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
@@ -421,6 +425,8 @@ namespace NDjango.RestFramework.Base
         string[] IFieldConfigurableController.GetFieldsConfiguration() => _fieldsToBeRendered;
         string[] IFieldConfigurableController.GetAllowedFieldsConfiguration() => AllowedFields;
         Type IFieldConfigurableController.GetDestinationType() => typeof(TDestination);
+        IReadOnlyList<string> IFieldConfigurableController.GetMisnamedValidationHooks()
+            => Serializer<TOrigin, TDestination, TPrimaryKey, TContext>.GetMisnamedHooks(_serializer.GetType());
 
         #endregion
     }

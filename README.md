@@ -373,7 +373,7 @@ Validation happens at two layers:
 
 1. **DataAnnotations on DTOs** -- Standard `[Required]`, `[MinLength]`, `[Range]`, etc. attributes on your DTO properties. These are evaluated during model binding (before the controller action runs) and produce `ValidationErrors` responses via `ConfigureValidationResponseFormat()`.
 
-2. **`ValidateAsync` on the Serializer** -- For rules that need async I/O (database uniqueness checks), cross-field logic, or DTO mutation (normalizing values before persistence). Override `ValidateAsync` on your serializer subclass.
+2. **Serializer hooks** -- For rules that need async I/O (database uniqueness checks), cross-field logic, or DTO mutation (normalizing values before persistence). Define hooks on your serializer subclass (see next section).
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
@@ -388,81 +388,61 @@ public class PersonDto : BaseDto<int>
 
 ### Custom validation and normalization
 
-Override `ValidateAsync` on a serializer subclass to add business rules that require async operations or value normalization. The method receives the DTO (which you can mutate) and an error dictionary. Populate the dictionary to signal validation failures; the controller short-circuits to `400 ValidationErrors` when the dictionary is non-empty.
+The serializer runs a two-stage pipeline (inspired by DRF's `validate_<field>` + `validate()`):
 
-Three overloads are available, matching the CRUD operations:
+1. **Per-field hooks** -- Methods named `Validate{PropertyName}Async` on your serializer. Auto-discovered by convention, invoked for POST/PUT/PATCH. For PATCH, a hook is only called if the field was present in the payload. Return the (possibly normalized) value.
+2. **Cross-field hook** -- Override `ValidateAsync(data, context, errors)`. Runs **only if all per-field hooks passed** (no errors), so you can safely assume individual fields are valid.
 
-| Overload | Used by | Purpose |
-|---|---|---|
-| `ValidateAsync(TOrigin data, errors)` | POST, PutMany | Create and bulk-update validation |
-| `ValidateAsync(TOrigin data, TPrimaryKey entityId, errors)` | PUT | Update validation with entity ID for skip-self checks |
-| `ValidateAsync(PartialJsonObject<TOrigin> partialData, TPrimaryKey entityId, errors)` | PATCH | Partial update; check `partialData.IsSet(d => d.Field)` before validating |
+Both stages receive a `ValidationContext<TPrimaryKey>` carrying `Operation` (`Create` / `Update` / `PartialUpdate` / `BulkUpdate`) and `EntityId`. Populate `errors` to signal failures; the controller returns `400 ValidationErrors` as soon as the dictionary is non-empty.
 
-Example -- CNPJ normalization and uniqueness check:
+Example -- CNPJ normalization + uniqueness + a cross-field rule, no duplication across POST/PUT/PATCH:
 
 ```csharp
+using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using NDjango.RestFramework.Helpers;
+using NDjango.RestFramework.Serializer;
+
 public class StoreSerializer : Serializer<StoreDto, Store, Guid, AppDbContext>
 {
     public StoreSerializer(AppDbContext context) : base(context) { }
 
-    public override async Task<StoreDto> ValidateAsync(
-        StoreDto data, IDictionary<string, List<string>> errors)
-    {
-        if (data.CNPJ != null)
-        {
-            // Normalize: strip non-digits
-            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
-            data.CNPJ = cnpj;
-
-            if (cnpj.Length != 14)
-                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-            if (cnpj.Length == 14
-                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj))
-                errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
-        }
-
-        return data;
-    }
-
-    public override async Task<StoreDto> ValidateAsync(
-        StoreDto data, Guid entityId, IDictionary<string, List<string>> errors)
-    {
-        if (data.CNPJ != null)
-        {
-            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
-            data.CNPJ = cnpj;
-
-            if (cnpj.Length != 14)
-                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-            // Skip-self uniqueness check (the DRF self.instance equivalent)
-            if (cnpj.Length == 14
-                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj && s.Id != entityId))
-                errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
-        }
-
-        return data;
-    }
-
-    public override async Task<PartialJsonObject<StoreDto>> ValidateAsync(
-        PartialJsonObject<StoreDto> partialData, Guid entityId,
+    // Per-field hook: runs for POST, PUT, and PATCH (PATCH only if CNPJ was sent).
+    public async Task<string> ValidateCNPJAsync(
+        string value,
+        ValidationContext<Guid> context,
         IDictionary<string, List<string>> errors)
     {
-        if (partialData.IsSet(d => d.CNPJ))
+        if (value == null) return value;
+
+        // Normalize: strip non-digits. The returned value is written back automatically.
+        var cnpj = Regex.Replace(value, @"\D", "");
+
+        if (cnpj.Length != 14)
+            errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
+
+        if (cnpj.Length == 14)
         {
-            var cnpj = Regex.Replace(partialData.Instance.CNPJ ?? "", @"\D", "");
-            partialData.SetValue(d => d.CNPJ, cnpj);
-
-            if (cnpj.Length != 14)
-                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-            if (cnpj.Length == 14
-                && await _dbContext.Store.AsNoTracking().AnyAsync(s => s.CNPJ == cnpj && s.Id != entityId))
+            var query = _dbContext.Store.AsNoTracking().Where(s => s.CNPJ == cnpj);
+            if (!context.IsCreate)
+                query = query.Where(s => s.Id != context.EntityId); // skip-self
+            if (await query.AnyAsync())
                 errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
         }
 
-        return partialData;
+        return cnpj;
+    }
+
+    // Cross-field hook: runs only if per-field hooks added no errors.
+    public override Task<StoreDto> ValidateAsync(
+        StoreDto data,
+        ValidationContext<Guid> context,
+        IDictionary<string, List<string>> errors)
+    {
+        if (!string.IsNullOrEmpty(data.Name) && data.Name == data.CNPJ)
+            errors.GetOrAdd("Name").Add("Name cannot be the same as CNPJ.");
+
+        return Task.FromResult(data);
     }
 }
 ```
@@ -479,24 +459,31 @@ The `GetOrAdd` extension method is a **public** API in `NDjango.RestFramework.He
 using NDjango.RestFramework.Helpers;
 ```
 
-For PATCH, use `partialData.SetValue(d => d.Field, value)` to write normalized values back into the partial JSON object.
+#### Hook conventions
 
-#### Guidelines for `ValidateAsync`
+- **Method name**: `Validate{PropertyName}Async`, where `PropertyName` matches a property on your DTO exactly (case-insensitive). Misnamed hooks (e.g., `ValidateCnjAsync` when the DTO has `CNPJ`) are caught at startup by `ValidateControllerFieldsOnStartup()`.
+- **Signature**: `Task<TFieldType> Validate{Property}Async(TFieldType value, ValidationContext<TPrimaryKey> context, IDictionary<string, List<string>> errors)`. The return type must match the property type.
+- **Mutation**: return a different value from the hook and the framework writes it back (onto the DTO for POST/PUT, onto the `PartialJsonObject<T>` for PATCH).
+- **Branching on operation**: use `context.Operation`, `context.IsCreate`, `context.IsUpdate`, `context.IsPartialUpdate`, or `context.IsBulkUpdate`. Avoid deriving intent from `EntityId == default` — it's ambiguous for bulk updates and for `int` primary keys.
 
-- **Use `.AsNoTracking()` on any DB reads** inside `ValidateAsync`. Validation should never track entities.
-- **Never call `SaveChangesAsync()`** inside `ValidateAsync`. The base CRUD method (`CreateAsync`, `UpdateAsync`, etc.) saves after validation succeeds. Calling it during validation interacts badly with the change tracker and may persist entities prematurely.
+#### Guidelines
+
+- **Use `.AsNoTracking()` on any DB reads** inside validation. Validation should never track entities.
+- **Never call `SaveChangesAsync()`** inside validation. The base CRUD method (`CreateAsync`, `UpdateAsync`, etc.) saves after validation succeeds.
 - **Do not attach, add, or remove entities during validation** -- only read.
-- **The non-ID overload is called by both POST and PutMany.** PutMany does not pass entity IDs because the same payload applies to many rows. Entity-specific checks (e.g., "uniqueness excluding all target entities") cannot be expressed in this overload. If your PutMany needs per-entity validation context, override `UpdateManyAsync` and perform the checks there before the bulk update.
-- **The `errors` dictionary and `PartialJsonObject<T>` are not thread-safe.** Do not share them across `Task.WhenAll` subtasks without external synchronization. Each request receives its own instances, so this only matters if your `ValidateAsync` override launches parallel work.
-- **`PartialJsonObject.SetValue` only supports top-level properties** for absent fields. If the property path is nested (e.g., `d => d.Address.Street`) and the path is not present in the incoming JSON, `SetValue` throws `NotSupportedException`. Nested paths that already exist in the JSON can be replaced normally.
+- **The `errors` dictionary and `PartialJsonObject<T>` are not thread-safe.** Do not share them across `Task.WhenAll` subtasks without external synchronization.
+- **`PartialJsonObject.SetValue` only supports top-level properties** for absent fields. If the property path is nested (e.g., `d => d.Address.Street`) and the path is not present in the incoming JSON, `SetValue` throws `NotSupportedException`. Nested paths that already exist in the JSON can be replaced normally. (The framework only uses `SetValue` internally for properties it knows are set, so this limitation only affects code that calls `SetValue` directly.)
+- **`BulkUpdate` operations have no single `EntityId`.** Hook authors needing per-entity validation context should override `UpdateManyAsync` and perform those checks there before the bulk update.
 
-#### Overload reference
+#### Legacy overloads (backward compatibility)
 
-| Overload | HTTP verb | Receives entity ID? | Notes |
-|---|---|---|---|
-| `ValidateAsync(TOrigin, errors)` | POST, PutMany | No | Shared by create and bulk update |
-| `ValidateAsync(TOrigin, TPrimaryKey, errors)` | PUT | Yes | Skip-self uniqueness checks; defaults to non-ID overload |
-| `ValidateAsync(PartialJsonObject<TOrigin>, TPrimaryKey, errors)` | PATCH | Yes | Use `IsSet()` to check which fields were sent |
+Three older `ValidateAsync` overloads (one per HTTP verb) remain supported and are still invoked at the end of the validation pipeline. They exist for backward compatibility with pre-per-field-hook code — prefer the per-field + cross-field approach above for new serializers:
+
+| Overload | HTTP verb | Receives entity ID? |
+|---|---|---|
+| `ValidateAsync(TOrigin, errors)` | POST, PutMany | No |
+| `ValidateAsync(TOrigin, TPrimaryKey, errors)` | PUT | Yes |
+| `ValidateAsync(PartialJsonObject<TOrigin>, TPrimaryKey, errors)` | PATCH | Yes |
 
 ### Error handling
 

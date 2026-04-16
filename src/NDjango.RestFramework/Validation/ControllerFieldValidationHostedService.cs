@@ -71,6 +71,16 @@ internal sealed class ControllerFieldValidationHostedService : IHostedService
                     }
                 }
 
+                // Validate per-field validation hook names
+                var misnamedHooks = controller.GetMisnamedValidationHooks();
+                if (misnamedHooks.Count > 0)
+                {
+                    errors.Add(
+                        $"{controllerType.Name}: Serializer contains validation hooks that do not match " +
+                        $"any property on the DTO: [{string.Join(", ", misnamedHooks)}]. " +
+                        $"Ensure the property name between 'Validate' and 'Async' matches a DTO property.");
+                }
+
                 // Dispose the controller if it implements IDisposable
                 if (controller is IDisposable disposable)
                     disposable.Dispose();

@@ -23,7 +23,7 @@ The framework is built on a generics chain: `<TOrigin, TDestination, TPrimaryKey
 The core pipeline is: **BaseController → Serializer → DbContext**
 
 - **BaseController** (`Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints. Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`.
-- **Serializer** (`Serializer/Serializer.cs`) — Converts between DTOs and entities, handles DB operations (create, update, patch, delete), and exposes `ValidateAsync` overloads for async validation and DTO normalization. PATCH uses `PartialJsonObject<T>` to detect which fields were actually sent.
+- **Serializer** (`Serializer/Serializer.cs`) — Converts between DTOs and entities, handles DB operations (create, update, patch, delete), and exposes a DRF-style validation pipeline: per-field hooks `Validate{PropertyName}Async` (convention-discovered, auto-invoked for POST/PUT/PATCH, PATCH skips absent fields) → short-circuit on errors → unified cross-field `ValidateAsync(data, ValidationContext<TPrimaryKey>, errors)` → legacy `ValidateAsync` overloads for backward compat. `ValidationContext.Operation` is a `SerializerOperation` enum (`Create`/`Update`/`PartialUpdate`/`BulkUpdate`) so hooks can branch on intent without relying on default-ID heuristics. PATCH uses `PartialJsonObject<T>` to detect which fields were actually sent.
 - **JsonTransform** (`Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Supports nested field selection via `"ClassName:FieldName"` syntax.
 
 ### Filters (applied sequentially via `BaseController.Filters`)
@@ -74,8 +74,8 @@ Use this as a starting point when cross-referencing DRF. **Pin all DRF lookups t
 |---|---|
 | `Errors/ValidationErrors.cs` | `exceptions.py` (`ValidationError`) |
 | `Errors/UnexpectedError.cs` | `exceptions.py` (`APIException`) |
-| `Extensions/ModelStateValidationExtensions.cs` + `Serializer.ValidateAsync` | `serializers.py` (`is_valid`, `validate`, `validate_<field>`) — DRF runs everything inside the serializer; we split it: DataAnnotations fire at model binding (extension maps to `ValidationErrors`), async/mutation rules fire inside `Serializer.ValidateAsync` |
-| `Validation/ControllerFieldValidationHostedService.cs` | `checks.py` (Django system-check framework) — both are startup integrity checks |
+| `Extensions/ModelStateValidationExtensions.cs` + `Serializer.ValidateAsync` + `Validate{Field}Async` hooks | `serializers.py` (`is_valid`, `validate`, `validate_<field>`) — DataAnnotations fire at model binding (extension maps to `ValidationErrors`); async/mutation rules fire inside the serializer pipeline. Per-field `Validate{Field}Async` mirrors DRF's `validate_<field>` (convention-discovered, `ValidationContext` carries operation intent); cross-field `ValidateAsync(data, context, errors)` mirrors DRF's `validate(attrs)`. Short-circuit order matches DRF: per-field errors prevent cross-field from running. |
+| `Validation/ControllerFieldValidationHostedService.cs` | `checks.py` (Django system-check framework) — both are startup integrity checks. Covers `GetFields()`, `AllowedFields`, and misnamed `Validate{X}Async` hooks on serializers. |
 
 **No DRF counterpart**
 

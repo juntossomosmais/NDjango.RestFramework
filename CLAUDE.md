@@ -15,7 +15,7 @@ The framework is built on a chain of generics: `<TOrigin, TDestination, TPrimary
 `BaseController` → `Serializer` → `DbContext`
 
 - **BaseController** (`src/NDjango.RestFramework/Base/BaseController.cs`) — Provides GET, POST, PUT, PATCH, DELETE endpoints (plus bulk `PUT ?ids=` and `DELETE ?ids=`). Orchestrates filtering, sorting, pagination, and field selection. Actions can be toggled via `ActionOptions`. Does not catch exceptions — host is expected to wire `IExceptionHandler` / `UseExceptionHandler()`.
-- **Serializer** (`src/NDjango.RestFramework/Serializer/Serializer.cs`) — Converts DTOs ↔ entities and runs DB operations. DRF-style method names: `CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`. Also exposes `ValidateAsync` overloads (POST, PUT+id, PATCH+id) for async validation and DTO normalization — DRF's `validate_<field>` pattern. Override any method for custom logic and register the subclass in DI.
+- **Serializer** (`src/NDjango.RestFramework/Serializer/Serializer.cs`) — Converts DTOs ↔ entities and runs DB operations. DRF-style method names: `CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`. Validation is a DRF-style pipeline: define per-field hooks `Validate{PropertyName}Async(value, ValidationContext<TPrimaryKey>, errors)` that auto-discover by convention and run for POST/PUT/PATCH (PATCH skips absent fields). `ValidationContext.Operation` exposes a `SerializerOperation` enum (`Create`/`Update`/`PartialUpdate`/`BulkUpdate`) so hooks can branch on intent. After per-field hooks, cross-field `ValidateAsync(data, context, errors)` runs only if no errors. Legacy overloads (`ValidateAsync(data, errors)`, `(data, id, errors)`, `(partial, id, errors)`) remain for backward compat. Override any method for custom logic and register the subclass in DI.
 - **PartialJsonObject<T>** (`src/NDjango.RestFramework/Helpers/PartialJsonObject.cs`) — Tracks which fields were actually present in a PATCH body so absent fields stay untouched.
 - **JsonTransform** (`src/NDjango.RestFramework/Serializer/JsonTransform.cs`) — Custom Newtonsoft.Json contract resolver that filters serialized fields based on `BaseModel.GetFields()`. Nested field selection uses `"ClassName:FieldName"` syntax.
 
@@ -35,7 +35,7 @@ Each filter receives the `IQueryable` from the previous one, so `Filter<TEntity>
 
 ### Startup validation
 
-`builder.Services.ValidateControllerFieldsOnStartup()` (via `Extensions/ControllerFieldValidationExtensions.cs` + `Validation/ControllerFieldValidationHostedService.cs`) asserts at app startup that every name in `GetFields()` and `AllowedFields` resolves to a real property on the entity. Misconfigured controllers fail fast instead of 500'ing at request time.
+`builder.Services.ValidateControllerFieldsOnStartup()` (via `Extensions/ControllerFieldValidationExtensions.cs` + `Validation/ControllerFieldValidationHostedService.cs`) asserts at app startup that every name in `GetFields()` and `AllowedFields` resolves to a real property on the entity, and that every `Validate{X}Async` hook on a serializer maps to a real DTO property (catches typos like `ValidateCnjAsync` vs `ValidateCnpjAsync`). Misconfigured controllers fail fast instead of 500'ing at request time.
 
 ### Error responses
 

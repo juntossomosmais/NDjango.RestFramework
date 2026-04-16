@@ -61,6 +61,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<CustomerSerializer>();
 builder.Services.AddScoped<ValidatingCustomerSerializer>();
 builder.Services.AddScoped<ThrowingCustomerSerializer>();
+builder.Services.AddScoped<PerFieldCustomerSerializer>();
+builder.Services.AddScoped<PerFieldWithCrossFieldSerializer>();
+builder.Services.AddScoped<PerFieldShortCircuitSerializer>();
+builder.Services.AddSingleton<ContextCapturingSerializer>();
+builder.Services.AddScoped<MisnamedHookSerializer>();
 builder.Services.AddScoped<Serializer<SellerDto, Seller, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<CustomerDocumentDto, CustomerDocument, Guid, AppDbContext>>();
 builder.Services.AddScoped<Serializer<IntAsIdEntityDto, IntAsIdEntity, int, AppDbContext>>();
