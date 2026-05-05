@@ -163,8 +163,10 @@ namespace NDjango.RestFramework.Base
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
-            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.PartialUpdate, id);
-            entity = await _serializer.RunValidationForPartialAsync(entity, context, errors);
+            // Pass the partial as the presence probe so ValidationContext.IsSet(field) on PATCH
+            // forwards to PartialJsonObject.IsSet — distinguishing "not sent" from "sent default".
+            var context = new ValidationContext<TPrimaryKey>(SerializerOperation.PartialUpdate, id, entity);
+            await _serializer.RunValidationAsync(entity.Instance, context, errors, entity);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 

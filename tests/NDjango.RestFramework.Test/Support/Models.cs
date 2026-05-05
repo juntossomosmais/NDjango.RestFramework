@@ -4,13 +4,18 @@ using NDjango.RestFramework.Base;
 
 namespace NDjango.RestFramework.Test.Support;
 
+// EF Core derives column nullability from the property's nullable annotation context.
+// These entity declarations annotate every reference-type column as nullable on purpose so
+// the generated schema has nullable columns — required for the tests that exercise
+// PUT/PATCH-with-null on reference-type columns. If you add a new column here, decide
+// deliberately whether it should be nullable in the test schema and annotate accordingly.
 public class Customer : BaseModel<Guid>
 {
-    public string Name { get; set; }
-    public string CNPJ { get; set; }
+    public string? Name { get; set; }
+    public string? CNPJ { get; set; }
     public int Age { get; set; }
 
-    public ICollection<CustomerDocument> CustomerDocument { get; set; }
+    public ICollection<CustomerDocument>? CustomerDocument { get; set; }
 
     public override string[] GetFields()
     {
@@ -29,10 +34,10 @@ public class Customer : BaseModel<Guid>
 
 public class CustomerDocument : BaseModel<Guid>
 {
-    public string Document { get; set; }
-    public string DocumentType { get; set; }
+    public string? Document { get; set; }
+    public string? DocumentType { get; set; }
     public Guid CustomerId { get; set; }
-    public Customer Customer { get; set; }
+    public Customer? Customer { get; set; }
 
     public override string[] GetFields()
     {
@@ -51,7 +56,7 @@ public class CustomerDocument : BaseModel<Guid>
 
 public class IntAsIdEntity : BaseModel<int>
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public override string[] GetFields()
@@ -62,12 +67,12 @@ public class IntAsIdEntity : BaseModel<int>
 
 public class Seller : BaseModel<Guid>
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public override string[] GetFields() => throw new NotImplementedException();
 }
 
 public class InvalidFieldEntity : BaseModel<Guid>
 {
-    public string Name { get; set; }
+    public string? Name { get; set; }
     public override string[] GetFields() => ["Name", "Id", "NonExistentField"];
 }

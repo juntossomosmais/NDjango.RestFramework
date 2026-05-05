@@ -16,15 +16,14 @@ public class CustomerSerializer : Serializer<CustomerDto, Customer, Guid, AppDbC
     }
 
     /// <summary>
-    /// POST-only validation: CNPJ cannot be "567".
-    /// This migrates the old FluentValidation rule that was HTTP-method-conditional.
-    /// The non-ID overload is called by POST and PutMany.
+    /// Cross-field rule: CNPJ cannot be "567" on POST or PutMany.
     /// </summary>
     public override Task<CustomerDto> ValidateAsync(
         CustomerDto data,
+        ValidationContext<Guid> context,
         IDictionary<string, List<string>> errors)
     {
-        if (data.CNPJ == "567")
+        if ((context.IsCreate || context.IsBulkUpdate) && data.CNPJ == "567")
             errors.GetOrAdd("CNPJ").Add("CNPJ cannot be 567");
 
         return Task.FromResult(data);
@@ -38,93 +37,50 @@ public class ValidatingCustomerSerializer : Serializer<CustomerDto, Customer, Gu
     }
 
     /// <summary>
-    /// POST validation: normalize CNPJ, check length, reject all-zeros, check uniqueness.
+    /// Per-field hook for CNPJ: normalize, check length, reject all-zeros, check uniqueness
+    /// (skip-self when updating). The returned value replaces the DTO's CNPJ — DRF semantics.
     /// </summary>
-    public override async Task<CustomerDto> ValidateAsync(
-        CustomerDto data,
+    public async Task<string> ValidateCNPJAsync(
+        string value,
+        ValidationContext<Guid> context,
         IDictionary<string, List<string>> errors)
     {
-        if (data.CNPJ != null)
+        if (value == null)
+            return value!;
+
+        var cnpj = Regex.Replace(value, @"\D", "");
+
+        if (cnpj.Length != 14)
+            errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
+
+        if (cnpj.Length == 14 && cnpj.All(c => c == '0'))
+            errors.GetOrAdd("CNPJ").Add("CNPJ cannot be all zeros.");
+
+        if (cnpj.Length == 14)
         {
-            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
-            data.CNPJ = cnpj;
+            var query = _dbContext.Customer.AsNoTracking().Where(c => c.CNPJ == cnpj);
+            if (!context.IsCreate && !context.IsBulkUpdate)
+                query = query.Where(c => c.Id != context.EntityId);
 
-            if (cnpj.Length != 14)
-                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-            if (cnpj.Length == 14 && cnpj.All(c => c == '0'))
-                errors.GetOrAdd("CNPJ").Add("CNPJ cannot be all zeros.");
-
-            if (cnpj.Length == 14 && await _dbContext.Customer.AsNoTracking().AnyAsync(c => c.CNPJ == cnpj))
+            if (await query.AnyAsync())
                 errors.GetOrAdd("CNPJ").Add("Customer with this CNPJ already exists.");
         }
 
-        if (string.IsNullOrWhiteSpace(data.Name))
-            errors.GetOrAdd("Name").Add("Name is required.");
-
-        return data;
+        return cnpj;
     }
 
     /// <summary>
-    /// PUT validation: normalize CNPJ, check length, reject all-zeros, check uniqueness (skip self).
+    /// Per-field hook for Name: required (only when sent — PATCH skip is automatic).
     /// </summary>
-    public override async Task<CustomerDto> ValidateAsync(
-        CustomerDto data,
-        Guid entityId,
+    public Task<string> ValidateNameAsync(
+        string value,
+        ValidationContext<Guid> context,
         IDictionary<string, List<string>> errors)
     {
-        if (data.CNPJ != null)
-        {
-            var cnpj = Regex.Replace(data.CNPJ, @"\D", "");
-            data.CNPJ = cnpj;
-
-            if (cnpj.Length != 14)
-                errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-            if (cnpj.Length == 14 && cnpj.All(c => c == '0'))
-                errors.GetOrAdd("CNPJ").Add("CNPJ cannot be all zeros.");
-
-            if (cnpj.Length == 14 && await _dbContext.Customer.AsNoTracking().AnyAsync(c => c.CNPJ == cnpj && c.Id != entityId))
-                errors.GetOrAdd("CNPJ").Add("Customer with this CNPJ already exists.");
-        }
-
-        if (string.IsNullOrWhiteSpace(data.Name))
+        if (string.IsNullOrWhiteSpace(value))
             errors.GetOrAdd("Name").Add("Name is required.");
 
-        return data;
-    }
-
-    /// <summary>
-    /// PATCH validation: only validate fields that were sent.
-    /// </summary>
-    public override async Task<PartialJsonObject<CustomerDto>> ValidateAsync(
-        PartialJsonObject<CustomerDto> partialData,
-        Guid entityId,
-        IDictionary<string, List<string>> errors)
-    {
-        if (partialData.IsSet(d => d.CNPJ))
-        {
-            var cnpj = partialData.Instance.CNPJ;
-            if (cnpj != null)
-            {
-                cnpj = Regex.Replace(cnpj, @"\D", "");
-                partialData.SetValue(d => d.CNPJ, cnpj);
-
-                if (cnpj.Length != 14)
-                    errors.GetOrAdd("CNPJ").Add("CNPJ must have 14 digits.");
-
-                if (cnpj.Length == 14 && cnpj.All(c => c == '0'))
-                    errors.GetOrAdd("CNPJ").Add("CNPJ cannot be all zeros.");
-
-                if (cnpj.Length == 14 && await _dbContext.Customer.AsNoTracking().AnyAsync(c => c.CNPJ == cnpj && c.Id != entityId))
-                    errors.GetOrAdd("CNPJ").Add("Customer with this CNPJ already exists.");
-            }
-        }
-
-        if (partialData.IsSet(d => d.Name) && string.IsNullOrWhiteSpace(partialData.Instance.Name))
-            errors.GetOrAdd("Name").Add("Name is required.");
-
-        return partialData;
+        return Task.FromResult(value);
     }
 }
 
@@ -306,12 +262,12 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> PartialUpdateAsync(PartialJsonObject<CustomerDto> originObject, Guid entityId)
+    public override Task<Customer?> PartialUpdateAsync(PartialJsonObject<CustomerDto> originObject, Guid entityId)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> UpdateAsync(CustomerDto origin, Guid entityId)
+    public override Task<Customer?> UpdateAsync(CustomerDto origin, Guid entityId)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
@@ -321,7 +277,7 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer> DestroyAsync(Guid entityId)
+    public override Task<Customer?> DestroyAsync(Guid entityId)
     {
         throw new OperationCanceledException("Simulated client disconnect");
     }

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -164,6 +166,125 @@ namespace NDjango.RestFramework.Helpers
         public void CopyTo(T obj)
         {
             JsonConvert.PopulateObject(JsonObject.ToString(), obj);
+        }
+
+        /// <summary>
+        /// Cache of (sourceDtoType, targetEntityType) → property pairs eligible for copy. Each
+        /// entry is built once via reflection on first use and reused across all subsequent calls.
+        /// </summary>
+        private static readonly ConcurrentDictionary<(Type Source, Type Target), CopyPair[]> _applyToCache = new();
+
+        /// <summary>
+        /// Copies the fields <em>actually present</em> in this partial onto <paramref name="entity"/>,
+        /// returning the names that were applied. Intended to replace the
+        /// <c>if (originObject.IsSet(...)) entity.X = originObject.Instance.X;</c> ladder consumers
+        /// write in <see cref="Serializer.Serializer{TOrigin,TDestination,TPrimaryKey,TContext}.PartialUpdateAsync"/>
+        /// overrides — and to give them the list of applied field names for outbox payload construction.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A property is copied when <b>all</b> of these hold:
+        /// </para>
+        /// <list type="bullet">
+        ///   <item>Source DTO and target entity have a public instance property with the same name.</item>
+        ///   <item>The target property has a setter.</item>
+        ///   <item>Source-property type is assignment-compatible with the target-property type
+        ///     (treating <c>Nullable&lt;X&gt;</c> on either side as equivalent to <c>X</c>).</item>
+        ///   <item>The property name is not in <paramref name="except"/>.</item>
+        /// </list>
+        /// <para>
+        /// Anything else is silently skipped — the caller can inspect the returned list to see which
+        /// names were actually applied and handle the remainder manually (computed fields, renames,
+        /// type-converted fields, etc.).
+        /// </para>
+        /// </remarks>
+        /// <param name="entity">The target entity. Must be non-null.</param>
+        /// <param name="except">Property names to skip even when otherwise eligible. Use <c>nameof()</c>.</param>
+        /// <returns>
+        /// The property names that were copied onto <paramref name="entity"/>, in declaration order
+        /// of the source DTO. Useful for populating an outbox payload from exactly the changed fields.
+        /// </returns>
+        public IReadOnlyList<string> ApplyTo<TEntity>(TEntity entity, params string[] except)
+            where TEntity : class
+        {
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            var exceptSet = (except is null || except.Length == 0)
+                ? null
+                : new HashSet<string>(except, StringComparer.Ordinal);
+
+            var pairs = _applyToCache.GetOrAdd(
+                (typeof(T), typeof(TEntity)),
+                key => BuildCopyPairs(key.Source, key.Target));
+
+            var instance = Instance;
+            var applied = new List<string>(pairs.Length);
+
+            foreach (var pair in pairs)
+            {
+                if (!IsSet(pair.Name))
+                    continue;
+                if (exceptSet != null && exceptSet.Contains(pair.Name))
+                    continue;
+
+                var value = pair.Source.GetValue(instance);
+                pair.Target.SetValue(entity, value);
+                applied.Add(pair.Name);
+            }
+
+            return applied;
+        }
+
+        private static CopyPair[] BuildCopyPairs(Type sourceType, Type targetType)
+        {
+            var sourceProps = sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var targetByName = targetType
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanWrite)
+                .ToDictionary(p => p.Name, StringComparer.Ordinal);
+
+            var pairs = new List<CopyPair>(sourceProps.Length);
+            foreach (var src in sourceProps)
+            {
+                if (!targetByName.TryGetValue(src.Name, out var tgt))
+                    continue;
+                if (!IsAssignmentCompatible(src.PropertyType, tgt.PropertyType))
+                    continue;
+                pairs.Add(new CopyPair(src.Name, src, tgt));
+            }
+            return pairs.ToArray();
+        }
+
+        /// <summary>
+        /// Permissive type-compatibility check: a source property of type <c>X</c> can fill a target
+        /// of type <c>X</c>, <c>X?</c>, or any base/interface of <c>X</c>; nullable wrappers on either
+        /// side are treated transparently. Reference-type assignments rely on runtime null safety
+        /// (we don't enforce that a nullable source actually has a non-null value at copy time —
+        /// that's the consumer's invariant).
+        /// </summary>
+        private static bool IsAssignmentCompatible(Type from, Type to)
+        {
+            if (to.IsAssignableFrom(from))
+                return true;
+
+            var fromUnwrapped = Nullable.GetUnderlyingType(from) ?? from;
+            var toUnwrapped = Nullable.GetUnderlyingType(to) ?? to;
+            return toUnwrapped.IsAssignableFrom(fromUnwrapped);
+        }
+
+        private readonly struct CopyPair
+        {
+            public string Name { get; }
+            public PropertyInfo Source { get; }
+            public PropertyInfo Target { get; }
+
+            public CopyPair(string name, PropertyInfo source, PropertyInfo target)
+            {
+                Name = name;
+                Source = source;
+                Target = target;
+            }
         }
 
         public T ToObject()

@@ -1,0 +1,5 @@
+- [DRF partial validation evidence](drf_partial_validation_evidence.md) — Where in DRF 3.17.1 source `partial=True` causes validate(attrs) to see only present fields
+- [Hook return-value parity](hook_return_value_parity.md) — Confirmed our Validate{X}Async return-value-replaces-DTO matches DRF validate_<field>
+- [DRF nested writes stance](drf_nested_writes_stance.md) — DRF deliberately doesn't auto-handle nested writes; raise_errors_on_nested_writes is the active block
+- [DRF unique-validation strategy](drf_unique_validation_strategy.md) — DRF prevents races via UniqueValidator at validation time, not via DB exception translation
+- [Consumer pain points 2026-05](consumer_pain_points_2026_05.md) — Concrete divergences spotted in dotnet-template that drive recommended changes

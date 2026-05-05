@@ -194,35 +194,50 @@ public class TodoItemsController : BaseController<TodoItemDto, TodoItem, int, Ap
 
 ### 6. Configure Program.cs
 
-Register Newtonsoft.Json (required), the validation response format, and each serializer:
+Register Newtonsoft.Json (required), then call `AddNDjangoRestFramework()` for the rest:
 
 ```csharp
 using NDjango.RestFramework.Extensions;
-using NDjango.RestFramework.Serializer;
 using Newtonsoft.Json;
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("AppDbContext")));
 
-// Controllers + Newtonsoft.Json + validation format
+// Controllers + Newtonsoft.Json
 builder.Services.AddControllers()
     .AddNewtonsoftJson(config =>
     {
         config.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
         config.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
-    })
-    .ConfigureValidationResponseFormat();
+    });
 
-// Register one serializer per controller
-builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>>();
-builder.Services.AddScoped<Serializer<TodoItemDto, TodoItem, int, AppDbContext>>();
-
-// Validate controller field configuration at startup (recommended)
-builder.Services.ValidateControllerFieldsOnStartup();
+// Wires NDjango.RestFramework in one call:
+//   - scans the calling assembly for Serializer<,,,> subclasses and registers them
+//   - registers the startup hosted service that asserts GetFields()/AllowedFields/Validate{X}Async are correct
+//   - wires the ValidationErrors response shape onto ApiBehaviorOptions
+builder.Services.AddNDjangoRestFramework();
 ```
 
-`AddNewtonsoftJson` is required because the library uses Newtonsoft.Json internally for serialization and field filtering. `ConfigureValidationResponseFormat()` ensures validation errors return a structured `ValidationErrors` response. `ValidateControllerFieldsOnStartup()` checks that all field names in `GetFields()` and `AllowedFields` reference actual properties on the entity — the application will fail to start if any controller is misconfigured.
+`AddNewtonsoftJson` is required because the library uses Newtonsoft.Json internally for serialization and field filtering.
+
+#### Customizing `AddNDjangoRestFramework`
+
+`AddNDjangoRestFramework` accepts an optional `Action<NDjangoRestFrameworkOptions>` if you need to scan additional assemblies or skip the startup field-validation hosted service:
+
+```csharp
+builder.Services.AddNDjangoRestFramework(opts =>
+{
+    // Add other assemblies that contain serializers (calling assembly is always scanned).
+    opts.Assemblies.Add(typeof(SomeSharedSerializer).Assembly);
+
+    // Skip the startup validator (e.g., test fixtures that intentionally register bad controllers).
+    // Defaults to true — leave it on in production so misconfigured fields fail at startup, not runtime.
+    opts.RunStartupValidation = false;
+});
+```
+
+Manual registrations still win — the scan uses `TryAddScoped`, so any closed-base mapping you wired before calling `AddNDjangoRestFramework` is preserved.
 
 ## API Guide
 
@@ -371,7 +386,7 @@ builder.Services.AddScoped<Serializer<PersonDto, Person, int, AppDbContext>, Per
 
 Validation happens at two layers:
 
-1. **DataAnnotations on DTOs** -- Standard `[Required]`, `[MinLength]`, `[Range]`, etc. attributes on your DTO properties. These are evaluated during model binding (before the controller action runs) and produce `ValidationErrors` responses via `ConfigureValidationResponseFormat()`.
+1. **DataAnnotations on DTOs** -- Standard `[Required]`, `[MinLength]`, `[Range]`, etc. attributes on your DTO properties. These are evaluated during model binding (before the controller action runs) and produce `ValidationErrors` responses (wired up automatically by `AddNDjangoRestFramework()`).
 
 2. **Serializer hooks** -- For rules that need async I/O (database uniqueness checks), cross-field logic, or DTO mutation (normalizing values before persistence). Define hooks on your serializer subclass (see next section).
 
@@ -461,7 +476,7 @@ using NDjango.RestFramework.Helpers;
 
 #### Hook conventions
 
-- **Method name**: `Validate{PropertyName}Async`, where `PropertyName` matches a property on your DTO exactly (case-insensitive). Misnamed hooks (e.g., `ValidateCnjAsync` when the DTO has `CNPJ`) are caught at startup by `ValidateControllerFieldsOnStartup()`.
+- **Method name**: `Validate{PropertyName}Async`, where `PropertyName` matches a property on your DTO exactly (case-insensitive). Misnamed hooks (e.g., `ValidateCnjAsync` when the DTO has `CNPJ`) are caught at startup by the hosted service that `AddNDjangoRestFramework()` registers.
 - **Signature**: `Task<TFieldType> Validate{Property}Async(TFieldType value, ValidationContext<TPrimaryKey> context, IDictionary<string, List<string>> errors)`. The return type must match the property type.
 - **Mutation**: return a different value from the hook and the framework writes it back (onto the DTO for POST/PUT, onto the `PartialJsonObject<T>` for PATCH).
 - **Branching on operation**: use `context.Operation`, `context.IsCreate`, `context.IsUpdate`, `context.IsPartialUpdate`, or `context.IsBulkUpdate`. Avoid deriving intent from `EntityId == default` — it's ambiguous for bulk updates and for `int` primary keys.
@@ -475,15 +490,33 @@ using NDjango.RestFramework.Helpers;
 - **`PartialJsonObject.SetValue` only supports top-level properties** for absent fields. If the property path is nested (e.g., `d => d.Address.Street`) and the path is not present in the incoming JSON, `SetValue` throws `NotSupportedException`. Nested paths that already exist in the JSON can be replaced normally. (The framework only uses `SetValue` internally for properties it knows are set, so this limitation only affects code that calls `SetValue` directly.)
 - **`BulkUpdate` operations have no single `EntityId`.** Hook authors needing per-entity validation context should override `UpdateManyAsync` and perform those checks there before the bulk update.
 
-#### Legacy overloads (backward compatibility)
+#### Branching with `ValidationContext`
 
-Three older `ValidateAsync` overloads (one per HTTP verb) remain supported and are still invoked at the end of the validation pipeline. They exist for backward compatibility with pre-per-field-hook code — prefer the per-field + cross-field approach above for new serializers:
+The `ValidationContext<TPrimaryKey>` passed to every hook exposes:
 
-| Overload | HTTP verb | Receives entity ID? |
-|---|---|---|
-| `ValidateAsync(TOrigin, errors)` | POST, PutMany | No |
-| `ValidateAsync(TOrigin, TPrimaryKey, errors)` | PUT | Yes |
-| `ValidateAsync(PartialJsonObject<TOrigin>, TPrimaryKey, errors)` | PATCH | Yes |
+| Member | Purpose |
+|---|---|
+| `Operation` | `SerializerOperation` enum: `Create`, `Update`, `PartialUpdate`, `BulkUpdate`. |
+| `IsCreate` / `IsUpdate` / `IsPartialUpdate` / `IsBulkUpdate` | Sugar over `Operation`. Prefer these to checking `EntityId == default`. |
+| `EntityId` | The target entity's id for `Update` / `PartialUpdate`. `default` for `Create` and `BulkUpdate`. |
+| `IsSet(string fieldName)` | On `PartialUpdate`, `true` only if the field was present in the PATCH body. On `Create`/`Update`/`BulkUpdate`, always `true` (DRF semantics: full payloads imply every field was sent). Useful in cross-field rules that should treat absent PATCH fields as "no opinion." |
+
+#### Applying a partial body onto a loaded entity
+
+`PartialJsonObject<T>.ApplyTo(entity, except: ...)` copies every present field onto a target object, silently skipping mismatched names, missing setters, and incompatible types. Useful when you override `PartialUpdateAsync` and want to bypass the default reflection-based copy:
+
+```csharp
+public override async Task<Person?> PartialUpdateAsync(PartialJsonObject<PersonDto> dto, int id)
+{
+    var entity = await _dbContext.Person.FirstOrDefaultAsync(p => p.Id == id);
+    if (entity == null) return null;
+
+    dto.ApplyTo(entity, except: nameof(Person.CreatedAt));
+
+    await _dbContext.SaveChangesAsync();
+    return entity;
+}
+```
 
 ### Error handling
 
@@ -491,7 +524,7 @@ Three older `ValidateAsync` overloads (one per HTTP verb) remain supported and a
 
 The library produces two structured error responses:
 
-- **ValidationErrors** — When model state validation fails (requires `ConfigureValidationResponseFormat()`):
+- **ValidationErrors** — When model state validation fails or a serializer hook populates the `errors` dictionary (wired automatically by `AddNDjangoRestFramework()`):
   ```json
   {"type": "VALIDATION_ERRORS", "statusCode": 400, "error": {"Name": ["Name should have at least 3 characters"]}}
   ```

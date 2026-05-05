@@ -41,14 +41,28 @@ builder.Configuration.AddConfiguration(configuration);
 
 // Add services to the container.
 var assembly = typeof(SellersController).Assembly;
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        // The test project has <Nullable>enable</Nullable>; without this opt-out, MVC would
+        // treat every non-nullable reference type property on the test DTOs (e.g.,
+        // CustomerDto.Name, CustomerDto.CustomerDocuments) as implicitly [Required] and
+        // reject any POST that omits them at model-binding time — before our serializer
+        // pipeline runs. Disable the implicit rule so validation behavior stays driven by
+        // explicit [Required] / DataAnnotations and the per-field Validate{X}Async hooks.
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+    })
     .AddNewtonsoftJson(config =>
     {
         config.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
         config.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
     })
-    .ConfigureValidationResponseFormat()
     .PartManager.ApplicationParts.Add(new AssemblyPart(assembly));
+// The fixture intentionally registers controllers with bad fields (SellersController,
+// InvalidFieldEntitiesController, InvalidAllowedFieldEntitiesController) so the hosted
+// service tests can exercise the failure path. We opt out of startup validation so the
+// host can boot, while still getting the response factory + serializer scan that
+// AddNDjangoRestFramework normally provides.
+builder.Services.AddNDjangoRestFramework(opts => opts.RunStartupValidation = false);
 builder.Services.AddHttpContextAccessor();
 var defaultConnectionString =
     "Data Source=localhost,1433;Initial Catalog=REPLACE_ME_PROGRAMATICALLY;User Id=sa;Password=Password1;TrustServerCertificate=True";

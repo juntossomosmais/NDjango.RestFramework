@@ -65,14 +65,15 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// The database context, available to subclasses for custom queries
-        /// (e.g., uniqueness checks inside <see cref="ValidateAsync(TOrigin, IDictionary{string, List{string}})"/>).
+        /// The database context, available to subclasses for custom queries (e.g., uniqueness
+        /// checks inside <see cref="ValidateAsync"/> or per-field <c>Validate{Property}Async</c>
+        /// hooks).
         /// </summary>
         /// <remarks>
-        /// Usage guidelines when called from <c>ValidateAsync</c>:
+        /// Usage guidelines when called during validation:
         /// <list type="bullet">
         /// <item>Always use <c>.AsNoTracking()</c> on read queries — validation should never track entities.</item>
-        /// <item>Do NOT call <c>SaveChangesAsync()</c> inside <c>ValidateAsync</c>. The base CRUD method
+        /// <item>Do NOT call <c>SaveChangesAsync()</c> during validation. The CRUD method
         /// (<see cref="CreateAsync"/>, <see cref="UpdateAsync"/>, etc.) will save after validation succeeds.
         /// Calling <c>SaveChangesAsync()</c> during validation interacts badly with the change tracker
         /// and may persist entities prematurely.</item>
@@ -87,88 +88,34 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// Validates and optionally mutates the incoming DTO before a create operation (POST) or
-        /// a bulk update operation (PutMany). Override this method to add business rules that
-        /// require async I/O (e.g., database uniqueness checks) or to normalize field values.
-        /// Populate <paramref name="errors"/> to signal validation failures; the controller will
-        /// short-circuit to 400 when the dictionary is non-empty.
+        /// Cross-field validation hook invoked for POST, PUT, PATCH, and PutMany. Override
+        /// this to implement business rules that span more than one field; for single-field
+        /// rules, prefer per-field <c>Validate{PropertyName}Async</c> hooks (auto-discovered
+        /// by convention).
         /// </summary>
         /// <remarks>
-        /// This overload is invoked by <b>both POST and PutMany</b>. PutMany does not pass entity IDs
-        /// because the same payload applies to many rows — so entity-specific checks (e.g., "uniqueness
-        /// excluding all target entities") cannot be expressed here. If your PutMany needs per-entity
-        /// validation context, override <see cref="UpdateManyAsync"/> and perform the checks there
-        /// before the bulk update. For single-entity PUT, prefer the
-        /// <see cref="ValidateAsync(TOrigin, TPrimaryKey, IDictionary{string, List{string}})"/> overload
-        /// which receives the entity id.
+        /// <para>
+        /// Pipeline order: per-field hooks run first; if any populated <paramref name="errors"/>,
+        /// this method is <b>not</b> called and the controller short-circuits to 400.
+        /// </para>
+        /// <para>
+        /// On PATCH, <paramref name="data"/> is the materialized
+        /// <see cref="PartialJsonObject{T}.Instance"/> — properties absent from the request body
+        /// hold their default value. Use <see cref="ValidationContext{TPrimaryKey}.IsSet"/> to
+        /// distinguish "not sent" from "sent as the default value".
+        /// </para>
         /// </remarks>
-        /// <param name="data">The DTO to validate. Mutate properties directly to normalize values.</param>
-        /// <param name="errors">
-        /// Per-field error collector. Populate via <c>errors.GetOrAdd("Field").Add("message")</c>.
-        /// <b>Not thread-safe</b> — write from the <c>ValidateAsync</c> method body only; do not share
-        /// across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
-        /// </param>
-        /// <returns>The (possibly mutated) DTO that will be forwarded to the CRUD operation.</returns>
-        public virtual Task<TOrigin> ValidateAsync(
-            TOrigin data,
-            IDictionary<string, List<string>> errors)
-            => Task.FromResult(data);
-
-        /// <summary>
-        /// Validates and optionally mutates the incoming DTO before a full update operation (PUT).
-        /// The <paramref name="entityId"/> allows querying the existing entity for skip-self
-        /// uniqueness checks (the DRF <c>self.instance</c> equivalent). By default delegates to
-        /// the non-ID overload.
-        /// </summary>
-        /// <param name="data">The DTO to validate.</param>
-        /// <param name="entityId">The primary key of the entity being updated.</param>
-        /// <param name="errors">
-        /// Per-field error collector. Populate via <c>errors.GetOrAdd("Field").Add("message")</c>.
-        /// <b>Not thread-safe</b> — write from the <c>ValidateAsync</c> method body only; do not share
-        /// across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
-        /// </param>
-        /// <returns>The (possibly mutated) DTO.</returns>
-        public virtual Task<TOrigin> ValidateAsync(
-            TOrigin data,
-            TPrimaryKey entityId,
-            IDictionary<string, List<string>> errors)
-            => ValidateAsync(data, errors);
-
-        /// <summary>
-        /// Validates and optionally mutates the incoming partial DTO before a partial update
-        /// operation (PATCH). Use <c>partialData.IsSet(d =&gt; d.Field)</c> to check which fields
-        /// were sent and <c>partialData.SetValue(d =&gt; d.Field, value)</c> to normalize values.
-        /// </summary>
-        /// <param name="partialData">The partial DTO wrapper.</param>
-        /// <param name="entityId">The primary key of the entity being patched.</param>
-        /// <param name="errors">
-        /// Per-field error collector. Populate via <c>errors.GetOrAdd("Field").Add("message")</c>.
-        /// <b>Not thread-safe</b> — write from the <c>ValidateAsync</c> method body only; do not share
-        /// across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
-        /// </param>
-        /// <returns>The (possibly mutated) partial DTO.</returns>
-        public virtual Task<PartialJsonObject<TOrigin>> ValidateAsync(
-            PartialJsonObject<TOrigin> partialData,
-            TPrimaryKey entityId,
-            IDictionary<string, List<string>> errors)
-            => Task.FromResult(partialData);
-
-        /// <summary>
-        /// Unified cross-field validation hook that receives a <see cref="ValidationContext{TPrimaryKey}"/>
-        /// with operation metadata (entity ID, partial flag). Override this to implement cross-field
-        /// business rules that apply across POST, PUT, and PATCH without duplicating logic.
-        /// This is invoked <b>after</b> all per-field <c>Validate{Property}Async</c> hooks pass
-        /// (no errors) and <b>before</b> the legacy <c>ValidateAsync</c> overloads.
-        /// </summary>
-        /// <param name="data">
-        /// The DTO to validate. For PATCH operations, this is the materialized <see cref="PartialJsonObject{T}.Instance"/>.
-        /// </param>
+        /// <param name="data">The DTO to validate (mutate to normalize values).</param>
         /// <param name="context">
-        /// Operation metadata: <see cref="ValidationContext{TPrimaryKey}.EntityId"/>,
-        /// <see cref="ValidationContext{TPrimaryKey}.IsCreate"/>,
-        /// <see cref="ValidationContext{TPrimaryKey}.IsPartial"/>.
+        /// Operation metadata: <see cref="ValidationContext{TPrimaryKey}.Operation"/>,
+        /// <see cref="ValidationContext{TPrimaryKey}.EntityId"/> (for Update / PartialUpdate),
+        /// <see cref="ValidationContext{TPrimaryKey}.IsSet"/> (PATCH presence).
         /// </param>
-        /// <param name="errors">Per-field error collector.</param>
+        /// <param name="errors">
+        /// Per-field error collector. Populate via <c>errors.GetOrAdd("Field").Add("message")</c>.
+        /// <b>Not thread-safe</b> — write from the <c>ValidateAsync</c> method body only; do not
+        /// share across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
+        /// </param>
         /// <returns>The (possibly mutated) DTO.</returns>
         public virtual Task<TOrigin> ValidateAsync(
             TOrigin data,
@@ -248,7 +195,7 @@ namespace NDjango.RestFramework.Serializer
                 .Select(p => p.Name)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            // The base Serializer's own ValidateAsync overloads should not be flagged.
+            // The base Serializer's own ValidateAsync method should not be flagged.
             var baseMethods = typeof(Serializer<TOrigin, TDestination, TPrimaryKey, TContext>)
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
                 .Select(m => m.Name)
@@ -262,7 +209,7 @@ namespace NDjango.RestFramework.Serializer
                     !method.Name.EndsWith("Async", StringComparison.Ordinal))
                     continue;
 
-                // Skip the base ValidateAsync overloads (including the new context-based one)
+                // Skip the base ValidateAsync method itself
                 if (baseMethods.Contains(method.Name))
                     continue;
 
@@ -291,13 +238,12 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// Orchestrates the full validation pipeline for POST, PUT, and PATCH operations.
-        /// The pipeline mirrors Django REST Framework's validation order:
+        /// Orchestrates the validation pipeline for POST, PUT, PATCH, and PutMany. Mirrors
+        /// Django REST Framework's order:
         /// <list type="number">
         /// <item><b>Per-field hooks</b> — <c>Validate{Property}Async</c> for each property (PATCH: only sent fields).</item>
-        /// <item><b>Short-circuit</b> — If per-field hooks populated errors, stop here.</item>
-        /// <item><b>Cross-field</b> — <c>ValidateAsync(data, context, errors)</c>.</item>
-        /// <item><b>Legacy overloads</b> — The appropriate legacy <c>ValidateAsync</c> overload for backward compat.</item>
+        /// <item><b>Short-circuit</b> — if per-field hooks populated errors, the cross-field hook is not called.</item>
+        /// <item><b>Cross-field</b> — <see cref="ValidateAsync"/>.</item>
         /// </list>
         /// </summary>
         internal async Task<TOrigin> RunValidationAsync(
@@ -327,15 +273,17 @@ namespace NDjango.RestFramework.Serializer
                 var resultProperty = resultTask.GetType().GetProperty("Result");
                 var newValue = resultProperty!.GetValue(resultTask);
 
-                // If the hook returned a different value, write it back
+                // Write the (possibly normalized) value back so PATCH's underlying JSON and
+                // the materialized DTO stay in sync, and POST/PUT/Bulk see the normalized DTO.
                 if (!Equals(currentValue, newValue))
                 {
                     if (partialData != null)
                     {
-                        // For PATCH: use PartialJsonObject.SetValue<R> via reflection (cached)
+                        // PATCH: use PartialJsonObject.SetValue<R> via reflection (cached). This
+                        // also invalidates the materialized Instance cache so the next read sees
+                        // the normalized value.
                         var (closedSetValue, lambda) = GetSetValueInvoker(property);
                         closedSetValue.Invoke(partialData, new object[] { lambda, newValue });
-                        // Re-read the instance since SetValue resets it
                         data = partialData.Instance;
                     }
                     else
@@ -352,50 +300,22 @@ namespace NDjango.RestFramework.Serializer
             // Step 3: Unified cross-field ValidateAsync
             data = await ValidateAsync(data, context, errors).ConfigureAwait(false);
 
-            // Write back to partial if PATCH and cross-field mutated
+            // For PATCH, sync any cross-field mutations back into the partial's underlying JSON
+            // so PartialUpdateAsync sees them when it walks the IsSet/Instance pair.
             if (partialData != null)
             {
-                // Sync any mutations from cross-field back to partial's underlying data
                 foreach (var property in originProperties)
                 {
-                    if (partialData.IsSet(property.Name))
-                    {
-                        var (closedSetValue, lambda) = GetSetValueInvoker(property);
-                        var currentVal = property.GetValue(data);
-                        closedSetValue.Invoke(partialData, new object[] { lambda, currentVal });
-                    }
+                    if (!partialData.IsSet(property.Name))
+                        continue;
+
+                    var (closedSetValue, lambda) = GetSetValueInvoker(property);
+                    var currentVal = property.GetValue(data);
+                    closedSetValue.Invoke(partialData, new object[] { lambda, currentVal });
                 }
             }
 
-            // Step 4: Legacy overloads for backward compatibility
-            switch (context.Operation)
-            {
-                case SerializerOperation.Create:
-                case SerializerOperation.BulkUpdate:
-                    data = await ValidateAsync(data, errors).ConfigureAwait(false);
-                    break;
-                case SerializerOperation.Update:
-                    data = await ValidateAsync(data, context.EntityId!, errors).ConfigureAwait(false);
-                    break;
-                case SerializerOperation.PartialUpdate:
-                    await ValidateAsync(partialData!, context.EntityId!, errors).ConfigureAwait(false);
-                    break;
-            }
-
             return data;
-        }
-
-        /// <summary>
-        /// Overload of <see cref="RunValidationAsync"/> for PATCH operations that accepts a
-        /// <see cref="PartialJsonObject{T}"/> and returns the (possibly mutated) partial wrapper.
-        /// </summary>
-        internal async Task<PartialJsonObject<TOrigin>> RunValidationForPartialAsync(
-            PartialJsonObject<TOrigin> partialData,
-            ValidationContext<TPrimaryKey> context,
-            IDictionary<string, List<string>> errors)
-        {
-            await RunValidationAsync(partialData.Instance, context, errors, partialData).ConfigureAwait(false);
-            return partialData;
         }
 
         public virtual async Task<TDestination> CreateAsync(TOrigin data)
@@ -409,7 +329,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<TDestination> PartialUpdateAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
+        public virtual async Task<TDestination?> PartialUpdateAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
         {
             var destinationObject = await GetFromDB(entityId);
 
@@ -420,9 +340,6 @@ namespace NDjango.RestFramework.Serializer
 
             foreach (var property in typeof(TOrigin).GetProperties())
             {
-                if (property.PropertyType.IsEnum)
-                    throw new NotImplementedException("Lists are not supported");
-
                 if (originObject.IsSet(property.Name))
                 {
                     var productProperty = destinationType.GetProperty(property.Name);
@@ -435,7 +352,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<TDestination> UpdateAsync(TOrigin origin, TPrimaryKey entityId)
+        public virtual async Task<TDestination?> UpdateAsync(TOrigin origin, TPrimaryKey entityId)
         {
             var destinationObject = await GetFromDB(entityId);
 
@@ -473,7 +390,7 @@ namespace NDjango.RestFramework.Serializer
             return destinationObjects.Select(m => m.Id).ToList();
         }
 
-        public virtual async Task<TDestination> DestroyAsync(TPrimaryKey entityId)
+        public virtual async Task<TDestination?> DestroyAsync(TPrimaryKey entityId)
         {
             var data = await GetFromDB(entityId);
 
@@ -496,7 +413,7 @@ namespace NDjango.RestFramework.Serializer
             return deletedObjects.Select(m => m.Id).ToList();
         }
 
-        public async Task<TDestination> GetFromDB(TPrimaryKey id, IQueryable<TDestination> query)
+        public async Task<TDestination?> GetFromDB(TPrimaryKey id, IQueryable<TDestination> query)
         {
             var key = id.ToString();
             var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync();
@@ -504,7 +421,7 @@ namespace NDjango.RestFramework.Serializer
             return data;
         }
 
-        protected async Task<TDestination> GetFromDB(TPrimaryKey id)
+        protected async Task<TDestination?> GetFromDB(TPrimaryKey id)
         {
             return await _dbContext.Set<TDestination>().FindAsync(id);
         }
