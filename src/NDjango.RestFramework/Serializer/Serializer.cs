@@ -118,8 +118,12 @@ namespace NDjango.RestFramework.Serializer
         /// share across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
         /// </param>
         /// <param name="cancellationToken">
-        /// Flowed from <see cref="Microsoft.AspNetCore.Http.HttpContext.RequestAborted"/>. Pass it
-        /// to any EF Core async call this hook makes (e.g., <c>FirstOrDefaultAsync(ct)</c>).
+        /// Forwarded by the caller. When invoked through
+        /// <see cref="Base.BaseController{TOrigin,TDestination,TPrimaryKey,TContext}"/> this is
+        /// <see cref="Microsoft.AspNetCore.Http.HttpContext.RequestAborted"/>; when invoked
+        /// headless (e.g., from a message consumer or scheduled job) it is whatever the caller
+        /// passed to <see cref="RunValidationAsync"/>. Pass it to any EF Core async call this
+        /// hook makes (e.g., <c>FirstOrDefaultAsync(ct)</c>).
         /// </param>
         /// <returns>The (possibly mutated) DTO.</returns>
         public virtual Task<TOrigin> ValidateAsync(
@@ -250,15 +254,54 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// Orchestrates the validation pipeline for POST, PUT, PATCH, and PutMany. Mirrors
-        /// Django REST Framework's order:
+        /// Orchestrates the validation pipeline for the four mutating operations
+        /// (<see cref="SerializerOperation.Create"/>, <see cref="SerializerOperation.Update"/>,
+        /// <see cref="SerializerOperation.PartialUpdate"/>, <see cref="SerializerOperation.BulkUpdate"/>).
+        /// Mirrors Django REST Framework's order:
         /// <list type="number">
-        /// <item><b>Per-field hooks</b> — <c>Validate{Property}Async</c> for each property (PATCH: only sent fields).</item>
-        /// <item><b>Short-circuit</b> — if per-field hooks populated errors, the cross-field hook is not called.</item>
+        /// <item><b>Per-field hooks</b> — <c>Validate{Property}Async</c> for each property
+        ///   (<see cref="SerializerOperation.PartialUpdate"/>: only fields present in
+        ///   <paramref name="partialData"/>).</item>
+        /// <item><b>Short-circuit</b> — if per-field hooks populated <paramref name="errors"/>,
+        ///   the cross-field hook is not called.</item>
         /// <item><b>Cross-field</b> — <see cref="ValidateAsync"/>.</item>
         /// </list>
         /// </summary>
-        internal async Task<TOrigin> RunValidationAsync(
+        /// <remarks>
+        /// <para>
+        /// <see cref="Base.BaseController{TOrigin,TDestination,TPrimaryKey,TContext}"/> calls this
+        /// method on every mutating action, but it is part of the serializer's public surface so
+        /// non-HTTP callers (message consumers, gRPC services, scheduled jobs) can drive the same
+        /// validation pipeline that backs the controller. Pass a <paramref name="partialData"/>
+        /// instance to trigger PartialUpdate semantics: per-field hooks are skipped for absent
+        /// fields, and cross-field mutations are written back into the underlying JSON so a
+        /// downstream <see cref="PartialUpdateAsync"/> sees them.
+        /// </para>
+        /// <para>
+        /// <b>Not safe to invoke concurrently on a single instance.</b> The serializer's
+        /// <c>_dbContext</c> is single-threaded by EF Core's contract, and <paramref name="errors"/>
+        /// and <paramref name="partialData"/> are mutated without synchronization. Resolve a
+        /// serializer (and its <see cref="DbContext"/>) per logical unit of work — one HTTP
+        /// request, one message, one job — rather than capturing one across worker tasks.
+        /// </para>
+        /// </remarks>
+        /// <param name="data">
+        /// The DTO to validate. For <see cref="SerializerOperation.PartialUpdate"/>, pass
+        /// <see cref="PartialJsonObject{T}.Instance"/>.
+        /// </param>
+        /// <param name="context">Operation metadata.</param>
+        /// <param name="errors">
+        /// Per-field error collector. Populate via <c>errors.GetOrAdd("Field").Add("message")</c>.
+        /// </param>
+        /// <param name="partialData">
+        /// For <see cref="SerializerOperation.PartialUpdate"/>, the partial JSON wrapper used to
+        /// determine field presence; <c>null</c> for the other operations.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// Forwarded to per-field hooks and to <see cref="ValidateAsync"/>.
+        /// </param>
+        /// <returns>The (possibly mutated) DTO.</returns>
+        public virtual async Task<TOrigin> RunValidationAsync(
             TOrigin data,
             ValidationContext<TPrimaryKey> context,
             IDictionary<string, List<string>> errors,
@@ -331,10 +374,86 @@ namespace NDjango.RestFramework.Serializer
             return data;
         }
 
+        /// <summary>
+        /// Maps a DTO to a freshly constructed entity. Called by <see cref="CreateAsync"/>.
+        /// The default implementation round-trips the DTO through Newtonsoft JSON, copying
+        /// every property whose serialized name matches between DTO and entity.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Override when the default behavior is not enough — typically because the DTO is
+        /// decorated with <c>System.Text.Json</c> attributes (which Newtonsoft does not honor)
+        /// or because DTO and entity property shapes diverge enough that explicit mapping is
+        /// clearer than chasing attribute conventions.
+        /// </para>
+        /// <para>
+        /// If you override, you own all property and navigation copying — the default
+        /// Newtonsoft round-trip will not run, and any nested objects the DTO carries will
+        /// only land on the entity if your override copies them explicitly.
+        /// </para>
+        /// <para>
+        /// The contract is that the return value is non-null. <see cref="CreateAsync"/>
+        /// passes it to <see cref="DbSet{TEntity}.AddAsync"/> without a guard; an override
+        /// that returns <c>null</c> will throw a <see cref="NullReferenceException"/> there.
+        /// </para>
+        /// </remarks>
+        /// <param name="origin">The DTO to map.</param>
+        /// <returns>A new entity initialized from <paramref name="origin"/>; must be non-null.</returns>
+        protected virtual TDestination MapToDestination(TOrigin origin)
+        {
+            var stringDeserialized = JsonConvert.SerializeObject(origin);
+            return JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
+        }
+
+        /// <summary>
+        /// Applies a DTO onto an existing tracked entity, preserving its primary key. Called
+        /// by <see cref="UpdateAsync"/> and <see cref="UpdateManyAsync"/>. The default
+        /// implementation round-trips the DTO through Newtonsoft JSON, forces the <c>Id</c>
+        /// back to <paramref name="entityId"/> so the caller cannot rebind the primary key,
+        /// and then uses <see cref="JsonConvert.PopulateObject(string, object)"/> to write
+        /// the fields onto <paramref name="destination"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Override when the default behavior is not enough — typically because the DTO is
+        /// decorated with <c>System.Text.Json</c> attributes (which Newtonsoft does not honor)
+        /// or because DTO and entity property shapes diverge enough that explicit mapping is
+        /// clearer than chasing attribute conventions.
+        /// </para>
+        /// <para>
+        /// If you override, you own all property and navigation copying — the default
+        /// Newtonsoft round-trip will not run. You are also responsible for preserving
+        /// <paramref name="entityId"/> on <paramref name="destination"/>; the framework will
+        /// not re-stamp it after this call.
+        /// </para>
+        /// <para>
+        /// The default impl assumes the DTO's serialized form contains an <c>Id</c> field. If
+        /// your DTO uses Newtonsoft <c>[JsonProperty]</c> to rename <c>Id</c> (or omits it
+        /// from serialization), the default <c>dynamic.Id = entityId</c> assignment will add
+        /// a stray <c>Id</c> field on the JObject rather than overwriting the renamed one,
+        /// and <see cref="JsonConvert.PopulateObject(string, object)"/> will not write the
+        /// renamed property onto <paramref name="destination"/>. Override this method when
+        /// the DTO renames the PK on the wire.
+        /// </para>
+        /// </remarks>
+        /// <param name="origin">The DTO carrying the new values.</param>
+        /// <param name="destination">The tracked entity to update in place.</param>
+        /// <param name="entityId">
+        /// The primary key of <paramref name="destination"/>. The default implementation
+        /// forces this onto <paramref name="destination"/> after the round-trip; overrides
+        /// should preserve it.
+        /// </param>
+        protected virtual void ApplyToDestination(TOrigin origin, TDestination destination, TPrimaryKey entityId)
+        {
+            var stringDeserialized = JsonConvert.SerializeObject(origin);
+            dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
+            stringDeserializedDynamic.Id = entityId;
+            JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destination);
+        }
+
         public virtual async Task<TDestination> CreateAsync(TOrigin data, CancellationToken cancellationToken = default)
         {
-            var stringDeserialized = JsonConvert.SerializeObject(data);
-            var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
+            var destinationObject = MapToDestination(data);
 
             await _dbContext.Set<TDestination>().AddAsync(destinationObject, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -378,12 +497,7 @@ namespace NDjango.RestFramework.Serializer
             if (destinationObject == null)
                 return null;
 
-            var stringDeserialized = JsonConvert.SerializeObject(origin);
-
-            dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
-            stringDeserializedDynamic.Id = entityId;
-
-            JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destinationObject);
+            ApplyToDestination(origin, destinationObject, entityId);
             _dbContext.Update(destinationObject);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -397,13 +511,9 @@ namespace NDjango.RestFramework.Serializer
         {
             var destinationObjects = await GetManyFromDB(entityIds, cancellationToken);
 
-            var stringDeserialized = JsonConvert.SerializeObject(origin);
-            dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
-
             foreach (var obj in destinationObjects)
             {
-                stringDeserializedDynamic.Id = obj.Id;
-                JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), obj);
+                ApplyToDestination(origin, obj, obj.Id);
             }
 
             _dbContext.UpdateRange(destinationObjects);

@@ -3,3 +3,5 @@
 - [DRF nested writes stance](drf_nested_writes_stance.md) — DRF deliberately doesn't auto-handle nested writes; raise_errors_on_nested_writes is the active block
 - [DRF unique-validation strategy](drf_unique_validation_strategy.md) — DRF prevents races via UniqueValidator at validation time, not via DB exception translation
 - [Consumer pain points 2026-05](consumer_pain_points_2026_05.md) — Concrete divergences spotted in dotnet-template that drive recommended changes
+- [DRF run_validation is public](drf_run_validation_is_public.md) — run_validation is the documented override seam; marking our RunValidationAsync internal is a divergence from DRF
+- [DRF side effects outside serializer](drf_side_effects_belong_outside_serializer.md) — DRF has no pre/post-save hooks; signals + caller composition own side effects, not the serializer

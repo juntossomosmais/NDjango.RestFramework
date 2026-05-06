@@ -61,16 +61,27 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// Public constructor for non-PATCH contexts (Create / Update / BulkUpdate). PATCH
-        /// contexts are constructed internally by the framework so the partial-presence probe
-        /// can be wired automatically.
+        /// Constructs a context for non-PATCH operations (Create / Update / BulkUpdate). On
+        /// these operations every DTO field is considered present, so <see cref="IsSet"/>
+        /// always returns <c>true</c>.
         /// </summary>
         public ValidationContext(SerializerOperation operation, TPrimaryKey? entityId)
             : this(operation, entityId, presence: null)
         {
         }
 
-        internal ValidationContext(
+        /// <summary>
+        /// Constructs a context with an explicit partial-presence probe. Inside the HTTP
+        /// pipeline,
+        /// <see cref="Base.BaseController{TOrigin,TDestination,TPrimaryKey,TContext}"/> wires
+        /// this automatically for PATCH so <see cref="IsSet"/> reflects which fields the
+        /// payload actually carried. Headless callers (message consumers, scheduled jobs)
+        /// that drive
+        /// <see cref="Serializer{TOrigin,TDestination,TPrimaryKey,TContext}.PartialUpdateAsync"/>
+        /// directly should use this overload to keep the same per-field-presence semantics
+        /// as the controller path.
+        /// </summary>
+        public ValidationContext(
             SerializerOperation operation,
             TPrimaryKey? entityId,
             PartialJsonObject? presence)

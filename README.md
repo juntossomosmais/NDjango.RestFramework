@@ -530,6 +530,76 @@ public override async Task<Person?> PartialUpdateAsync(
 }
 ```
 
+### Using `Serializer<>` outside an HTTP context
+
+`Serializer<TOrigin, TDestination, TPrimaryKey, TContext>` depends only on a `DbContext` — there is no `HttpContext` reference on the serializer's public surface. `RunValidationAsync` and the CRUD methods (`CreateAsync`, `UpdateAsync`, `PartialUpdateAsync`, `UpdateManyAsync`, `DestroyAsync`, `DestroyManyAsync`) are part of the public API, so a message consumer, gRPC service, or scheduled job can reuse the same serializer the controller uses, with the same per-field hooks, cross-field rules, and PATCH presence semantics.
+
+Register your serializer subclass with the same lifetime as the `DbContext` it depends on (typically Scoped — one serializer per HTTP request, message, or job). A serializer is shared mutable state by construction (`_dbContext`, plus any state your subclass carries) and must not be invoked concurrently on a single instance; resolving one per logical unit of work matches both EF Core's contract and the way `BaseController` already uses it.
+
+A consumer-shaped example:
+
+```csharp
+public class CreatePersonHandler
+{
+    private readonly PersonSerializer _serializer;
+
+    public CreatePersonHandler(PersonSerializer serializer) => _serializer = serializer;
+
+    public async Task HandleAsync(PersonDto message, CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, List<string>>();
+        var context = new ValidationContext<int>(SerializerOperation.Create, default);
+
+        await _serializer.RunValidationAsync(message, context, errors, cancellationToken: cancellationToken);
+        if (errors.Count > 0)
+        {
+            // Inspect, log, dead-letter — your call.
+            return;
+        }
+
+        await _serializer.CreateAsync(message, cancellationToken);
+    }
+}
+```
+
+For partial updates from a raw JSON payload, construct a `PartialJsonObject<T>` directly with the body string and pass it to both validation and `PartialUpdateAsync`:
+
+```csharp
+var partial = new PartialJsonObject<PersonDto>(rawJsonString);
+var errors = new Dictionary<string, List<string>>();
+var context = new ValidationContext<int>(SerializerOperation.PartialUpdate, entityId, partial);
+
+await _serializer.RunValidationAsync(partial.Instance, context, errors, partial, cancellationToken);
+if (errors.Count == 0)
+    await _serializer.PartialUpdateAsync(partial, entityId, cancellationToken);
+```
+
+#### When the DTO uses `System.Text.Json` attributes
+
+`CreateAsync`, `UpdateAsync`, and `UpdateManyAsync` map DTO → entity through a Newtonsoft round-trip by default. If your DTO is decorated with `[JsonPropertyName]` (System.Text.Json) instead of `[JsonProperty]` (Newtonsoft) — common in messaging stacks — the rename is invisible to the round-trip and the field silently fails to map. Override the mapping seams to do explicit, attribute-free copying:
+
+```csharp
+public class PersonSerializer : Serializer<PersonDto, Person, int, AppDbContext>
+{
+    public PersonSerializer(AppDbContext context) : base(context) { }
+
+    protected override Person MapToDestination(PersonDto origin) => new()
+    {
+        Name = origin.Name,
+    };
+
+    protected override void ApplyToDestination(PersonDto origin, Person destination, int entityId)
+    {
+        destination.Id = entityId;
+        destination.Name = origin.Name;
+    }
+}
+```
+
+When you override these seams the default round-trip does not run, so your override owns all property and navigation copying — including preserving the entity's primary key in `ApplyToDestination`.
+
+> **Transactions and side effects.** Transactions, outbox writes, and message publishing are intentionally not modeled inside the serializer. Compose them in the caller (the controller, the consumer, the job) so each call site can pick its own transaction boundary and decide whether to publish.
+
 ### Error handling
 
 `BaseController` does **not** catch exceptions. Unhandled exceptions propagate to the ASP.NET Core middleware pipeline, where the host application can handle them using `IExceptionHandler` / `app.UseExceptionHandler()`. This gives the host full control over status codes, error shapes, logging severity, and observability enrichment.

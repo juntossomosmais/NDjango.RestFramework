@@ -1,0 +1,1 @@
+- [CancellationTokenModelBinder pinned anchor (net8.0)](anchor_cancellation_token_model_binder.md) — Verified at release/8.0 that the CT parameter on a controller action is HttpContext.RequestAborted.

@@ -33,6 +33,22 @@ namespace NDjango.RestFramework.Helpers
             JsonObject = jsonObject;
         }
 
+        /// <summary>
+        /// Constructs a partial wrapper directly from a raw JSON payload. Use this when a
+        /// non-HTTP caller (e.g., a message consumer) holds the body string and wants to
+        /// drive
+        /// <see cref="Serializer.Serializer{TOrigin,TDestination,TPrimaryKey,TContext}.PartialUpdateAsync"/>
+        /// or
+        /// <see cref="Serializer.Serializer{TOrigin,TDestination,TPrimaryKey,TContext}.RunValidationAsync"/>
+        /// outside of MVC model binding. Inside an HTTP request the model binder constructs
+        /// the wrapper for you.
+        /// </summary>
+        /// <remarks>
+        /// Like every <see cref="PartialJsonObject{T}"/> instance, the returned wrapper is
+        /// not thread-safe (see the type-level remarks above). Do not share the same wrapper
+        /// across worker tasks; parse a fresh wrapper per logical unit of work.
+        /// </remarks>
+        /// <param name="json">The raw JSON payload.</param>
         public PartialJsonObject(string json)
         {
             JsonObject = JObject.Parse(json);

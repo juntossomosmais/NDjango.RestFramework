@@ -263,6 +263,62 @@ public class MisnamedHookSerializer : Serializer<CustomerDto, Customer, Guid, Ap
     }
 }
 
+/// <summary>
+/// Serializer that overrides the mapping seams (<see cref="Serializer{T1,T2,T3,T4}.MapToDestination"/>
+/// and <see cref="Serializer{T1,T2,T3,T4}.ApplyToDestination"/>) and records every call so tests
+/// can verify the seams are reached from <c>CreateAsync</c>, <c>UpdateAsync</c>, and
+/// <c>UpdateManyAsync</c> with the expected arguments. Field values get a sentinel suffix
+/// so the persisted entity reflects which seam ran.
+/// </summary>
+public class MappingSeamSpySerializer : Serializer<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public bool MapToDestinationCalled { get; private set; }
+    public bool ApplyToDestinationCalled { get; private set; }
+    public List<Guid> ApplyToDestinationEntityIds { get; } = new();
+
+    public MappingSeamSpySerializer(AppDbContext applicationDbContext) : base(applicationDbContext)
+    {
+    }
+
+    protected override Customer MapToDestination(CustomerDto origin)
+    {
+        MapToDestinationCalled = true;
+        return new Customer
+        {
+            Name = origin.Name + "_mapped",
+            CNPJ = origin.CNPJ,
+        };
+    }
+
+    protected override void ApplyToDestination(CustomerDto origin, Customer destination, Guid entityId)
+    {
+        ApplyToDestinationCalled = true;
+        ApplyToDestinationEntityIds.Add(entityId);
+        destination.Id = entityId;
+        destination.Name = origin.Name + "_applied";
+        destination.CNPJ = origin.CNPJ;
+    }
+}
+
+/// <summary>
+/// Serializer override that copies only <see cref="CustomerDto.Name"/> and intentionally
+/// omits <see cref="CustomerDto.CNPJ"/>. Pins the documented contract that overriding
+/// <see cref="Serializer{T1,T2,T3,T4}.MapToDestination"/> fully replaces the default
+/// Newtonsoft round-trip — the framework does not run the default as a fallback for
+/// fields the override skipped.
+/// </summary>
+public class PartialMappingSerializer : Serializer<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public PartialMappingSerializer(AppDbContext applicationDbContext) : base(applicationDbContext)
+    {
+    }
+
+    protected override Customer MapToDestination(CustomerDto origin)
+    {
+        return new Customer { Name = origin.Name };
+    }
+}
+
 public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid, AppDbContext>
 {
     public ThrowingCustomerSerializer(AppDbContext applicationDbContext) : base(applicationDbContext)
