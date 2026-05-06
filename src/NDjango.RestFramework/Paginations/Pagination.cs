@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -13,7 +14,10 @@ public record PaginatedResponse<TDestination>(int? Count, string? Next, string? 
 
 public interface IPagination<TDestination>
 {
-    public Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source, HttpRequest queryParams);
+    public Task<Paginated<TDestination>?> PaginateAsync(
+        IQueryable<TDestination> source,
+        HttpRequest queryParams,
+        CancellationToken cancellationToken = default);
 }
 
 public abstract class Pagination<TDestination> : IPagination<TDestination>
@@ -46,6 +50,8 @@ public abstract class Pagination<TDestination> : IPagination<TDestination>
         return _defaultLimit;
     }
 
-    public abstract Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source,
-        HttpRequest queryParams);
+    public abstract Task<Paginated<TDestination>?> PaginateAsync(
+        IQueryable<TDestination> source,
+        HttpRequest queryParams,
+        CancellationToken cancellationToken = default);
 }

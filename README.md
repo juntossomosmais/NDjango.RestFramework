@@ -353,12 +353,17 @@ The `Serializer` handles DTO-to-entity conversion and database operations. It fo
 
 | Method | Description |
 |---|---|
-| `CreateAsync(data)` | Persists a new entity to the database. Called by the `POST` action. |
-| `UpdateAsync(origin, entityId)` | Fully replaces an existing entity. Called by the `PUT /{id}` action. |
-| `PartialUpdateAsync(origin, entityId)` | Updates only the fields present in the request body. Called by the `PATCH /{id}` action. |
-| `UpdateManyAsync(origin, entityIds)` | Applies the same full update to multiple entities. Called by the `PUT ?ids=` action. |
-| `DestroyAsync(entityId)` | Removes an entity from the database. Called by the `DELETE /{id}` action. |
-| `DestroyManyAsync(entityIds)` | Removes multiple entities from the database. Called by the `DELETE ?ids=` action. |
+| `CreateAsync(data, ct)` | Persists a new entity to the database. Called by the `POST` action. |
+| `UpdateAsync(origin, entityId, ct)` | Fully replaces an existing entity. Called by the `PUT /{id}` action. |
+| `PartialUpdateAsync(origin, entityId, ct)` | Updates only the fields present in the request body. Called by the `PATCH /{id}` action. |
+| `UpdateManyAsync(origin, entityIds, ct)` | Applies the same full update to multiple entities. Called by the `PUT ?ids=` action. |
+| `DestroyAsync(entityId, ct)` | Removes an entity from the database. Called by the `DELETE /{id}` action. |
+| `DestroyManyAsync(entityIds, ct)` | Removes multiple entities from the database. Called by the `DELETE ?ids=` action. |
+
+Every method accepts a `CancellationToken` (defaults to `default`); the controller flows
+`HttpContext.RequestAborted` into it via MVC's `CancellationTokenModelBinder`, so a client
+disconnect cooperatively cancels the in-flight DB work. Forward the token to your own EF
+calls when you override.
 
 The default serializer works for most cases. Override any method for custom logic:
 
@@ -367,10 +372,12 @@ public class PersonSerializer : Serializer<PersonDto, Person, int, AppDbContext>
 {
     public PersonSerializer(AppDbContext context) : base(context) { }
 
-    public override async Task<Person> CreateAsync(PersonDto data)
+    public override async Task<Person> CreateAsync(
+        PersonDto data,
+        CancellationToken cancellationToken = default)
     {
         // Custom logic before/after creation
-        var result = await base.CreateAsync(data);
+        var result = await base.CreateAsync(data, cancellationToken);
         return result;
     }
 }
@@ -406,7 +413,7 @@ public class PersonDto : BaseDto<int>
 The serializer runs a two-stage pipeline (inspired by DRF's `validate_<field>` + `validate()`):
 
 1. **Per-field hooks** -- Methods named `Validate{PropertyName}Async` on your serializer. Auto-discovered by convention, invoked for POST/PUT/PATCH. For PATCH, a hook is only called if the field was present in the payload. Return the (possibly normalized) value.
-2. **Cross-field hook** -- Override `ValidateAsync(data, context, errors)`. Runs **only if all per-field hooks passed** (no errors), so you can safely assume individual fields are valid.
+2. **Cross-field hook** -- Override `ValidateAsync(data, context, errors, cancellationToken)`. Runs **only if all per-field hooks passed** (no errors), so you can safely assume individual fields are valid.
 
 Both stages receive a `ValidationContext<TPrimaryKey>` carrying `Operation` (`Create` / `Update` / `PartialUpdate` / `BulkUpdate`) and `EntityId`. Populate `errors` to signal failures; the controller returns `400 ValidationErrors` as soon as the dictionary is non-empty.
 
@@ -426,7 +433,8 @@ public class StoreSerializer : Serializer<StoreDto, Store, Guid, AppDbContext>
     public async Task<string> ValidateCNPJAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (value == null) return value;
 
@@ -441,7 +449,7 @@ public class StoreSerializer : Serializer<StoreDto, Store, Guid, AppDbContext>
             var query = _dbContext.Store.AsNoTracking().Where(s => s.CNPJ == cnpj);
             if (!context.IsCreate)
                 query = query.Where(s => s.Id != context.EntityId); // skip-self
-            if (await query.AnyAsync())
+            if (await query.AnyAsync(cancellationToken))
                 errors.GetOrAdd("CNPJ").Add("Store with this CNPJ already exists.");
         }
 
@@ -452,7 +460,8 @@ public class StoreSerializer : Serializer<StoreDto, Store, Guid, AppDbContext>
     public override Task<StoreDto> ValidateAsync(
         StoreDto data,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrEmpty(data.Name) && data.Name == data.CNPJ)
             errors.GetOrAdd("Name").Add("Name cannot be the same as CNPJ.");
@@ -477,7 +486,7 @@ using NDjango.RestFramework.Helpers;
 #### Hook conventions
 
 - **Method name**: `Validate{PropertyName}Async`, where `PropertyName` matches a property on your DTO exactly (case-insensitive). Misnamed hooks (e.g., `ValidateCnjAsync` when the DTO has `CNPJ`) are caught at startup by the hosted service that `AddNDjangoRestFramework()` registers.
-- **Signature**: `Task<TFieldType> Validate{Property}Async(TFieldType value, ValidationContext<TPrimaryKey> context, IDictionary<string, List<string>> errors)`. The return type must match the property type.
+- **Signature**: `Task<TFieldType> Validate{Property}Async(TFieldType value, ValidationContext<TPrimaryKey> context, IDictionary<string, List<string>> errors, CancellationToken cancellationToken = default)`. The return type must match the property type. Forward the token to any EF call inside the hook (e.g., `AnyAsync(cancellationToken)`); reflection discovery only matches this exact 4-parameter shape, so older 3-parameter hooks will silently not run.
 - **Mutation**: return a different value from the hook and the framework writes it back (onto the DTO for POST/PUT, onto the `PartialJsonObject<T>` for PATCH).
 - **Branching on operation**: use `context.Operation`, `context.IsCreate`, `context.IsUpdate`, `context.IsPartialUpdate`, or `context.IsBulkUpdate`. Avoid deriving intent from `EntityId == default` — it's ambiguous for bulk updates and for `int` primary keys.
 
@@ -506,14 +515,17 @@ The `ValidationContext<TPrimaryKey>` passed to every hook exposes:
 `PartialJsonObject<T>.ApplyTo(entity, except: ...)` copies every present field onto a target object, silently skipping mismatched names, missing setters, and incompatible types. Useful when you override `PartialUpdateAsync` and want to bypass the default reflection-based copy:
 
 ```csharp
-public override async Task<Person?> PartialUpdateAsync(PartialJsonObject<PersonDto> dto, int id)
+public override async Task<Person?> PartialUpdateAsync(
+    PartialJsonObject<PersonDto> dto,
+    int id,
+    CancellationToken cancellationToken = default)
 {
-    var entity = await _dbContext.Person.FirstOrDefaultAsync(p => p.Id == id);
+    var entity = await _dbContext.Person.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     if (entity == null) return null;
 
     dto.ApplyTo(entity, except: nameof(Person.CreatedAt));
 
-    await _dbContext.SaveChangesAsync();
+    await _dbContext.SaveChangesAsync(cancellationToken);
     return entity;
 }
 ```

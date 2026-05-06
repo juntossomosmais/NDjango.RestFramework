@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Http;
@@ -28,7 +29,10 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         _pageNumberQueryParam = pageNumberQueryParam;
     }
 
-    public override async Task<Paginated<TDestination>?> PaginateAsync(IQueryable<TDestination> source, HttpRequest request)
+    public override async Task<Paginated<TDestination>?> PaginateAsync(
+        IQueryable<TDestination> source,
+        HttpRequest request,
+        CancellationToken cancellationToken = default)
     {
         var queryParams = request.Query.ToList();
         _url = _url ?? request.GetDisplayUrl();
@@ -41,13 +45,13 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         var numberOfRowsToTake = RetrieveConfiguredLimit(limitQueryParam.Value);
         var desiredPageNumber = RetrieveConfiguredPageNumber(pageNumberQueryParam.Value);
         // Building list
-        var count = await source.CountAsync();
+        var count = await source.CountAsync(cancellationToken);
         if (count == 0)
             return null;
         var totalNumberOfPages = (int)Math.Ceiling((double)count / numberOfRowsToTake);
         var actualPageNumber = desiredPageNumber > totalNumberOfPages ? totalNumberOfPages : desiredPageNumber;
         var numberOfRowsToSkip = (actualPageNumber - 1) * numberOfRowsToTake;
-        var items = await source.Skip(numberOfRowsToSkip).Take(numberOfRowsToTake).ToListAsync();
+        var items = await source.Skip(numberOfRowsToSkip).Take(numberOfRowsToTake).ToListAsync(cancellationToken);
         // Links
         var nextLink = RetrieveNextLink(desiredPageNumber, totalNumberOfPages, numberOfRowsToTake, allOthersParams);
         var previousLink = RetrievePreviousLink(desiredPageNumber, numberOfRowsToTake, allOthersParams);

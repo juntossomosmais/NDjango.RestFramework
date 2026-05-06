@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Base;
@@ -116,18 +117,23 @@ namespace NDjango.RestFramework.Serializer
         /// <b>Not thread-safe</b> — write from the <c>ValidateAsync</c> method body only; do not
         /// share across parallel subtasks (e.g., <c>Task.WhenAll</c>) without external synchronization.
         /// </param>
+        /// <param name="cancellationToken">
+        /// Flowed from <see cref="Microsoft.AspNetCore.Http.HttpContext.RequestAborted"/>. Pass it
+        /// to any EF Core async call this hook makes (e.g., <c>FirstOrDefaultAsync(ct)</c>).
+        /// </param>
         /// <returns>The (possibly mutated) DTO.</returns>
         public virtual Task<TOrigin> ValidateAsync(
             TOrigin data,
             ValidationContext<TPrimaryKey> context,
-            IDictionary<string, List<string>> errors)
+            IDictionary<string, List<string>> errors,
+            CancellationToken cancellationToken = default)
             => Task.FromResult(data);
 
         /// <summary>
         /// Discovers per-field validation hooks on the concrete serializer subclass.
         /// A valid hook must be named <c>Validate{PropertyName}Async</c> where PropertyName
         /// matches a property on <typeparamref name="TOrigin"/>, and its signature must be:
-        /// <c>Task&lt;TFieldType&gt; Validate{PropertyName}Async(TFieldType, ValidationContext&lt;TPrimaryKey&gt;, IDictionary&lt;string, List&lt;string&gt;&gt;)</c>
+        /// <c>Task&lt;TFieldType&gt; Validate{PropertyName}Async(TFieldType, ValidationContext&lt;TPrimaryKey&gt;, IDictionary&lt;string, List&lt;string&gt;&gt;, CancellationToken)</c>
         /// where TFieldType matches the property type.
         /// </summary>
         private Dictionary<string, MethodInfo> DiscoverPerFieldHooks()
@@ -157,9 +163,9 @@ namespace NDjango.RestFramework.Serializer
                     if (!originProperties.TryGetValue(propertyName, out var property))
                         continue;
 
-                    // Validate the method signature: Task<TFieldType>(TFieldType, ValidationContext<TPrimaryKey>, IDictionary<string, List<string>>)
+                    // Validate the method signature: Task<TFieldType>(TFieldType, ValidationContext<TPrimaryKey>, IDictionary<string, List<string>>, CancellationToken)
                     var parameters = method.GetParameters();
-                    if (parameters.Length != 3)
+                    if (parameters.Length != 4)
                         continue;
 
                     var expectedReturnType = typeof(Task<>).MakeGenericType(property.PropertyType);
@@ -175,6 +181,9 @@ namespace NDjango.RestFramework.Serializer
                     if (parameters[2].ParameterType != typeof(IDictionary<string, List<string>>))
                         continue;
 
+                    if (parameters[3].ParameterType != typeof(CancellationToken))
+                        continue;
+
                     hooks[property.Name] = method;
                 }
 
@@ -184,7 +193,7 @@ namespace NDjango.RestFramework.Serializer
 
         /// <summary>
         /// Returns the set of all <c>Validate{X}Async</c> method names on the concrete serializer type
-        /// that look like per-field hooks (correct prefix/suffix, 3 params) but whose <c>X</c> does NOT
+        /// that look like per-field hooks (correct prefix/suffix, 4 params) but whose <c>X</c> does NOT
         /// match any property on <typeparamref name="TOrigin"/>. Used by startup validation to catch
         /// typos like <c>ValidateCnjAsync</c> instead of <c>ValidateCnpjAsync</c>.
         /// </summary>
@@ -219,15 +228,18 @@ namespace NDjango.RestFramework.Serializer
                 if (string.IsNullOrEmpty(propertyName))
                     continue;
 
-                // Only flag methods that have the 3-parameter hook shape
+                // Only flag methods that have the 4-parameter hook shape
                 var parameters = method.GetParameters();
-                if (parameters.Length != 3)
+                if (parameters.Length != 4)
                     continue;
 
                 if (parameters[1].ParameterType != typeof(ValidationContext<TPrimaryKey>))
                     continue;
 
                 if (parameters[2].ParameterType != typeof(IDictionary<string, List<string>>))
+                    continue;
+
+                if (parameters[3].ParameterType != typeof(CancellationToken))
                     continue;
 
                 if (!originProperties.Contains(propertyName))
@@ -250,7 +262,8 @@ namespace NDjango.RestFramework.Serializer
             TOrigin data,
             ValidationContext<TPrimaryKey> context,
             IDictionary<string, List<string>> errors,
-            PartialJsonObject<TOrigin>? partialData = null)
+            PartialJsonObject<TOrigin>? partialData = null,
+            CancellationToken cancellationToken = default)
         {
             var hooks = DiscoverPerFieldHooks();
             var originProperties = typeof(TOrigin).GetProperties(BindingFlags.Public | BindingFlags.Instance);
@@ -266,7 +279,7 @@ namespace NDjango.RestFramework.Serializer
                     continue;
 
                 var currentValue = property.GetValue(data);
-                var resultTask = (Task)hookMethod.Invoke(this, new[] { currentValue, context, errors });
+                var resultTask = (Task)hookMethod.Invoke(this, new[] { currentValue, context, errors, (object)cancellationToken });
                 await resultTask.ConfigureAwait(false);
 
                 // Extract the result from Task<TFieldType>
@@ -298,7 +311,7 @@ namespace NDjango.RestFramework.Serializer
                 return data;
 
             // Step 3: Unified cross-field ValidateAsync
-            data = await ValidateAsync(data, context, errors).ConfigureAwait(false);
+            data = await ValidateAsync(data, context, errors, cancellationToken).ConfigureAwait(false);
 
             // For PATCH, sync any cross-field mutations back into the partial's underlying JSON
             // so PartialUpdateAsync sees them when it walks the IsSet/Instance pair.
@@ -318,20 +331,23 @@ namespace NDjango.RestFramework.Serializer
             return data;
         }
 
-        public virtual async Task<TDestination> CreateAsync(TOrigin data)
+        public virtual async Task<TDestination> CreateAsync(TOrigin data, CancellationToken cancellationToken = default)
         {
             var stringDeserialized = JsonConvert.SerializeObject(data);
             var destinationObject = JsonConvert.DeserializeObject<TDestination>(stringDeserialized);
 
-            await _dbContext.Set<TDestination>().AddAsync(destinationObject);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.Set<TDestination>().AddAsync(destinationObject, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return destinationObject;
         }
 
-        public virtual async Task<TDestination?> PartialUpdateAsync(PartialJsonObject<TOrigin> originObject, TPrimaryKey entityId)
+        public virtual async Task<TDestination?> PartialUpdateAsync(
+            PartialJsonObject<TOrigin> originObject,
+            TPrimaryKey entityId,
+            CancellationToken cancellationToken = default)
         {
-            var destinationObject = await GetFromDB(entityId);
+            var destinationObject = await GetFromDB(entityId, cancellationToken);
 
             if (destinationObject == null)
                 return null;
@@ -347,14 +363,17 @@ namespace NDjango.RestFramework.Serializer
                 }
             }
 
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return destinationObject;
         }
 
-        public virtual async Task<TDestination?> UpdateAsync(TOrigin origin, TPrimaryKey entityId)
+        public virtual async Task<TDestination?> UpdateAsync(
+            TOrigin origin,
+            TPrimaryKey entityId,
+            CancellationToken cancellationToken = default)
         {
-            var destinationObject = await GetFromDB(entityId);
+            var destinationObject = await GetFromDB(entityId, cancellationToken);
 
             if (destinationObject == null)
                 return null;
@@ -366,14 +385,17 @@ namespace NDjango.RestFramework.Serializer
 
             JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destinationObject);
             _dbContext.Update(destinationObject);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return destinationObject;
         }
 
-        public virtual async Task<IList<TPrimaryKey>> UpdateManyAsync(TOrigin origin, IList<TPrimaryKey> entityIds)
+        public virtual async Task<IList<TPrimaryKey>> UpdateManyAsync(
+            TOrigin origin,
+            IList<TPrimaryKey> entityIds,
+            CancellationToken cancellationToken = default)
         {
-            var destinationObjects = await GetManyFromDB(entityIds);
+            var destinationObjects = await GetManyFromDB(entityIds, cancellationToken);
 
             var stringDeserialized = JsonConvert.SerializeObject(origin);
             dynamic stringDeserializedDynamic = JsonConvert.DeserializeObject<dynamic>(stringDeserialized);
@@ -385,50 +407,59 @@ namespace NDjango.RestFramework.Serializer
             }
 
             _dbContext.UpdateRange(destinationObjects);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return destinationObjects.Select(m => m.Id).ToList();
         }
 
-        public virtual async Task<TDestination?> DestroyAsync(TPrimaryKey entityId)
+        public virtual async Task<TDestination?> DestroyAsync(TPrimaryKey entityId, CancellationToken cancellationToken = default)
         {
-            var data = await GetFromDB(entityId);
+            var data = await GetFromDB(entityId, cancellationToken);
 
             if (data == null)
                 return null;
 
             _dbContext.Remove(data);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return data;
         }
 
-        public virtual async Task<IList<TPrimaryKey>> DestroyManyAsync(IList<TPrimaryKey> entityIds)
+        public virtual async Task<IList<TPrimaryKey>> DestroyManyAsync(
+            IList<TPrimaryKey> entityIds,
+            CancellationToken cancellationToken = default)
         {
-            var deletedObjects = await GetManyFromDB(entityIds);
+            var deletedObjects = await GetManyFromDB(entityIds, cancellationToken);
 
             _dbContext.RemoveRange(deletedObjects);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             return deletedObjects.Select(m => m.Id).ToList();
         }
 
-        public async Task<TDestination?> GetFromDB(TPrimaryKey id, IQueryable<TDestination> query)
+        public async Task<TDestination?> GetFromDB(
+            TPrimaryKey id,
+            IQueryable<TDestination> query,
+            CancellationToken cancellationToken = default)
         {
             var key = id.ToString();
-            var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync();
+            var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync(cancellationToken);
 
             return data;
         }
 
-        protected async Task<TDestination?> GetFromDB(TPrimaryKey id)
+        protected async Task<TDestination?> GetFromDB(TPrimaryKey id, CancellationToken cancellationToken = default)
         {
-            return await _dbContext.Set<TDestination>().FindAsync(id);
+            return await _dbContext.Set<TDestination>().FindAsync(new object?[] { id }, cancellationToken);
         }
 
-        protected async Task<IList<TDestination>> GetManyFromDB(IList<TPrimaryKey> entityIds)
+        protected async Task<IList<TDestination>> GetManyFromDB(
+            IList<TPrimaryKey> entityIds,
+            CancellationToken cancellationToken = default)
         {
-            return await _dbContext.Set<TDestination>().Where(m => entityIds.Contains(m.Id)).ToListAsync();
+            return await _dbContext.Set<TDestination>()
+                .Where(m => entityIds.Contains(m.Id))
+                .ToListAsync(cancellationToken);
         }
     }
 }

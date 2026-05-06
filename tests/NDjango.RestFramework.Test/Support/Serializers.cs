@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Helpers;
@@ -21,7 +22,8 @@ public class CustomerSerializer : Serializer<CustomerDto, Customer, Guid, AppDbC
     public override Task<CustomerDto> ValidateAsync(
         CustomerDto data,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if ((context.IsCreate || context.IsBulkUpdate) && data.CNPJ == "567")
             errors.GetOrAdd("CNPJ").Add("CNPJ cannot be 567");
@@ -43,7 +45,8 @@ public class ValidatingCustomerSerializer : Serializer<CustomerDto, Customer, Gu
     public async Task<string> ValidateCNPJAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (value == null)
             return value!;
@@ -62,7 +65,7 @@ public class ValidatingCustomerSerializer : Serializer<CustomerDto, Customer, Gu
             if (!context.IsCreate && !context.IsBulkUpdate)
                 query = query.Where(c => c.Id != context.EntityId);
 
-            if (await query.AnyAsync())
+            if (await query.AnyAsync(cancellationToken))
                 errors.GetOrAdd("CNPJ").Add("Customer with this CNPJ already exists.");
         }
 
@@ -75,7 +78,8 @@ public class ValidatingCustomerSerializer : Serializer<CustomerDto, Customer, Gu
     public Task<string> ValidateNameAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(value))
             errors.GetOrAdd("Name").Add("Name is required.");
@@ -97,7 +101,8 @@ public class PerFieldCustomerSerializer : Serializer<CustomerDto, Customer, Guid
     public async Task<string> ValidateCNPJAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (value != null)
         {
@@ -115,7 +120,7 @@ public class PerFieldCustomerSerializer : Serializer<CustomerDto, Customer, Guid
                 if (!context.IsCreate)
                     query = query.Where(c => c.Id != context.EntityId);
 
-                if (await query.AnyAsync())
+                if (await query.AnyAsync(cancellationToken))
                     errors.GetOrAdd("CNPJ").Add("Customer with this CNPJ already exists.");
             }
 
@@ -128,7 +133,8 @@ public class PerFieldCustomerSerializer : Serializer<CustomerDto, Customer, Guid
     public Task<string> ValidateNameAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(value))
             errors.GetOrAdd("Name").Add("Name is required.");
@@ -152,7 +158,8 @@ public class PerFieldWithCrossFieldSerializer : Serializer<CustomerDto, Customer
     public Task<string> ValidateCNPJAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         if (value != null)
         {
@@ -166,7 +173,8 @@ public class PerFieldWithCrossFieldSerializer : Serializer<CustomerDto, Customer
     public override Task<CustomerDto> ValidateAsync(
         CustomerDto data,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         CrossFieldCalled = true;
 
@@ -193,7 +201,8 @@ public class PerFieldShortCircuitSerializer : Serializer<CustomerDto, Customer, 
     public Task<string> ValidateCNPJAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         errors.GetOrAdd("CNPJ").Add("Always fails.");
         return Task.FromResult(value);
@@ -202,7 +211,8 @@ public class PerFieldShortCircuitSerializer : Serializer<CustomerDto, Customer, 
     public override Task<CustomerDto> ValidateAsync(
         CustomerDto data,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         CrossFieldCalled = true;
         return Task.FromResult(data);
@@ -225,7 +235,8 @@ public class ContextCapturingSerializer : Serializer<CustomerDto, Customer, Guid
     public Task<string> ValidateNameAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         LastContext = context;
         return Task.FromResult(value);
@@ -245,7 +256,8 @@ public class MisnamedHookSerializer : Serializer<CustomerDto, Customer, Guid, Ap
     public Task<string> ValidateCnjAsync(
         string value,
         ValidationContext<Guid> context,
-        IDictionary<string, List<string>> errors)
+        IDictionary<string, List<string>> errors,
+        CancellationToken cancellationToken = default)
     {
         return Task.FromResult(value);
     }
@@ -257,32 +269,43 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
     {
     }
 
-    public override Task<Customer> CreateAsync(CustomerDto data)
+    public override Task<Customer> CreateAsync(CustomerDto data, CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> PartialUpdateAsync(PartialJsonObject<CustomerDto> originObject, Guid entityId)
+    public override Task<Customer?> PartialUpdateAsync(
+        PartialJsonObject<CustomerDto> originObject,
+        Guid entityId,
+        CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> UpdateAsync(CustomerDto origin, Guid entityId)
+    public override Task<Customer?> UpdateAsync(
+        CustomerDto origin,
+        Guid entityId,
+        CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<IList<Guid>> UpdateManyAsync(CustomerDto origin, IList<Guid> entityIds)
+    public override Task<IList<Guid>> UpdateManyAsync(
+        CustomerDto origin,
+        IList<Guid> entityIds,
+        CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> DestroyAsync(Guid entityId)
+    public override Task<Customer?> DestroyAsync(Guid entityId, CancellationToken cancellationToken = default)
     {
         throw new OperationCanceledException("Simulated client disconnect");
     }
 
-    public override Task<IList<Guid>> DestroyManyAsync(IList<Guid> entityIds)
+    public override Task<IList<Guid>> DestroyManyAsync(
+        IList<Guid> entityIds,
+        CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }

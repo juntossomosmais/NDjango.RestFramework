@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -84,11 +85,13 @@ namespace NDjango.RestFramework.Base
         /// <returns>The entity if found, otherwise a NotFound result.</returns>
         [HttpGet]
         [Route("{id}")]
-        public virtual async Task<IActionResult> GetSingle([FromRoute] TPrimaryKey id)
+        public virtual async Task<IActionResult> GetSingle(
+            [FromRoute] TPrimaryKey id,
+            CancellationToken cancellationToken = default)
         {
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
 
-            var data = await _serializer.GetFromDB(id, query);
+            var data = await _serializer.GetFromDB(id, query, cancellationToken);
             if (data == null)
                 return NotFound();
 
@@ -102,11 +105,11 @@ namespace NDjango.RestFramework.Base
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListPaged()
+        public async Task<IActionResult> ListPaged(CancellationToken cancellationToken = default)
         {
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
             query = SortQuery(AllowedFields, query);
-            var paginated = await _pagination.PaginateAsync(query, HttpContext.Request);
+            var paginated = await _pagination.PaginateAsync(query, HttpContext.Request, cancellationToken);
             if (paginated == null)
                 return NotFound();
 
@@ -128,15 +131,17 @@ namespace NDjango.RestFramework.Base
         /// <param name="entity">The entity to create.</param>
         /// <returns>The created entity.</returns>
         [HttpPost]
-        public virtual async Task<IActionResult> Post([FromBody] TOrigin entity)
+        public virtual async Task<IActionResult> Post(
+            [FromBody] TOrigin entity,
+            CancellationToken cancellationToken = default)
         {
             var errors = new Dictionary<string, List<string>>();
             var context = new ValidationContext<TPrimaryKey>(SerializerOperation.Create, default);
-            entity = await _serializer.RunValidationAsync(entity, context, errors);
+            entity = await _serializer.RunValidationAsync(entity, context, errors, cancellationToken: cancellationToken);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
-            var data = await _serializer.CreateAsync(entity);
+            var data = await _serializer.CreateAsync(entity, cancellationToken);
 
             var json = JsonConvert.SerializeObject(
                 data,
@@ -157,7 +162,8 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> Patch(
             [FromBody] PartialJsonObject<TOrigin> entity,
-            [FromRoute] TPrimaryKey id)
+            [FromRoute] TPrimaryKey id,
+            CancellationToken cancellationToken = default)
         {
             if (!_actionOptions.AllowPatch)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
@@ -166,11 +172,11 @@ namespace NDjango.RestFramework.Base
             // Pass the partial as the presence probe so ValidationContext.IsSet(field) on PATCH
             // forwards to PartialJsonObject.IsSet — distinguishing "not sent" from "sent default".
             var context = new ValidationContext<TPrimaryKey>(SerializerOperation.PartialUpdate, id, entity);
-            await _serializer.RunValidationAsync(entity.Instance, context, errors, entity);
+            await _serializer.RunValidationAsync(entity.Instance, context, errors, entity, cancellationToken);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
-            var data = await _serializer.PartialUpdateAsync(entity, id);
+            var data = await _serializer.PartialUpdateAsync(entity, id, cancellationToken);
 
             if (data == null)
                 return NotFound();
@@ -194,18 +200,19 @@ namespace NDjango.RestFramework.Base
         [Route("{id}")]
         public virtual async Task<IActionResult> Put(
             [FromBody] TOrigin origin,
-            [FromRoute] TPrimaryKey id)
+            [FromRoute] TPrimaryKey id,
+            CancellationToken cancellationToken = default)
         {
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
             var context = new ValidationContext<TPrimaryKey>(SerializerOperation.Update, id);
-            origin = await _serializer.RunValidationAsync(origin, context, errors);
+            origin = await _serializer.RunValidationAsync(origin, context, errors, cancellationToken: cancellationToken);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
-            var data = await _serializer.UpdateAsync(origin, id);
+            var data = await _serializer.UpdateAsync(origin, id, cancellationToken);
 
             if (data == null)
                 return NotFound();
@@ -228,18 +235,19 @@ namespace NDjango.RestFramework.Base
         [HttpPut]
         public virtual async Task<IActionResult> PutMany(
             [FromBody] TOrigin origin,
-            [FromQuery] IList<TPrimaryKey> ids)
+            [FromQuery] IList<TPrimaryKey> ids,
+            CancellationToken cancellationToken = default)
         {
             if (!_actionOptions.AllowPut)
                 return StatusCode(StatusCodes.Status405MethodNotAllowed);
 
             var errors = new Dictionary<string, List<string>>();
             var context = new ValidationContext<TPrimaryKey>(SerializerOperation.BulkUpdate, default);
-            origin = await _serializer.RunValidationAsync(origin, context, errors);
+            origin = await _serializer.RunValidationAsync(origin, context, errors, cancellationToken: cancellationToken);
             if (errors.Count > 0)
                 return BadRequest(new ValidationErrors(ToValidationErrorsDict(errors)));
 
-            var updatedIds = await _serializer.UpdateManyAsync(origin, ids);
+            var updatedIds = await _serializer.UpdateManyAsync(origin, ids, cancellationToken);
 
             return Ok(updatedIds);
         }
@@ -251,9 +259,11 @@ namespace NDjango.RestFramework.Base
         /// <returns>The deleted entity if found, otherwise a NotFound result.</returns>
         [HttpDelete]
         [Route("{id}")]
-        public virtual async Task<IActionResult> Delete([FromRoute] TPrimaryKey id)
+        public virtual async Task<IActionResult> Delete(
+            [FromRoute] TPrimaryKey id,
+            CancellationToken cancellationToken = default)
         {
-            var data = await _serializer.DestroyAsync(id);
+            var data = await _serializer.DestroyAsync(id, cancellationToken);
 
             if (data == null)
                 return NotFound();
@@ -273,9 +283,11 @@ namespace NDjango.RestFramework.Base
         /// <param name="ids">The primary keys of the entities to delete.</param>
         /// <returns>The list of deleted entity IDs.</returns>
         [HttpDelete]
-        public virtual async Task<IActionResult> DeleteMany([FromQuery] IList<TPrimaryKey> ids)
+        public virtual async Task<IActionResult> DeleteMany(
+            [FromQuery] IList<TPrimaryKey> ids,
+            CancellationToken cancellationToken = default)
         {
-            var deletedIds = await _serializer.DestroyManyAsync(ids);
+            var deletedIds = await _serializer.DestroyManyAsync(ids, cancellationToken);
 
             return Ok(deletedIds);
         }
