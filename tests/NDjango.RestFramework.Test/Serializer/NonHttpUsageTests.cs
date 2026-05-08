@@ -166,11 +166,15 @@ public class NonHttpUsageTests
             // Act
             await serializer.RunValidationAsync(partial.Instance, context, errors, partial);
             Assert.Empty(errors);
-            var updated = await serializer.PartialUpdateAsync(partial, existing.Id);
+            // Headless caller is responsible for loading the instance — the serializer is
+            // queryset-naive (DRF parity, mixins.py:58-67 at tag 3.17.1). A scoped consumer
+            // would express its own row-scoping predicate in this load.
+            var instance = await dbContext.Customer.FirstAsync(c => c.Id == existing.Id);
+            var updated = await serializer.PartialUpdateAsync(instance, partial);
 
             // Assert
             Assert.NotNull(updated);
-            Assert.Equal("Original", updated!.Name);
+            Assert.Equal("Original", updated.Name);
             Assert.Equal("12345678000190", updated.CNPJ);
         }
     }

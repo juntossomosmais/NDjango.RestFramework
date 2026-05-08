@@ -17,7 +17,7 @@ public class CustomerSerializer : Serializer<CustomerDto, Customer, Guid, AppDbC
     }
 
     /// <summary>
-    /// Cross-field rule: CNPJ cannot be "567" on POST or PutMany.
+    /// Cross-field rule: CNPJ cannot be "567" on POST or bulk-update flows.
     /// </summary>
     public override Task<CustomerDto> ValidateAsync(
         CustomerDto data,
@@ -222,7 +222,7 @@ public class PerFieldShortCircuitSerializer : Serializer<CustomerDto, Customer, 
 /// <summary>
 /// Serializer that records the <see cref="ValidationContext{TPrimaryKey}"/> its per-field hook
 /// received, so integration tests can assert the controller signaled the right
-/// <see cref="SerializerOperation"/> (e.g., BulkUpdate for PutMany, not Create).
+/// <see cref="SerializerOperation"/> (e.g., BulkUpdate for UpdateManyAsync, not Create).
 /// </summary>
 public class ContextCapturingSerializer : Serializer<CustomerDto, Customer, Guid, AppDbContext>
 {
@@ -260,6 +260,44 @@ public class MisnamedHookSerializer : Serializer<CustomerDto, Customer, Guid, Ap
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult(value);
+    }
+}
+
+/// <summary>
+/// Serializer used by <c>ValidateDestroyCustomersController</c>. Tracks calls to the
+/// instance-based <c>DestroyAsync(TDestination, ct)</c> override so tests can prove
+/// the override seam fires from the HTTP DELETE path.
+/// </summary>
+public class ValidateDestroyCustomerSerializer : Serializer<CustomerDto, Customer, Guid, AppDbContext>
+{
+    public int InstanceDestroyCalls { get; private set; }
+    public Customer? LastInstanceDestroyed { get; private set; }
+    public int ValidateDestroyCalls { get; private set; }
+    public Customer? LastValidateDestroyInstance { get; private set; }
+
+    public ValidateDestroyCustomerSerializer(AppDbContext applicationDbContext) : base(applicationDbContext)
+    {
+    }
+
+    public void RecordValidateDestroyCall(Customer instance)
+    {
+        ValidateDestroyCalls++;
+        LastValidateDestroyInstance = instance;
+    }
+
+    public void ResetSpyState()
+    {
+        InstanceDestroyCalls = 0;
+        LastInstanceDestroyed = null;
+        ValidateDestroyCalls = 0;
+        LastValidateDestroyInstance = null;
+    }
+
+    public override async Task<Customer> DestroyAsync(Customer instance, CancellationToken cancellationToken = default)
+    {
+        InstanceDestroyCalls++;
+        LastInstanceDestroyed = instance;
+        return await base.DestroyAsync(instance, cancellationToken);
     }
 }
 
@@ -330,23 +368,24 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> PartialUpdateAsync(
+    public override Task<Customer> PartialUpdateAsync(
+        Customer instance,
         PartialJsonObject<CustomerDto> originObject,
-        Guid entityId,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> UpdateAsync(
+    public override Task<Customer> UpdateAsync(
+        Customer instance,
         CustomerDto origin,
-        Guid entityId,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
     public override Task<IList<Guid>> UpdateManyAsync(
+        IQueryable<Customer> query,
         CustomerDto origin,
         IList<Guid> entityIds,
         CancellationToken cancellationToken = default)
@@ -354,15 +393,40 @@ public class ThrowingCustomerSerializer : Serializer<CustomerDto, Customer, Guid
         throw new InvalidOperationException("Simulated infrastructure failure");
     }
 
-    public override Task<Customer?> DestroyAsync(Guid entityId, CancellationToken cancellationToken = default)
+    public override Task<Customer> DestroyAsync(Customer instance, CancellationToken cancellationToken = default)
     {
         throw new OperationCanceledException("Simulated client disconnect");
     }
 
-    public override Task<IList<Guid>> DestroyManyAsync(
+    public override Task<Customer?> GetObjectAsync(
+        IQueryable<Customer> query,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        // The HTTP DELETE / PUT / PATCH paths look up the entity before invoking the
+        // matching write override; returning a sentinel here lets the throwing override
+        // be reached without seeding the database.
+        return Task.FromResult<Customer?>(new Customer { Id = id });
+    }
+
+    public override Task DestroyManyAsync(
+        IQueryable<Customer> query,
         IList<Guid> entityIds,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Simulated infrastructure failure");
+    }
+}
+
+/// <summary>
+/// Serializer whose <c>TOrigin</c> carries a property that <c>TDestination</c> lacks.
+/// Used to pin <c>PartialUpdateAsync</c>'s DRF-parity behavior: an origin field with no
+/// matching destination property is silently skipped instead of throwing.
+/// </summary>
+public class CustomerWithUnknownFieldSerializer
+    : Serializer<CustomerWithUnknownFieldDto, Customer, Guid, AppDbContext>
+{
+    public CustomerWithUnknownFieldSerializer(AppDbContext applicationDbContext) : base(applicationDbContext)
+    {
     }
 }

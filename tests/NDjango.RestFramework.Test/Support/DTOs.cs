@@ -25,6 +25,18 @@ public class CustomerDto : BaseDto<Guid>
     public ICollection<CustomerDocumentDto> CustomerDocuments { get; set; }
 }
 
+/// <summary>
+/// CustomerDto variant that carries a property absent on <see cref="Customer"/>. Used to
+/// pin <c>PartialUpdateAsync</c>'s DRF-parity behavior of silently skipping origin fields
+/// that have no matching destination property.
+/// </summary>
+public class CustomerWithUnknownFieldDto : BaseDto<Guid>
+{
+    public string? Name { get; set; }
+    public string? CNPJ { get; set; }
+    public string? SecretSauce { get; set; }
+}
+
 public class IntAsIdEntityDto : BaseDto<int>
 {
     public string Name { get; set; }

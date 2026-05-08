@@ -86,12 +86,13 @@ public class MappingSeamTests
                 CNPJ = "new",
             };
 
-            // Act
-            var updated = await serializer.UpdateAsync(data, realId);
+            // Act — headless caller loads the instance first (DRF parity, mixins.py:58-67 at tag 3.17.1).
+            var instance = await dbContext.Customer.FirstAsync(c => c.Id == realId);
+            var updated = await serializer.UpdateAsync(instance, data);
 
             // Assert
             Assert.NotNull(updated);
-            Assert.Equal(realId, updated!.Id);
+            Assert.Equal(realId, updated.Id);
             Assert.Equal("Updated", updated.Name);
             Assert.Equal("new", updated.CNPJ);
         }
@@ -108,8 +109,9 @@ public class MappingSeamTests
             var serializer = new MappingSeamSpySerializer(dbContext);
             var data = new CustomerDto { Name = "Updated", CNPJ = "new" };
 
-            // Act
-            var updated = await serializer.UpdateAsync(data, realId);
+            // Act — headless caller loads the instance first (DRF parity, mixins.py:58-67 at tag 3.17.1).
+            var instance = await dbContext.Customer.FirstAsync(c => c.Id == realId);
+            var updated = await serializer.UpdateAsync(instance, data);
 
             // Assert
             Assert.NotNull(updated);
@@ -117,7 +119,7 @@ public class MappingSeamTests
                 "Overridden ApplyToDestination should be invoked by UpdateAsync.");
             Assert.Single(serializer.ApplyToDestinationEntityIds);
             Assert.Equal(realId, serializer.ApplyToDestinationEntityIds[0]);
-            Assert.Equal("Updated_applied", updated!.Name);
+            Assert.Equal("Updated_applied", updated.Name);
         }
     }
 
@@ -137,7 +139,7 @@ public class MappingSeamTests
             var data = new CustomerDto { Name = "Bulk", CNPJ = "new" };
 
             // Act
-            await serializer.UpdateManyAsync(data, ids);
+            await serializer.UpdateManyAsync(dbContext.Customer, data, ids);
 
             // Assert
             Assert.Equal(ids.Length, serializer.ApplyToDestinationEntityIds.Count);
@@ -165,14 +167,45 @@ public class MappingSeamTests
             var serializer = new MappingSeamSpySerializer(dbContext);
             var partial = new PartialJsonObject<CustomerDto>("{\"name\":\"NewName\"}");
 
-            // Act
-            var updated = await serializer.PartialUpdateAsync(partial, realId);
+            // Act — headless caller loads the instance first (DRF parity, mixins.py:58-67 at tag 3.17.1).
+            var instance = await dbContext.Customer.FirstAsync(c => c.Id == realId);
+            var updated = await serializer.PartialUpdateAsync(instance, partial);
 
             // Assert
             Assert.NotNull(updated);
-            Assert.Equal("NewName", updated!.Name);
+            Assert.Equal("NewName", updated.Name);
             Assert.False(serializer.ApplyToDestinationCalled,
                 "PartialUpdateAsync must not invoke the ApplyToDestination seam.");
+        }
+
+        [Fact]
+        public async Task PartialUpdateAsync_OriginCarriesPropertyAbsentOnDestination_ShouldSkipSilentlyAndApplyMatchingFields()
+        {
+            // Arrange — TOrigin (CustomerWithUnknownFieldDto) declares SecretSauce, but the
+            // destination (Customer) has no such property. PartialUpdateAsync reflects over
+            // TOrigin's properties; the destination lookup for SecretSauce returns null.
+            // DRF's ModelSerializer.update silently skips unknown fields — this test pins
+            // that parity so a future "fail loud" refactor (or the prior NRE-throwing code)
+            // breaks loudly here instead of in production.
+            using var dbContext = NewInMemoryContext();
+            var realId = Guid.NewGuid();
+            dbContext.Customer.Add(new Customer { Id = realId, Name = "Original", CNPJ = "old" });
+            await dbContext.SaveChangesAsync();
+
+            var serializer = new CustomerWithUnknownFieldSerializer(dbContext);
+            var partial = new PartialJsonObject<CustomerWithUnknownFieldDto>(
+                "{\"name\":\"Renamed\",\"secretSauce\":\"42\"}");
+
+            // Act
+            var instance = await dbContext.Customer.FirstAsync(c => c.Id == realId);
+            var updated = await serializer.PartialUpdateAsync(instance, partial);
+
+            // Assert — matching property landed, unknown property was skipped without throwing.
+            Assert.NotNull(updated);
+            Assert.Equal("Renamed", updated.Name);
+            Assert.Equal("old", updated.CNPJ);
+            var persisted = await dbContext.Customer.AsNoTracking().FirstAsync(c => c.Id == realId);
+            Assert.Equal("Renamed", persisted.Name);
         }
     }
 

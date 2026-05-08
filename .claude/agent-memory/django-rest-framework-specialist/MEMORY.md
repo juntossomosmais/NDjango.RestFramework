@@ -1,7 +1,9 @@
-- [DRF partial validation evidence](drf_partial_validation_evidence.md) — Where in DRF 3.17.1 source `partial=True` causes validate(attrs) to see only present fields
-- [Hook return-value parity](hook_return_value_parity.md) — Confirmed our Validate{X}Async return-value-replaces-DTO matches DRF validate_<field>
-- [DRF nested writes stance](drf_nested_writes_stance.md) — DRF deliberately doesn't auto-handle nested writes; raise_errors_on_nested_writes is the active block
-- [DRF unique-validation strategy](drf_unique_validation_strategy.md) — DRF prevents races via UniqueValidator at validation time, not via DB exception translation
-- [Consumer pain points 2026-05](consumer_pain_points_2026_05.md) — Concrete divergences spotted in dotnet-template that drive recommended changes
-- [DRF run_validation is public](drf_run_validation_is_public.md) — run_validation is the documented override seam; marking our RunValidationAsync internal is a divergence from DRF
-- [DRF side effects outside serializer](drf_side_effects_belong_outside_serializer.md) — DRF has no pre/post-save hooks; signals + caller composition own side effects, not the serializer
+- [DRF 3.17.1 pinned anchors](drf_3_17_1_anchors.md) — file:line for save/create/update/run_validation/mixins/ListSerializer
+- [Mapping: NDjango Serializer vs DRF ModelSerializer](mapping_serializer_vs_modelserializer.md) — our class is a hybrid, write the mapping once, reuse
+- [Known divergence: bulk operations](divergence_bulk_operations.md) — DRF has none; we have BulkDelete only (PutMany was removed 2026-05); ListSerializer.update raises NotImplementedError by design
+- [Known divergence: validate hook return semantics](divergence_validate_field_return.md) — DRF validate_<field>(value) returns transformed value; our ValidateAsync supports both return-and-mutate
+- [Known divergence: perform_* hooks at view layer](divergence_perform_hooks.md) — Perform{Create,Update,PartialUpdate}Async exist; ValidateDestroyAsync is a validate-only seam, not DRF perform_destroy
+- [Decision: destroy response shape](decision_destroy_response_shape.md) — DRF + both bulk extensions return 204 empty; do not echo matched ids on bulk DELETE
+- [Filter-queryset scope on writes — resolved at 0ae844fa](divergence_filter_queryset_scope.md) — historical: cross-tenant mutation gap was closed by routing every row-resolving write through FilterQuery(GetQuerySet())
+- [Divergence: IQueryable threaded through serializer surface](divergence_iqueryable_serializer_surface.md) — DRF serializer is queryset-naive; recommend DRF-shaped (instance for single-row, queryset only for bulk-execute)
+- [DRF generics.py get_object / filter_queryset anchors](drf_generics_get_object_anchors.md) — load-then-write flow, check_object_permissions, get_serializer_context, get_success_headers

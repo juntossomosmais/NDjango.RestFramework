@@ -1,0 +1,4 @@
+- [DRF translation tier mapping](drf_tier_mapping.md) — Our `Serializer<TOrigin,TDestination,TPK,TContext>` is DRF's `ModelSerializer`, not DRF's base `Serializer`; `BaseController` is `ModelViewSet`. Naming should follow.
+- [Controller perform_* hook surface](controller_perform_hooks.md) — `Perform{Create,Update,PartialUpdate}Async` are action seams (defaults forward to serializer); `ValidateDestroyAsync` is a validation-only seam. Dual-prefix is intentional.
+- [Bulk action stance](bulk_actions_stance.md) — HTTP `PutMany` removed; `UpdateManyAsync` kept as headless primitive; `DestroyManyAsync` rewritten on `ExecuteDeleteAsync` with virtual override seam intact.
+- [Queryset scope on writes](queryset_scope_on_writes.md) — `Filters` chain composes into every write action's load step via `IQueryable<TDestination> query` parameter on Perform* hooks and Serializer write methods; mirrors DRF `get_object()`.

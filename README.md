@@ -141,10 +141,11 @@ This single controller gives you all these endpoints:
 | `GET`    | `/api/v1/Persons/{id}`  | Get single                     |
 | `POST`   | `/api/v1/Persons`       | Create                         |
 | `PUT`    | `/api/v1/Persons/{id}`  | Full update                    |
-| `PUT`    | `/api/v1/Persons?ids=`  | Bulk full update               |
 | `PATCH`  | `/api/v1/Persons/{id}`  | Partial update                 |
 | `DELETE` | `/api/v1/Persons/{id}`  | Delete                         |
 | `DELETE` | `/api/v1/Persons?ids=`  | Bulk delete                    |
+
+There is intentionally no HTTP bulk-update verb. DRF takes the same position — `ListSerializer.update` raises `NotImplementedError` because broadcasting one body to many rows is mass-assignment, not a generic update. If you need to apply the same payload to many rows from non-HTTP code, call `Serializer.UpdateManyAsync` directly.
 
 ### 5. Include navigation properties with a custom filter
 
@@ -337,7 +338,7 @@ Only `Name` is updated; `CreatedAt`, `UpdatedAt`, etc. remain untouched.
 
 ### Disabling endpoints
 
-Use `ActionOptions` to disable PUT or PATCH:
+Use `ActionOptions` to disable PUT, PATCH, or the bulk-delete endpoint:
 
 ```csharp
 public PersonsController(...)
@@ -345,7 +346,151 @@ public PersonsController(...)
 { }
 ```
 
-Disabled endpoints return `405 Method Not Allowed`.
+| Flag | Default | Controls |
+|---|---|---|
+| `AllowPatch` | `true` | `PATCH /{id}` |
+| `AllowPut` | `true` | `PUT /{id}` |
+| `AllowBulkDelete` | `false` | `DELETE ?ids=` (the bulk-delete endpoint, opt-in) |
+
+Disabled endpoints return `405 Method Not Allowed`. **Bulk delete is opt-in** — set `AllowBulkDelete = true` to expose `DELETE ?ids=`. The opt-in default is intentional: the bulk path runs a single `ExecuteDeleteAsync` SQL statement and silently bypasses `ValidateDestroyAsync`, any override of `Serializer.DestroyAsync(instance, ct)`, EF Core `SaveChanges` interceptors, audit-on-delete hooks, and soft-delete logic. Enable it only when those seams either don't exist on this resource or carry rules the bulk path is allowed to skip.
+
+### Queryset scope on writes (DRF parity)
+
+Every action that resolves an id to an entity composes the controller's `Filters` chain into the load step. A row-scoping filter (tenant, soft-delete, multi-account) protects writes the same way it protects reads — there is no separate path that bypasses the filter chain on `PUT`, `PATCH`, `DELETE`, or `DELETE ?ids=`.
+
+The flow mirrors DRF mixins ([rest_framework/mixins.py:58-67 and :79-84](https://github.com/encode/django-rest-framework/blob/3.17.1/rest_framework/mixins.py#L58-L84) at tag 3.17.1): the view (controller) does `instance = self.get_object()`, then hands the loaded `instance` to the serializer. The serializer is queryset-naive — it never re-loads. Concretely:
+
+```csharp
+var query = FilterQuery(GetQuerySet(), HttpContext.Request);
+var instance = await _serializer.GetObjectAsync(query, id, ct);
+if (instance is null) return NotFound();
+await PerformUpdateAsync(instance, origin, ct); // or PerformPartialUpdateAsync / PerformDestroyAsync
+```
+
+The contract:
+
+| Action | Load step | Effect |
+|---|---|---|
+| `GET /{id}` | `GetObjectAsync(filteredQuery, id)` | Out-of-scope id → `null` → `404` |
+| `PUT /{id}` | `GetObjectAsync(filteredQuery, id)` → `UpdateAsync(instance, ...)` | Out-of-scope id → `null` → `404`, no mutation |
+| `PATCH /{id}` | `GetObjectAsync(filteredQuery, id)` → `PartialUpdateAsync(instance, ...)` | Out-of-scope id → `null` → `404`, no mutation |
+| `DELETE /{id}` | `GetObjectAsync(filteredQuery, id)` → `DestroyAsync(instance, ct)` | Out-of-scope id → `null` → `404`, no delete |
+| `DELETE ?ids=` | `DestroyManyAsync(filteredQuery, ids)` | Out-of-scope ids silently dropped from the delete set |
+
+A request that targets a row outside the caller's scope surfaces as `404` — the same outcome as a missing row, with no information leak about whether the row exists in another tenant.
+
+A minimal tenant filter:
+
+```csharp
+public class TenantFilter : Filter<Store>
+{
+    public override IQueryable<Store> AddFilter(IQueryable<Store> query, HttpRequest request)
+    {
+        if (!request.Headers.TryGetValue("X-Tenant", out var values) || string.IsNullOrWhiteSpace(values.ToString()))
+            return query.Where(_ => false);
+
+        var tenant = values.ToString();
+        return query.Where(s => s.Tenant == tenant);
+    }
+}
+```
+
+Add it to the controller's `Filters` list alongside `QueryStringFilter`, `QueryStringSearchFilter`, etc. — the same way you would for a read-side filter. The defensive empty-set fallback when the header is absent is intentional: a tenant filter that silently falls back to "all rows" defeats the purpose.
+
+For predicates that depend on the loaded row's state (not just on the request) — for example "only allow update if the row is in a state the caller can transition out of" — validate the `instance` inside a `Perform*Async` override. The hook receives the already-loaded entity, so the override is the canonical seam; there is no longer a query to compose extra `Where` clauses onto.
+
+#### Headless callers
+
+The serializer's public surface is queryset-naive for single-row writes. Headless callers — message consumers, scheduled jobs, admin scripts — load the instance themselves and pass it in:
+
+```csharp
+var instance = await _dbContext.Set<Person>()
+    .Where(p => p.Tenant == currentTenant)
+    .FirstOrDefaultAsync(p => p.Id == personId, ct);
+if (instance is null) return;
+
+await serializer.UpdateAsync(instance, dto, ct);
+// or serializer.PartialUpdateAsync(instance, partial, ct);
+// or serializer.DestroyAsync(instance, ct);
+```
+
+The bulk-execute methods (`UpdateManyAsync`, `DestroyManyAsync`) still take `IQueryable<TDestination>` because they project the queryset directly into the SQL `UPDATE` / `DELETE`. Pass `_dbContext.Set<TDestination>()` for unscoped behavior, or a pre-filtered queryset when the consumer carries its own scope.
+
+The caller chooses the load shape — there is no "unscoped escape hatch" overload that silently defaults to `_dbContext.Set<TDestination>()`. A job that lacks a tenant context fails loudly (or scopes deliberately) at the call site rather than inheriting "all rows".
+
+### View-layer extension points (`Perform*Async`)
+
+`BaseController` exposes `protected virtual` hooks for the four mutating actions, mirroring DRF's `perform_create` / `perform_update` / `perform_destroy` at [`rest_framework/mixins.py`](https://github.com/encode/django-rest-framework/blob/3.17.1/rest_framework/mixins.py) (tag 3.17.1):
+
+| Hook | Default | Mirrors |
+|---|---|---|
+| `PerformCreateAsync(data, ct)` | `_serializer.CreateAsync(data, ct)` | DRF `perform_create` (`mixins.py:22-23`) |
+| `PerformUpdateAsync(instance, data, ct)` | `_serializer.UpdateAsync(instance, data, ct)` | DRF `perform_update` (`mixins.py:71-72`), PUT |
+| `PerformPartialUpdateAsync(instance, data, ct)` | `_serializer.PartialUpdateAsync(instance, data, ct)` | DRF `perform_update` (`mixins.py:71-72`), PATCH |
+| `PerformDestroyAsync(instance, ct)` | `_serializer.DestroyAsync(instance, ct)` | DRF `perform_destroy` (`mixins.py:88-89`) |
+
+Filter-scoping has already happened at the action's load step before these hooks fire (see [Queryset scope on writes](#queryset-scope-on-writes-drf-parity)) — `instance` is guaranteed to be a row the caller is allowed to mutate. There is no `query` parameter to compose extra `Where` clauses onto; the hook is the place for instance-shaped predicates, tenant stamping, audit fields, transaction wrapping, and domain events.
+
+Override these on the **controller** when the side effect is request-shaped — auth-derived audit fields, request-scoped tracing, or anything that touches `HttpContext`. Override the matching method on the **serializer** when the logic is shared with non-HTTP callers.
+
+```csharp
+[ApiController]
+[Route("api/v1/[controller]")]
+public class PersonsController : BaseController<PersonDto, Person, int, AppDbContext>
+{
+    private readonly AppDbContext _dbContext;
+
+    public PersonsController(
+        Serializer<PersonDto, Person, int, AppDbContext> serializer,
+        AppDbContext dbContext,
+        ILogger<Person> logger
+    ) : base(serializer, dbContext, logger)
+    {
+        _dbContext = dbContext;
+    }
+
+    protected override async Task<Person> PerformCreateAsync(
+        PersonDto data, CancellationToken cancellationToken)
+    {
+        var created = await base.PerformCreateAsync(data, cancellationToken);
+        // request-shaped side effect — write the caller's user id into an audit row.
+        _dbContext.AuditLog.Add(new AuditEntry(created.Id, User.Identity?.Name));
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return created;
+    }
+
+    protected override async Task<Person> PerformUpdateAsync(
+        Person instance, PersonDto data, CancellationToken cancellationToken)
+    {
+        // instance-shaped predicate — refuse the update if the loaded row is in a
+        // state the caller can't transition out of.
+        if (instance.IsLocked)
+            throw new InvalidOperationException("Person is locked.");
+        return await base.PerformUpdateAsync(instance, data, cancellationToken);
+    }
+}
+```
+
+`ValidateDestroyAsync` (described below) is a pre-delete *validation* seam — it short-circuits to `400` with a `ValidationErrors` envelope. `PerformDestroyAsync` is the *persistence* seam — wrap the delete in a transaction, publish a domain event, or write to an outbox there.
+
+### Pre-delete validation (`ValidateDestroyAsync`)
+
+`BaseController.ValidateDestroyAsync(instance, errors, ct)` runs after the entity is loaded and before `PerformDestroyAsync`. Populate `errors` to short-circuit the request with a `400` carrying the standard `ValidationErrors` envelope; use `ValidationErrors.NonFieldErrorsKey` for object-level rejections.
+
+```csharp
+protected override Task ValidateDestroyAsync(
+    Store instance,
+    IDictionary<string, List<string>> errors,
+    CancellationToken cancellationToken)
+{
+    if (instance.HasOpenOrders)
+        errors.GetOrAdd(ValidationErrors.NonFieldErrorsKey)
+              .Add("Store has open orders and cannot be deleted.");
+    return Task.CompletedTask;
+}
+```
+
+This is the spot for state predicates that don't fit input validation. It is **validate-only** — keep transactions, outbox writes, and the authoritative re-check inside `PerformDestroyAsync` (on the controller) or `Serializer.DestroyAsync(TDestination, CancellationToken)` (on the serializer).
 
 ### Serializer
 
@@ -353,12 +498,13 @@ The `Serializer` handles DTO-to-entity conversion and database operations. It fo
 
 | Method | Description |
 |---|---|
-| `CreateAsync(data, ct)` | Persists a new entity to the database. Called by the `POST` action. |
-| `UpdateAsync(origin, entityId, ct)` | Fully replaces an existing entity. Called by the `PUT /{id}` action. |
-| `PartialUpdateAsync(origin, entityId, ct)` | Updates only the fields present in the request body. Called by the `PATCH /{id}` action. |
-| `UpdateManyAsync(origin, entityIds, ct)` | Applies the same full update to multiple entities. Called by the `PUT ?ids=` action. |
-| `DestroyAsync(entityId, ct)` | Removes an entity from the database. Called by the `DELETE /{id}` action. |
-| `DestroyManyAsync(entityIds, ct)` | Removes multiple entities from the database. Called by the `DELETE ?ids=` action. |
+| `CreateAsync(data, ct)` | Persists a new entity. Called by `POST`. Mirrors DRF `ModelSerializer.create(validated_data)`. |
+| `UpdateAsync(instance, origin, ct)` | Fully replaces the already-loaded `instance` in place. Mirrors DRF `ModelSerializer.update(instance, validated_data)` — the serializer is queryset-naive; the controller resolves the row via `GetObjectAsync(filteredQuery, id, ct)` before invoking this. |
+| `PartialUpdateAsync(instance, origin, ct)` | Updates only the fields present in the request body on the already-loaded `instance`. Same loading contract as `UpdateAsync`. |
+| `UpdateManyAsync(query, origin, entityIds, ct)` | Applies the same full update to every entity in `entityIds` that the supplied queryset admits. Bulk-execute path; headless-only. Pass `_dbContext.Set<TDestination>()` for unscoped behavior. |
+| `GetObjectAsync(query, id, ct)` | Loads a single entity by id composed onto the supplied queryset. Mirrors DRF's `get_object`. The canonical lookup used by `GetSingle`, `Put`, `Patch`, and `Delete` to do filter-scoped resolution before handing the instance to the matching serializer write. |
+| `DestroyAsync(instance, ct)` | Removes the already-loaded `instance`. Mirrors DRF's default `perform_destroy` body (`instance.delete()`). The override seam for delete-time side effects; the `DELETE /{id}` action loads via `GetObjectAsync` before calling this. |
+| `DestroyManyAsync(query, entityIds, ct)` | Removes every entity in `entityIds` that the supplied queryset admits, using a single `ExecuteDeleteAsync` SQL statement; returns `Task` (no payload). Entities are not loaded into the change tracker. Called by the `DELETE ?ids=` action with the controller's filtered queryset. |
 
 Every method accepts a `CancellationToken` (defaults to `default`); the controller flows
 `HttpContext.RequestAborted` into it via MVC's `CancellationTokenModelBinder`, so a client
@@ -515,18 +661,17 @@ The `ValidationContext<TPrimaryKey>` passed to every hook exposes:
 `PartialJsonObject<T>.ApplyTo(entity, except: ...)` copies every present field onto a target object, silently skipping mismatched names, missing setters, and incompatible types. Useful when you override `PartialUpdateAsync` and want to bypass the default reflection-based copy:
 
 ```csharp
-public override async Task<Person?> PartialUpdateAsync(
+public override async Task<Person> PartialUpdateAsync(
+    Person instance,
     PartialJsonObject<PersonDto> dto,
-    int id,
     CancellationToken cancellationToken = default)
 {
-    var entity = await _dbContext.Person.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
-    if (entity == null) return null;
-
-    dto.ApplyTo(entity, except: nameof(Person.CreatedAt));
+    // The controller has already loaded `instance` through its filter chain
+    // (see "Queryset scope on writes"); the serializer is queryset-naive.
+    dto.ApplyTo(instance, except: nameof(Person.CreatedAt));
 
     await _dbContext.SaveChangesAsync(cancellationToken);
-    return entity;
+    return instance;
 }
 ```
 
@@ -562,7 +707,7 @@ public class CreatePersonHandler
 }
 ```
 
-For partial updates from a raw JSON payload, construct a `PartialJsonObject<T>` directly with the body string and pass it to both validation and `PartialUpdateAsync`:
+For partial updates from a raw JSON payload, construct a `PartialJsonObject<T>` directly with the body string and pass it to both validation and `PartialUpdateAsync`. The headless caller loads the instance — using whatever row-scoping predicate it carries — and hands it to the serializer:
 
 ```csharp
 var partial = new PartialJsonObject<PersonDto>(rawJsonString);
@@ -571,7 +716,13 @@ var context = new ValidationContext<int>(SerializerOperation.PartialUpdate, enti
 
 await _serializer.RunValidationAsync(partial.Instance, context, errors, partial, cancellationToken);
 if (errors.Count == 0)
-    await _serializer.PartialUpdateAsync(partial, entityId, cancellationToken);
+{
+    var instance = await _dbContext.Set<Person>()
+        .Where(p => p.Tenant == currentTenant) // or .Set<Person>() for unscoped
+        .FirstOrDefaultAsync(p => p.Id == entityId, cancellationToken);
+    if (instance is not null)
+        await _serializer.PartialUpdateAsync(instance, partial, cancellationToken);
+}
 ```
 
 #### When the DTO uses `System.Text.Json` attributes

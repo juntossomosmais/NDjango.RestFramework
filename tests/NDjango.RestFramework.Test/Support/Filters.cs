@@ -13,6 +13,27 @@ public class CustomerDocumentIncludeFilter : Filter<Customer>
     }
 }
 
+/// <summary>
+/// Row-scoping filter used by the cross-tenant write security tests. Reads the tenant
+/// identifier from an <c>X-Tenant</c> header and restricts the queryset to rows whose
+/// <see cref="Customer.Region"/> matches. When the header is absent the queryset is
+/// emptied — a defensive default that mirrors how a production tenant filter would
+/// refuse to fall back to "all rows".
+/// </summary>
+public class TenantFilter : Filter<Customer>
+{
+    private const string TenantHeader = "X-Tenant";
+
+    public override IQueryable<Customer> AddFilter(IQueryable<Customer> query, HttpRequest request)
+    {
+        if (!request.Headers.TryGetValue(TenantHeader, out var values) || string.IsNullOrWhiteSpace(values.ToString()))
+            return query.Where(_ => false);
+
+        var tenant = values.ToString();
+        return query.Where(c => c.Region == tenant);
+    }
+}
+
 public class CustomerFilter : Filter<CustomerDocument>
 {
     public override IQueryable<CustomerDocument> AddFilter(IQueryable<CustomerDocument> query, HttpRequest request)

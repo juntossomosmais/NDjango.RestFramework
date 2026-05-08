@@ -512,28 +512,31 @@ public class PerFieldValidationTests
         }
     }
 
-    public class PutManyValidationContextSignalsBulkUpdate : IntegrationTests
+    public class ValidationContextSignalsOperation
     {
-        [Fact]
-        public async Task PutMany_ValidationContext_ShouldSignalBulkUpdateNotCreate()
+        private static AppDbContext NewInMemoryContext()
         {
-            // Arrange
-            var target = new Customer { Id = Guid.NewGuid(), Name = "Target", CNPJ = "99999999000199" };
-            Context.Customer.Add(target);
-            await Context.SaveChangesAsync();
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            return new AppDbContext(options);
+        }
 
-            var capturingSerializer = Services.GetRequiredService<ContextCapturingSerializer>();
-
-            var updateDto = new CustomerDto { Name = "BulkName", CNPJ = "12345678000190" };
-            var content = new StringContent(
-                JsonConvert.SerializeObject(updateDto), Encoding.UTF8, "application/json");
+        [Fact]
+        public async Task RunValidationAsync_BulkUpdate_PerFieldHookSeesBulkUpdateContext()
+        {
+            // Arrange — the HTTP PutMany action was removed, but headless callers still drive
+            // UpdateManyAsync with a BulkUpdate context. Prove the per-field hook observes that.
+            using var dbContext = NewInMemoryContext();
+            var capturingSerializer = new ContextCapturingSerializer(dbContext);
+            var dto = new CustomerDto { Name = "BulkName", CNPJ = "12345678000190" };
+            var errors = new Dictionary<string, List<string>>();
+            var context = new ValidationContext<Guid>(SerializerOperation.BulkUpdate, default);
 
             // Act
-            var response = await Client.PutAsync(
-                $"api/ContextCapturingCustomers?ids={target.Id}", content);
+            await capturingSerializer.RunValidationAsync(dto, context, errors);
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.NotNull(capturingSerializer.LastContext);
             Assert.Equal(SerializerOperation.BulkUpdate, capturingSerializer.LastContext.Operation);
             Assert.True(capturingSerializer.LastContext.IsBulkUpdate);
@@ -541,7 +544,10 @@ public class PerFieldValidationTests
             Assert.False(capturingSerializer.LastContext.IsUpdate);
             Assert.False(capturingSerializer.LastContext.IsPartialUpdate);
         }
+    }
 
+    public class ValidationContextSignalsCreateThroughHttp : IntegrationTests
+    {
         [Fact]
         public async Task Post_ValidationContext_ShouldSignalCreateNotBulkUpdate()
         {

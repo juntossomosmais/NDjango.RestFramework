@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NDjango.RestFramework.Errors;
+using NDjango.RestFramework.Serializer;
 using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -345,67 +346,85 @@ public class SerializerValidateAsyncTests
         }
     }
 
-    public class PutManyValidation : IntegrationTests
+    /// <summary>
+    /// The HTTP <c>PutMany</c> action was removed (DRF refuses to ship a bulk-update verb).
+    /// <see cref="Serializer{TOrigin,TDestination,TPrimaryKey,TContext}.UpdateManyAsync"/> is
+    /// retained as a headless primitive, so these tests drive it directly with the same
+    /// validation pipeline a non-HTTP caller would compose. Uses an in-memory DbContext to
+    /// avoid spinning up the WebApplicationFactory and SQL Server database (the validation
+    /// path doesn't exercise relational-only EF features).
+    /// </summary>
+    public class UpdateManyAsyncValidation
     {
+        private static AppDbContext NewInMemoryContext()
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            return new AppDbContext(options);
+        }
+
         [Fact]
-        public async Task PutMany_InvalidPayload_ShouldReturn400WithNoEntitiesUpdated()
+        public async Task UpdateManyAsync_InvalidPayload_ShouldShortCircuitAndLeaveEntitiesUntouched()
         {
             // Arrange
+            using var dbContext = NewInMemoryContext();
             var customer1 = new Customer { Id = Guid.NewGuid(), Name = "One", CNPJ = "11111111111111" };
             var customer2 = new Customer { Id = Guid.NewGuid(), Name = "Two", CNPJ = "22222222222222" };
-            Context.Customer.AddRange(customer1, customer2);
-            await Context.SaveChangesAsync();
+            dbContext.Customer.AddRange(customer1, customer2);
+            await dbContext.SaveChangesAsync();
 
+            var serializer = new ValidatingCustomerSerializer(dbContext);
             var body = new CustomerDto { Name = null, CNPJ = "bad" };
-            var content = new StringContent(
-                JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            var errors = new Dictionary<string, List<string>>();
+            var context = new ValidationContext<Guid>(SerializerOperation.BulkUpdate, default);
 
             // Act
-            var response = await Client.PutAsync(
-                $"api/ValidatingCustomers?ids={customer1.Id}&ids={customer2.Id}", content);
+            await serializer.RunValidationAsync(body, context, errors);
 
             // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var errors = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
-            Assert.True(errors.Error.ContainsKey("CNPJ"));
-            Assert.True(errors.Error.ContainsKey("Name"));
-            Assert.Contains("CNPJ must have 14 digits.", errors.Error["CNPJ"]);
-            Assert.Contains("Name is required.", errors.Error["Name"]);
+            Assert.True(errors.ContainsKey("CNPJ"));
+            Assert.True(errors.ContainsKey("Name"));
+            Assert.Contains("CNPJ must have 14 digits.", errors["CNPJ"]);
+            Assert.Contains("Name is required.", errors["Name"]);
 
-            // Verify no entities were updated
-            var persisted1 = Context.Customer.AsNoTracking().First(c => c.Id == customer1.Id);
-            var persisted2 = Context.Customer.AsNoTracking().First(c => c.Id == customer2.Id);
+            // The headless caller is responsible for short-circuiting on errors — assert that
+            // when it does, no rows were touched.
+            var persisted1 = dbContext.Customer.AsNoTracking().First(c => c.Id == customer1.Id);
+            var persisted2 = dbContext.Customer.AsNoTracking().First(c => c.Id == customer2.Id);
             Assert.Equal("One", persisted1.Name);
             Assert.Equal("Two", persisted2.Name);
         }
 
         [Fact]
-        public async Task PutMany_ValidPayload_ShouldReturn200WithUpdatedIds()
+        public async Task UpdateManyAsync_ValidPayload_ShouldRunValidationAndPersistNormalizedFields()
         {
             // Arrange
+            using var dbContext = NewInMemoryContext();
             var customer1 = new Customer { Id = Guid.NewGuid(), Name = "One", CNPJ = "11111111111111" };
             var customer2 = new Customer { Id = Guid.NewGuid(), Name = "Two", CNPJ = "22222222222222" };
-            Context.Customer.AddRange(customer1, customer2);
-            await Context.SaveChangesAsync();
+            dbContext.Customer.AddRange(customer1, customer2);
+            await dbContext.SaveChangesAsync();
 
+            var serializer = new ValidatingCustomerSerializer(dbContext);
             var body = new CustomerDto { Name = "BulkUpdate", CNPJ = "33.333.333/0001-33" };
-            var content = new StringContent(
-                JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            var errors = new Dictionary<string, List<string>>();
+            var context = new ValidationContext<Guid>(SerializerOperation.BulkUpdate, default);
 
             // Act
-            var response = await Client.PutAsync(
-                $"api/ValidatingCustomers?ids={customer1.Id}&ids={customer2.Id}", content);
+            var validated = await serializer.RunValidationAsync(body, context, errors);
+            Assert.Empty(errors);
+            var updatedIds = await serializer.UpdateManyAsync(
+                dbContext.Customer,
+                validated,
+                new[] { customer1.Id, customer2.Id });
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
             Assert.Equal(2, updatedIds.Count);
             Assert.Contains(customer1.Id, updatedIds);
             Assert.Contains(customer2.Id, updatedIds);
 
-            // Verify persisted normalized CNPJ
-            var persisted1 = Context.Customer.AsNoTracking().First(c => c.Id == customer1.Id);
+            var persisted1 = dbContext.Customer.AsNoTracking().First(c => c.Id == customer1.Id);
             Assert.Equal("33333333000133", persisted1.CNPJ);
             Assert.Equal("BulkUpdate", persisted1.Name);
         }

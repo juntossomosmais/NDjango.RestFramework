@@ -42,8 +42,7 @@
 
 ## Data Access
 
-- **Inject `SqlContext` directly** into controllers and service classes. Do not go through a repository layer for new code.
+- **Inject the `DbContext` directly** into controllers and service classes — `TContext` in framework code, `SqlContext` in consumer apps. Do not go through a repository layer for new code.
 - **Never create new repository classes or interfaces.**
 - **Always add `.AsNoTracking()`** on read-only queries. Omitting it is a performance bug — EF Core will track every loaded entity unnecessarily.
-- **Add `.AsSplitQuery()`** when a query loads multiple collection `.Include()` chains to avoid the Cartesian explosion problem.
 - **Use `ExecuteDeleteAsync()` / `ExecuteUpdateAsync()`** for bulk operations without loading entities into memory first.

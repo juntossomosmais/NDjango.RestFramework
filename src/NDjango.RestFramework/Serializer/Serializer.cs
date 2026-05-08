@@ -89,10 +89,10 @@ namespace NDjango.RestFramework.Serializer
         }
 
         /// <summary>
-        /// Cross-field validation hook invoked for POST, PUT, PATCH, and PutMany. Override
-        /// this to implement business rules that span more than one field; for single-field
-        /// rules, prefer per-field <c>Validate{PropertyName}Async</c> hooks (auto-discovered
-        /// by convention).
+        /// Cross-field validation hook invoked for POST, PUT, PATCH, and bulk-update calls
+        /// driven through <see cref="UpdateManyAsync"/>. Override this to implement business
+        /// rules that span more than one field; for single-field rules, prefer per-field
+        /// <c>Validate{PropertyName}Async</c> hooks (auto-discovered by convention).
         /// </summary>
         /// <remarks>
         /// <para>
@@ -451,6 +451,11 @@ namespace NDjango.RestFramework.Serializer
             JsonConvert.PopulateObject(stringDeserializedDynamic.ToString(), destination);
         }
 
+        /// <summary>
+        /// Persists a freshly mapped entity. Mirrors DRF's <c>ModelSerializer.create(validated_data)</c>
+        /// at <c>rest_framework/serializers.py</c> (tag 3.17.1): the serializer takes only the
+        /// validated DTO and produces the entity. No queryset, no instance.
+        /// </summary>
         public virtual async Task<TDestination> CreateAsync(TOrigin data, CancellationToken cancellationToken = default)
         {
             var destinationObject = MapToDestination(data);
@@ -461,55 +466,87 @@ namespace NDjango.RestFramework.Serializer
             return destinationObject;
         }
 
-        public virtual async Task<TDestination?> PartialUpdateAsync(
+        /// <summary>
+        /// Applies a partial DTO onto an already-loaded, tracked entity and persists. Mirrors
+        /// DRF's <c>ModelSerializer.update(instance, validated_data)</c> at
+        /// <c>rest_framework/serializers.py</c> (tag 3.17.1) — the serializer is queryset-naive:
+        /// it takes the instance the view/controller has already resolved and mutates it. The
+        /// view/controller is responsible for loading <paramref name="instance"/> via
+        /// filter-scoped <see cref="GetObjectAsync"/> before calling this; row-scoping happens
+        /// at the load step, not inside the serializer.
+        /// </summary>
+        public virtual async Task<TDestination> PartialUpdateAsync(
+            TDestination instance,
             PartialJsonObject<TOrigin> originObject,
-            TPrimaryKey entityId,
             CancellationToken cancellationToken = default)
         {
-            var destinationObject = await GetFromDB(entityId, cancellationToken);
-
-            if (destinationObject == null)
-                return null;
-
             var destinationType = typeof(TDestination);
 
             foreach (var property in typeof(TOrigin).GetProperties())
             {
-                if (originObject.IsSet(property.Name))
-                {
-                    var productProperty = destinationType.GetProperty(property.Name);
-                    productProperty.SetValue(destinationObject, property.GetValue(originObject.Instance));
-                }
+                if (!originObject.IsSet(property.Name))
+                    continue;
+
+                // DTO fields absent on the destination are silently skipped — mirrors DRF's ModelSerializer.update.
+                var productProperty = destinationType.GetProperty(property.Name);
+                if (productProperty is null)
+                    continue;
+
+                productProperty.SetValue(instance, property.GetValue(originObject.Instance));
             }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return destinationObject;
+            return instance;
         }
 
-        public virtual async Task<TDestination?> UpdateAsync(
+        /// <summary>
+        /// Replaces an already-loaded, tracked entity with values from <paramref name="origin"/>
+        /// and persists. Mirrors DRF's <c>ModelSerializer.update(instance, validated_data)</c>
+        /// at <c>rest_framework/serializers.py</c> (tag 3.17.1) — the serializer is queryset-naive
+        /// and never re-loads. The view/controller is responsible for loading
+        /// <paramref name="instance"/> via filter-scoped <see cref="GetObjectAsync"/> before
+        /// calling this; row-scoping happens at the load step, not inside the serializer.
+        /// </summary>
+        public virtual async Task<TDestination> UpdateAsync(
+            TDestination instance,
             TOrigin origin,
-            TPrimaryKey entityId,
             CancellationToken cancellationToken = default)
         {
-            var destinationObject = await GetFromDB(entityId, cancellationToken);
-
-            if (destinationObject == null)
-                return null;
-
-            ApplyToDestination(origin, destinationObject, entityId);
-            _dbContext.Update(destinationObject);
+            ApplyToDestination(origin, instance, instance.Id);
+            _dbContext.Update(instance);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return destinationObject;
+            return instance;
         }
 
+        /// <summary>
+        /// Applies <paramref name="origin"/> as a full update to every entity whose primary
+        /// key is in <paramref name="entityIds"/> and that the supplied <paramref name="query"/>
+        /// admits, then persists. Headless-only — there is no HTTP entry point for this
+        /// method; only consumers calling the serializer directly.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// DRF intentionally refuses bulk-update over HTTP (<c>ListSerializer.update</c>
+        /// raises <c>NotImplementedError</c>) because per-row body semantics are ambiguous;
+        /// this method is mass-assignment (one body broadcast to N rows), not per-row
+        /// bulk-update, and is preserved as a serializer primitive for non-HTTP callers
+        /// such as background jobs and admin scripts.
+        /// </para>
+        /// <para>
+        /// The <paramref name="query"/> parameter scopes the load: ids outside the query
+        /// (e.g., other tenants) are silently dropped from the update set. Headless callers
+        /// who want unscoped behavior pass <c>_dbContext.Set&lt;TDestination&gt;()</c>.
+        /// </para>
+        /// </remarks>
         public virtual async Task<IList<TPrimaryKey>> UpdateManyAsync(
+            IQueryable<TDestination> query,
             TOrigin origin,
             IList<TPrimaryKey> entityIds,
             CancellationToken cancellationToken = default)
         {
-            var destinationObjects = await GetManyFromDB(entityIds, cancellationToken);
+            var destinationObjects = await GetManyFromDBAsync(query, entityIds, cancellationToken);
 
             foreach (var obj in destinationObjects)
             {
@@ -522,52 +559,126 @@ namespace NDjango.RestFramework.Serializer
             return destinationObjects.Select(m => m.Id).ToList();
         }
 
-        public virtual async Task<TDestination?> DestroyAsync(TPrimaryKey entityId, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Removes <paramref name="instance"/> and persists. Mirrors DRF's default
+        /// <c>perform_destroy(self, instance)</c> body (<c>instance.delete()</c>) at
+        /// <c>rest_framework/mixins.py</c> (tag 3.17.1). The override seam for delete-time
+        /// side effects (outbox writes, publish, transactional wrapping); receives the entity
+        /// already loaded by the controller — no re-fetch, no queryset.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Override this when you need to wrap the delete in a transaction, write to an outbox
+        /// before <c>SaveChanges</c>, or perform an authoritative re-check under a row lock. The
+        /// framework does NOT wrap the call in a transaction; that is the consumer's responsibility.
+        /// </para>
+        /// <para>
+        /// Returns the deleted entity. Always non-null — the caller has already loaded it.
+        /// </para>
+        /// </remarks>
+        public virtual async Task<TDestination> DestroyAsync(
+            TDestination instance,
+            CancellationToken cancellationToken = default)
         {
-            var data = await GetFromDB(entityId, cancellationToken);
-
-            if (data == null)
-                return null;
-
-            _dbContext.Remove(data);
+            _dbContext.Remove(instance);
             await _dbContext.SaveChangesAsync(cancellationToken);
-
-            return data;
+            return instance;
         }
 
-        public virtual async Task<IList<TPrimaryKey>> DestroyManyAsync(
+        /// <summary>
+        /// Removes every entity whose primary key is in <paramref name="entityIds"/> and
+        /// that the supplied <paramref name="query"/> admits, using a single set-based
+        /// <c>ExecuteDeleteAsync</c> — entities are not loaded into the change tracker.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The <paramref name="query"/> parameter is the row-scoping seam. The HTTP
+        /// <c>DELETE ?ids=</c> action passes the result of running its <c>Filters</c>
+        /// chain over <see cref="DbSet{TEntity}"/>, so a tenant filter (or any
+        /// row-restricting filter) naturally bounds which rows the bulk delete may
+        /// touch. Out-of-scope ids are silently dropped from the delete set — no leak
+        /// across rows the caller cannot read.
+        /// </para>
+        /// <para>
+        /// <c>ExecuteDeleteAsync</c> issues its own SQL statement and is <b>not enrolled</b>
+        /// in the <see cref="DbContext"/>'s pending <c>SaveChangesAsync</c> transaction. If
+        /// the caller needs atomicity with other tracked changes, wrap both in an explicit
+        /// transaction (e.g., <c>_dbContext.Database.BeginTransactionAsync</c>).
+        /// </para>
+        /// <para>
+        /// This bulk path bypasses per-row lifecycle: any override of
+        /// <see cref="DestroyAsync(TDestination, CancellationToken)"/>, EF interceptors keyed
+        /// on <c>SaveChanges</c>, and audit-on-delete hooks DO NOT fire. If you need per-row
+        /// override semantics (soft-delete, audit logs, domain events), override this method
+        /// to load and loop, or override
+        /// <see cref="DestroyAsync(TDestination, CancellationToken)"/> and route bulk callers
+        /// through it.
+        /// </para>
+        /// <para>
+        /// If the same <see cref="DbContext"/> already tracks an entity whose id appears in
+        /// <paramref name="entityIds"/>, that tracked instance survives in the change tracker
+        /// referring to a row that no longer exists — subsequent <c>SaveChangesAsync</c> on
+        /// unrelated changes can throw or silently re-insert. Detach affected entries with
+        /// <c>_dbContext.Entry(e).State = EntityState.Detached</c> or call
+        /// <c>_dbContext.ChangeTracker.Clear()</c> when the same scope continues to use the
+        /// context after this call.
+        /// </para>
+        /// </remarks>
+        public virtual Task DestroyManyAsync(
+            IQueryable<TDestination> query,
             IList<TPrimaryKey> entityIds,
             CancellationToken cancellationToken = default)
         {
-            var deletedObjects = await GetManyFromDB(entityIds, cancellationToken);
-
-            _dbContext.RemoveRange(deletedObjects);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            return deletedObjects.Select(m => m.Id).ToList();
+            return query
+                .Where(m => entityIds.Contains(m.Id))
+                .ExecuteDeleteAsync(cancellationToken);
         }
 
-        public async Task<TDestination?> GetFromDB(
-            TPrimaryKey id,
+        /// <summary>
+        /// Loads a single entity by primary key composed onto <paramref name="query"/>.
+        /// Mirrors DRF's <c>get_object</c> (<c>rest_framework/generics.py</c> at tag 3.17.1):
+        /// every controller action that resolves an id to an entity (read, update,
+        /// partial-update, single delete) routes through this method, so any row-scoping
+        /// <see cref="Filters.Filter{TEntity}"/> the controller has applied to
+        /// <paramref name="query"/> naturally bounds the lookup. Out-of-scope ids resolve
+        /// to <c>null</c> and surface as 404 at the action site — the same outcome as a
+        /// missing row, with no information leak.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The id predicate compares <c>x.Id.ToString()</c> against the string form of
+        /// <paramref name="id"/>; this preserves the historical EF-translatable shape
+        /// across primary-key types (Guid, int, long, string) without forcing the caller
+        /// to express the comparison.
+        /// </para>
+        /// <para>
+        /// The supplied <paramref name="query"/> determines tracking semantics: pass a
+        /// tracking query when the caller intends to mutate the loaded entity (PUT/PATCH
+        /// flows) and a no-tracking query for read-only paths. The serializer does not
+        /// inject <c>AsNoTracking()</c> on its own.
+        /// </para>
+        /// </remarks>
+        public virtual async Task<TDestination?> GetObjectAsync(
             IQueryable<TDestination> query,
+            TPrimaryKey id,
             CancellationToken cancellationToken = default)
         {
             var key = id.ToString();
-            var data = await query.Where(x => x.Id.ToString() == key).FirstOrDefaultAsync(cancellationToken);
-
-            return data;
+            return await query.Where(x => x.Id!.ToString() == key).FirstOrDefaultAsync(cancellationToken);
         }
 
-        protected async Task<TDestination?> GetFromDB(TPrimaryKey id, CancellationToken cancellationToken = default)
-        {
-            return await _dbContext.Set<TDestination>().FindAsync(new object?[] { id }, cancellationToken);
-        }
-
-        protected async Task<IList<TDestination>> GetManyFromDB(
+        /// <summary>
+        /// Loads multiple entities by primary key composed onto <paramref name="query"/>.
+        /// The query bounds which rows are eligible — out-of-scope ids are silently
+        /// dropped from the result set, mirroring the single-load behavior of
+        /// <see cref="GetObjectAsync(IQueryable{TDestination}, TPrimaryKey, CancellationToken)"/>.
+        /// </summary>
+        protected static async Task<IList<TDestination>> GetManyFromDBAsync(
+            IQueryable<TDestination> query,
             IList<TPrimaryKey> entityIds,
             CancellationToken cancellationToken = default)
         {
-            return await _dbContext.Set<TDestination>()
+            return await query
                 .Where(m => entityIds.Contains(m.Id))
                 .ToListAsync(cancellationToken);
         }

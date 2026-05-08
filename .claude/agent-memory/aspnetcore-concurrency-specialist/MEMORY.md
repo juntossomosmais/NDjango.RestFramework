@@ -1,1 +1,2 @@
 - [CancellationTokenModelBinder pinned anchor (net8.0)](anchor_cancellation_token_model_binder.md) — Verified at release/8.0 that the CT parameter on a controller action is HttpContext.RequestAborted.
+- [EF Core 8 ExecuteDelete change-tracker isolation](anchor_efcore_executedelete_changetracker.md) — ExecuteDeleteAsync bypasses tracker, not enrolled in SaveChanges transaction; cite for DestroyManyAsync audits.

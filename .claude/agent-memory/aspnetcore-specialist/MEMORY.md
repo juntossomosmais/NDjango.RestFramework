@@ -1,3 +1,5 @@
 - [Hosted service ordering on net8.0](pinned_hosted_service_startup_net8.md) — Server.StartAsync runs after IHostedServices in registration order; abort-on-first-exception
 - [InvalidModelStateResponseFactory wiring on net8.0](pinned_api_behavior_options_net8.md) — How [ApiController] reaches the factory and how AddProblemDetails interacts
 - [TFM as of 2026-05](project_tfm_net80.md) — Library targets net8.0; pin source lookups to release/8.0
+- [IsAction visibility filter on net8.0](pinned_isaction_discovery_net8.md) — protected/abstract/static/generic methods are never routed; [NonAction] only needed for public helpers
+- [ClientErrorResultFilter pass-through on net8.0](pinned_clienterror_rewrite_net8.md) — BadRequest(envelope) is NOT rewritten to ProblemDetails because BadRequestObjectResult is not IClientErrorActionResult

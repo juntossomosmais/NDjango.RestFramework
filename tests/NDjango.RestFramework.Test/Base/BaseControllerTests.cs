@@ -9,8 +9,10 @@ using System.Web;
 using Bogus;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using NDjango.RestFramework.Errors;
 using NDjango.RestFramework.Paginations;
+using NDjango.RestFramework.Serializer;
 using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -23,7 +25,7 @@ public class BaseControllerTests
     public class Delete : IntegrationTests
     {
         [Fact]
-        public async Task Delete_WithObject_ShouldDeleteEntityFromDatabaseAndReturnOk()
+        public async Task Delete_WithObject_ShouldDeleteEntityFromDatabaseAndReturnNoContent()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -35,7 +37,7 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
             var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
             updatedCustomer.Should().BeNull();
         }
@@ -51,7 +53,7 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task Delete_WithObject_ShouldReturnDeletedEntityInResponseBody()
+        public async Task Delete_WithObject_ShouldReturnEmptyBodyOn204()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -63,13 +65,9 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
-            var body = JObject.Parse(responseData);
-            Assert.Equal(customer.Name, body["name"]?.ToString());
-            Assert.Equal(customer.CNPJ, body["cnpj"]?.ToString());
-            Assert.Equal(customer.Age, body["age"]?.ToObject<int>());
-            Assert.Equal(customer.Id, body["id"]?.ToObject<Guid>());
+            Assert.Equal(string.Empty, responseData);
         }
 
         [Fact]
@@ -87,7 +85,7 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/Customers/{customer2.Id}");
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             var remaining = dbSet.AsNoTracking()
                 .Where(x => x.Id == customer1.Id || x.Id == customer3.Id)
                 .ToList();
@@ -95,41 +93,316 @@ public class BaseControllerTests
             var deleted = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer2.Id);
             Assert.Null(deleted);
         }
+    }
+
+    public class ValidateDestroy : IntegrationTests
+    {
+        private readonly ValidateDestroyCustomerSerializer _spy;
+
+        public ValidateDestroy()
+        {
+            _spy = Services.GetRequiredService<ValidateDestroyCustomerSerializer>();
+            _spy.ResetSpyState();
+        }
 
         [Fact]
-        public async Task Delete_WithObject_ShouldReturnResponseWithOnlyDeclaredFields()
+        public async Task ValidateDestroy_HookPopulatesErrors_Returns400WithValidationErrors()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
-            var customer = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc", Age = 25 };
+            var customer = new Customer { Id = Guid.NewGuid(), CNPJ = "123", Name = "BLOCKED" };
             dbSet.Add(customer);
             await Context.SaveChangesAsync();
 
             // Act
-            var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
+            var response = await Client.DeleteAsync($"api/ValidateDestroyCustomers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal("VALIDATION_ERRORS", body["type"]?.ToString());
+            Assert.Equal(400, body["statusCode"]?.ToObject<int>());
+            var stillThere = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+            Assert.NotNull(stillThere);
+            Assert.Equal(0, _spy.InstanceDestroyCalls);
+        }
+
+        [Fact]
+        public async Task ValidateDestroy_HookUsesNonFieldErrorsKey_ResponseBodyContainsKey()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer { Id = Guid.NewGuid(), CNPJ = "999", Name = "BLOCKED" };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/ValidateDestroyCustomers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+            var errorObject = body["error"] as JObject;
+            Assert.NotNull(errorObject);
+            Assert.True(errorObject!.ContainsKey("non_field_errors"));
+            var messages = errorObject["non_field_errors"] as JArray;
+            Assert.NotNull(messages);
+            Assert.Single(messages!);
+            Assert.Equal("Customer is blocked from deletion.", messages![0].ToString());
+        }
+
+        [Fact]
+        public async Task ValidateDestroy_HookReceivesLoadedEntity()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer { Id = Guid.NewGuid(), CNPJ = "555", Name = "alpha", Age = 42 };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/ValidateDestroyCustomers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(1, _spy.ValidateDestroyCalls);
+            Assert.NotNull(_spy.LastValidateDestroyInstance);
+            Assert.Equal(customer.Id, _spy.LastValidateDestroyInstance!.Id);
+            Assert.Equal("alpha", _spy.LastValidateDestroyInstance.Name);
+            Assert.Equal("555", _spy.LastValidateDestroyInstance.CNPJ);
+            Assert.Equal(42, _spy.LastValidateDestroyInstance.Age);
+        }
+
+        [Fact]
+        public async Task ValidateDestroy_NotFound_HookNotCalled()
+        {
+            // Arrange
+            var missingId = Guid.NewGuid();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/ValidateDestroyCustomers/{missingId}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal(0, _spy.ValidateDestroyCalls);
+            Assert.Equal(0, _spy.InstanceDestroyCalls);
+        }
+
+        [Fact]
+        public async Task ValidateDestroy_DefaultNoOp_DeletesAndReturns204()
+        {
+            // Arrange
+            var dbSet = Context.Set<Customer>();
+            var customer = new Customer { Id = Guid.NewGuid(), CNPJ = "777", Name = "ok-to-delete" };
+            dbSet.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/ValidateDestroyCustomers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(1, _spy.ValidateDestroyCalls);
+            Assert.Equal(1, _spy.InstanceDestroyCalls);
+            var gone = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
+            Assert.Null(gone);
+        }
+    }
+
+    public class PerformHooks : IntegrationTests
+    {
+        private readonly PerformHookSpy _spy;
+
+        public PerformHooks()
+        {
+            _spy = Services.GetRequiredService<PerformHookSpy>();
+            _spy.Reset();
+        }
+
+        [Fact]
+        public async Task Post_ShouldInvokePerformCreateAsync_AndOverrideMutatesPersistedEntity()
+        {
+            // Arrange
+            var customer = new CustomerDto { Name = "BaseName", CNPJ = "111111111111" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PostAsync("api/PerformHookCustomers", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+            var createdId = body["id"]!.ToObject<Guid>();
+            Assert.Equal(1, _spy.PerformCreateCalls);
+
+            var persisted = Context.Customer.AsNoTracking().First(c => c.Id == createdId);
+            Assert.Equal("BaseName_perform_created", persisted.Name);
+        }
+
+        [Fact]
+        public async Task Put_ShouldInvokePerformUpdateAsync_AndOverrideMutatesPersistedEntity()
+        {
+            // Arrange
+            var customer = new Customer { Id = Guid.NewGuid(), Name = "Original", CNPJ = "999" };
+            Context.Customer.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var dto = new CustomerDto { Name = "Replaced", CNPJ = "888" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(dto), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/PerformHookCustomers/{customer.Id}", content);
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var responseData = await response.Content.ReadAsStringAsync();
-            var body = JObject.Parse(responseData);
-            // JSON response uses camelCase keys
-            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
-            foreach (var property in body.Properties())
-            {
-                Assert.Contains(property.Name, declaredFields);
-            }
+            Assert.Equal(1, _spy.PerformUpdateCalls);
+
+            var persisted = Context.Customer.AsNoTracking().First(c => c.Id == customer.Id);
+            Assert.Equal("Replaced_perform_updated", persisted.Name);
+        }
+
+        [Fact]
+        public async Task Patch_ShouldInvokePerformPartialUpdateAsync_AndOverrideMutatesPersistedEntity()
+        {
+            // Arrange
+            var customer = new Customer { Id = Guid.NewGuid(), Name = "Original", CNPJ = "777" };
+            Context.Customer.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var patch = new { Name = "Patched" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(patch), Encoding.UTF8, "application/json-patch+json");
+
+            // Act
+            var response = await Client.PatchAsync($"api/PerformHookCustomers/{customer.Id}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(1, _spy.PerformPartialUpdateCalls);
+
+            var persisted = Context.Customer.AsNoTracking().First(c => c.Id == customer.Id);
+            Assert.Equal("Patched_perform_patched", persisted.Name);
+        }
+
+        [Fact]
+        public async Task Put_WhenEntityMissing_ShouldReturnNotFoundAndNotInvokePerformUpdate()
+        {
+            // Arrange
+            var dto = new CustomerDto { Name = "Replaced", CNPJ = "888" };
+            var content = new StringContent(
+                JsonConvert.SerializeObject(dto), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.PutAsync($"api/PerformHookCustomers/{Guid.NewGuid()}", content);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            // DRF parity: load happens before the hook, so a missing row short-circuits to 404
+            // without ever invoking PerformUpdateAsync. Mirrors mixins.py:58-67 at tag 3.17.1.
+            Assert.Equal(0, _spy.PerformUpdateCalls);
+        }
+
+        [Fact]
+        public async Task Delete_ShouldInvokePerformDestroyAsync_AndRemoveTheEntity()
+        {
+            // Arrange
+            var customer = new Customer { Id = Guid.NewGuid(), Name = "ToDelete", CNPJ = "555" };
+            Context.Customer.Add(customer);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/PerformHookCustomers/{customer.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(1, _spy.PerformDestroyCalls);
+            Assert.Equal("ToDelete", _spy.LastDestroyedInstanceName);
+            Assert.Null(Context.Customer.AsNoTracking().FirstOrDefault(c => c.Id == customer.Id));
+        }
+
+        [Fact]
+        public async Task Delete_WhenEntityMissing_ShouldReturnNotFoundAndNotInvokePerformDestroy()
+        {
+            // Act
+            var response = await Client.DeleteAsync($"api/PerformHookCustomers/{Guid.NewGuid()}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal(0, _spy.PerformDestroyCalls);
+        }
+    }
+
+    /// <summary>
+    /// Pins the documented instance-aware override pattern. With single-row writes now
+    /// instance-taking (DRF parity, <c>mixins.py:58-67</c> at tag 3.17.1), the canonical
+    /// extension point for predicates that depend on the loaded row's state is a
+    /// <c>Perform*Async</c> override. The controller under test refuses an update unless
+    /// the request's <c>X-Region</c> header matches the persisted <c>Region</c>, proving
+    /// that override-shaped guards naturally compose on top of the controller's filter
+    /// chain without re-loading the entity.
+    /// </summary>
+    public class InstanceAwareOverridePath : IntegrationTests
+    {
+        [Fact]
+        public async Task Put_WhenOverrideRejectsMismatchedRegion_ShouldPropagateException()
+        {
+            // Arrange
+            var customer = new Customer { Id = Guid.NewGuid(), Name = "RegionA", CNPJ = "111", Region = "us-east" };
+            Context.Customer.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var body = new { Name = "Updated", CNPJ = "999" };
+            var request = new HttpRequestMessage(HttpMethod.Put, $"api/RegionGuardedCustomers/{customer.Id}");
+            request.Headers.Add("X-Region", "eu-west");
+            request.Content = new StringContent(
+                JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<RegionMismatchException>(() => Client.SendAsync(request));
+
+            // Assert — the override observed the loaded instance's region, not the DTO's.
+            Assert.Equal("us-east", exception.InstanceRegion);
+            Assert.Equal("eu-west", exception.HeaderRegion);
+            var unchanged = Context.Customer.AsNoTracking().First(c => c.Id == customer.Id);
+            Assert.Equal("RegionA", unchanged.Name);
+        }
+
+        [Fact]
+        public async Task Put_WhenOverrideAcceptsMatchingRegion_ShouldPersistTheUpdate()
+        {
+            // Arrange
+            var customer = new Customer { Id = Guid.NewGuid(), Name = "RegionA", CNPJ = "111", Region = "us-east" };
+            Context.Customer.Add(customer);
+            await Context.SaveChangesAsync();
+
+            var body = new { Name = "Updated", CNPJ = "999", Region = "us-east" };
+            var request = new HttpRequestMessage(HttpMethod.Put, $"api/RegionGuardedCustomers/{customer.Id}");
+            request.Headers.Add("X-Region", "us-east");
+            request.Content = new StringContent(
+                JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+
+            // Act
+            var response = await Client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updated = Context.Customer.AsNoTracking().First(c => c.Id == customer.Id);
+            Assert.Equal("Updated", updated.Name);
+            Assert.Equal("999", updated.CNPJ);
         }
     }
 
     public class DeleteMany : IntegrationTests
     {
         [Fact]
-        public async Task DeleteMany_ShouldDeleteManyEntities_AndReturnTheirIds()
+        public async Task DeleteMany_ShouldDeleteManyEntities_AndReturnNoContent()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
-            dbSet.Add(new Customer()
-            { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" });
+            var survivor = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(survivor);
             var expectedToBeDeletedOne = Guid.NewGuid();
             dbSet.Add(new Customer()
             { Id = expectedToBeDeletedOne, CNPJ = "456", Name = "def" });
@@ -137,35 +410,36 @@ public class BaseControllerTests
             dbSet.Add(new Customer()
             { Id = expectedToBeDeletedTwo, CNPJ = "789", Name = "ghi" });
             await Context.SaveChangesAsync();
+
             // Act
             var url = $"api/Customers?ids={expectedToBeDeletedOne}&ids={expectedToBeDeletedTwo}";
             var response = await Client.DeleteAsync(url);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            var expectedGuids = new List<Guid> { expectedToBeDeletedOne, expectedToBeDeletedTwo };
-            deletedIds.Should().BeEquivalentTo(expectedGuids);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsStringAsync());
 
-            var entitiesWithDeletedIds = dbSet.Where(m => expectedGuids.Contains(m.Id)).AsNoTracking();
-            entitiesWithDeletedIds.Should().BeEmpty();
+            var targetedIds = new[] { expectedToBeDeletedOne, expectedToBeDeletedTwo };
+            Assert.False(dbSet.AsNoTracking().Any(m => targetedIds.Contains(m.Id)));
+            Assert.True(dbSet.AsNoTracking().Any(m => m.Id == survivor.Id));
         }
 
         [Fact]
-        public async Task DeleteMany_WithEmptyIdsList_ShouldReturnOkWithEmptyList()
+        public async Task DeleteMany_WithEmptyIdsList_ShouldReturnNoContent_AndDeleteNothing()
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
-            dbSet.Add(new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" });
+            var existing = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
+            dbSet.Add(existing);
             await Context.SaveChangesAsync();
 
             // Act
             var response = await Client.DeleteAsync("api/Customers");
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Empty(deletedIds);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsStringAsync());
+            Assert.True(dbSet.AsNoTracking().Any(m => m.Id == existing.Id));
         }
 
         [Fact]
@@ -185,16 +459,16 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync(url);
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Equal(2, deletedIds.Count);
-            Assert.Contains(existing1.Id, deletedIds);
-            Assert.Contains(existing2.Id, deletedIds);
-            Assert.DoesNotContain(nonExistingId, deletedIds);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsStringAsync());
+
+            var existingIds = new[] { existing1.Id, existing2.Id };
+            Assert.False(dbSet.AsNoTracking().Any(m => existingIds.Contains(m.Id)));
+            Assert.False(dbSet.AsNoTracking().Any(m => m.Id == nonExistingId));
         }
 
         [Fact]
-        public async Task DeleteMany_WithAllNonExistingIds_ShouldReturnOkWithEmptyList()
+        public async Task DeleteMany_WithAllNonExistingIds_ShouldReturnNoContent()
         {
             // Arrange
             var id1 = Guid.NewGuid();
@@ -205,9 +479,50 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync(url);
 
             // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var deletedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Empty(deletedIds);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(await response.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
+        public async Task DeleteMany_ShouldNotLoadEntitiesIntoChangeTracker()
+        {
+            // Arrange — pin the post-rewrite contract: DestroyManyAsync uses ExecuteDeleteAsync,
+            // so no Customer should land in the change tracker after the call.
+            var dbSet = Context.Set<Customer>();
+            var c1 = new Customer { Id = Guid.NewGuid(), CNPJ = "111", Name = "one" };
+            var c2 = new Customer { Id = Guid.NewGuid(), CNPJ = "222", Name = "two" };
+            dbSet.AddRange(c1, c2);
+            await Context.SaveChangesAsync();
+            // Detach the seeded entries so the change tracker starts clean for the assertion.
+            Context.ChangeTracker.Clear();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/Customers?ids={c1.Id}&ids={c2.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Empty(Context.ChangeTracker.Entries<Customer>());
+        }
+
+        [Fact]
+        public async Task DeleteMany_WhenBulkDeleteIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        {
+            // Arrange — IntAsIdEntitiesController is configured with AllowBulkDelete = false
+            // so consumers can opt out when their ValidateDestroyAsync / DestroyAsync overrides
+            // would be silently bypassed by the bulk SQL path.
+            var dbSet = Context.Set<IntAsIdEntity>();
+            var entity = new IntAsIdEntity() { Name = "abc" };
+            dbSet.Add(entity);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/IntAsIdEntities?ids={entity.Id}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+
+            var stillExists = dbSet.AsNoTracking().Any(x => x.Id == entity.Id);
+            stillExists.Should().BeTrue();
         }
     }
 
@@ -273,7 +588,7 @@ public class BaseControllerTests
             var responseData = await response.Content.ReadAsStringAsync();
             var body = JObject.Parse(responseData);
             // JSON response uses camelCase keys
-            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "region", "customerDocument" };
             foreach (var property in body.Properties())
             {
                 Assert.Contains(property.Name, declaredFields);
@@ -1529,7 +1844,7 @@ public class BaseControllerTests
             var responseData = await response.Content.ReadAsStringAsync();
             var body = JObject.Parse(responseData);
             // JSON response uses camelCase keys
-            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "region", "customerDocument" };
             foreach (var property in body.Properties())
             {
                 Assert.Contains(property.Name, declaredFields);
@@ -1638,7 +1953,7 @@ public class BaseControllerTests
             var responseData = await response.Content.ReadAsStringAsync();
             var body = JObject.Parse(responseData);
             // JSON response uses camelCase keys
-            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "region", "customerDocument" };
             foreach (var property in body.Properties())
             {
                 Assert.Contains(property.Name, declaredFields);
@@ -1824,7 +2139,7 @@ public class BaseControllerTests
             var responseData = await response.Content.ReadAsStringAsync();
             var responseBody = JObject.Parse(responseData);
             // JSON response uses camelCase keys
-            var declaredFields = new[] { "name", "cnpj", "age", "id", "customerDocument" };
+            var declaredFields = new[] { "name", "cnpj", "age", "id", "region", "customerDocument" };
             foreach (var property in responseBody.Properties())
             {
                 Assert.Contains(property.Name, declaredFields);
@@ -1832,139 +2147,178 @@ public class BaseControllerTests
         }
     }
 
-    public class PutMany : IntegrationTests
+    /// <summary>
+    /// Pins the DRF-parity row-scoping contract: the controller's <c>Filters</c> chain runs
+    /// before every action's load step, so a write request that targets a row outside the
+    /// caller's scope must surface as 404 (the same outcome as a missing row, with no leak).
+    /// Each test seeds two rows in disjoint tenants and drives <c>TenantScopedCustomersController</c>
+    /// from one tenant; the row in the other tenant must remain untouched.
+    /// </summary>
+    public class CrossTenantWriteScoping : IntegrationTests
     {
+        private const string TenantHeader = "X-Tenant";
+        private const string TenantA = "tenant-a";
+        private const string TenantB = "tenant-b";
+
+        private async Task<(Customer InTenant, Customer OutOfTenant)> SeedTwoTenantsAsync()
+        {
+            var dbSet = Context.Set<Customer>();
+            var inTenant = new Customer { Id = Guid.NewGuid(), CNPJ = "111", Name = "in-scope", Region = TenantA };
+            var outOfTenant = new Customer { Id = Guid.NewGuid(), CNPJ = "222", Name = "OTHER-TENANT", Region = TenantB };
+            dbSet.AddRange(inTenant, outOfTenant);
+            await Context.SaveChangesAsync();
+            return (inTenant, outOfTenant);
+        }
+
+        private static HttpRequestMessage Build(HttpMethod method, string url, string tenant, object? body = null)
+        {
+            var request = new HttpRequestMessage(method, url);
+            request.Headers.Add(TenantHeader, tenant);
+            if (body != null)
+            {
+                request.Content = new StringContent(
+                    JsonConvert.SerializeObject(body),
+                    Encoding.UTF8,
+                    "application/json");
+            }
+            return request;
+        }
+
         [Fact]
-        public async Task PutMany_ShouldUpdateManyEntities_AndReturnTheirIds()
+        public async Task GetSingle_TargetingRowInOtherTenant_ShouldReturn404()
         {
             // Arrange
+            var (_, outOfTenant) = await SeedTwoTenantsAsync();
+
+            // Act
+            var response = await Client.SendAsync(
+                Build(HttpMethod.Get, $"api/TenantScopedCustomers/{outOfTenant.Id}", TenantA));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task Put_TargetingRowInOtherTenant_ShouldReturn404AndNotMutate()
+        {
+            // Arrange
+            var (_, outOfTenant) = await SeedTwoTenantsAsync();
             var dbSet = Context.Set<Customer>();
-            dbSet.Add(new Customer()
-            { Id = Guid.Parse("35d948bd-ab3d-4446-912b-2d20c57c4935"), CNPJ = "123", Name = "abc" });
-            dbSet.Add(new Customer()
-            { Id = Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"), CNPJ = "456", Name = "def" });
-            dbSet.Add(new Customer()
-            { Id = Guid.Parse("22ee1df9-c543-4509-a755-e7cd5dc0045e"), CNPJ = "789", Name = "ghi" });
-            await Context.SaveChangesAsync();
+            var body = new { CNPJ = "HACKED", Name = "HACKED" };
 
-            var customerData = new CustomerDto
-            {
-                CNPJ = "aaaa",
-                Name = "eee"
-            };
+            // Act
+            var response = await Client.SendAsync(
+                Build(HttpMethod.Put, $"api/TenantScopedCustomers/{outOfTenant.Id}", TenantA, body));
 
-            var expectedGuids = new[]
-            {
-                Guid.Parse("6bdc2b9e-3710-40b9-93dd-c7558b446e21"),
-                Guid.Parse("22ee1df9-c543-4509-a755-e7cd5dc0045e"),
-            };
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var stillThere = dbSet.AsNoTracking().First(c => c.Id == outOfTenant.Id);
+            Assert.Equal("OTHER-TENANT", stillThere.Name);
+            Assert.Equal("222", stillThere.CNPJ);
+            Assert.Equal(TenantB, stillThere.Region);
+        }
 
-            var content = new StringContent(JsonConvert.SerializeObject(customerData), Encoding.UTF8,
+        [Fact]
+        public async Task Patch_TargetingRowInOtherTenant_ShouldReturn404AndNotMutate()
+        {
+            // Arrange
+            var (_, outOfTenant) = await SeedTwoTenantsAsync();
+            var dbSet = Context.Set<Customer>();
+            var patch = new { Name = "HACKED" };
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"api/TenantScopedCustomers/{outOfTenant.Id}");
+            request.Headers.Add(TenantHeader, TenantA);
+            request.Content = new StringContent(
+                JsonConvert.SerializeObject(patch),
+                Encoding.UTF8,
                 "application/json-patch+json");
 
             // Act
-            var response =
-                await Client.PutAsync(
-                    $"api/Customers?ids=6bdc2b9e-3710-40b9-93dd-c7558b446e21&ids=22ee1df9-c543-4509-a755-e7cd5dc0045e",
-                    content);
+            var response = await Client.SendAsync(request);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            updatedIds.Should().BeEquivalentTo(expectedGuids);
-
-            var updatedEntities = dbSet.Where(m => expectedGuids.Contains(m.Id)).AsNoTracking();
-            updatedEntities.Should().BeEquivalentTo(
-                new[]
-                {
-                    new Customer() {CNPJ = "aaaa", Name = "eee"},
-                    new Customer() {CNPJ = "aaaa", Name = "eee"},
-                },
-                config => config
-                    .Including(m => m.CNPJ)
-                    .Including(m => m.Name)
-            );
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var stillThere = dbSet.AsNoTracking().First(c => c.Id == outOfTenant.Id);
+            Assert.Equal("OTHER-TENANT", stillThere.Name);
         }
 
         [Fact]
-        public async Task PutMany_WhenPutIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        public async Task Delete_TargetingRowInOtherTenant_ShouldReturn404AndNotDelete()
         {
             // Arrange
-            var entityToUpdate = new IntAsIdEntityDto()
-            {
-                Name = "aaaa",
-            };
-
-            var content = new StringContent(JsonConvert.SerializeObject(entityToUpdate), Encoding.UTF8,
-                "application/json-patch+json");
-
-            // Act
-            var response = await Client.PutAsync($"api/IntAsIdEntities?ids=1&ids=2", content);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
-        }
-
-        [Fact]
-        public async Task PutMany_WithEmptyIdsList_ShouldReturnOkWithEmptyList()
-        {
-            // Arrange
-            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
-            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
-
-            // Act
-            var response = await Client.PutAsync("api/Customers", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Empty(updatedIds);
-        }
-
-        [Fact]
-        public async Task PutMany_WithNonExistingIds_ShouldReturnOkWithEmptyList()
-        {
-            // Arrange
-            var id1 = Guid.NewGuid();
-            var id2 = Guid.NewGuid();
-            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
-            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
-
-            // Act
-            var response = await Client.PutAsync($"api/Customers?ids={id1}&ids={id2}", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Empty(updatedIds);
-        }
-
-        [Fact]
-        public async Task PutMany_WithMixedExistingAndNonExistingIds_ShouldUpdateOnlyExistingOnes()
-        {
-            // Arrange
+            var (_, outOfTenant) = await SeedTwoTenantsAsync();
             var dbSet = Context.Set<Customer>();
-            var existing = new Customer() { Id = Guid.NewGuid(), CNPJ = "123", Name = "abc" };
-            dbSet.Add(existing);
-            await Context.SaveChangesAsync();
-
-            var nonExistingId = Guid.NewGuid();
-            var body = new CustomerDto { CNPJ = "updated", Name = "updated" };
-            var content = new StringContent(JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
 
             // Act
-            var response = await Client.PutAsync($"api/Customers?ids={existing.Id}&ids={nonExistingId}", content);
+            var response = await Client.SendAsync(
+                Build(HttpMethod.Delete, $"api/TenantScopedCustomers/{outOfTenant.Id}", TenantA));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var stillThere = dbSet.AsNoTracking().FirstOrDefault(c => c.Id == outOfTenant.Id);
+            Assert.NotNull(stillThere);
+            Assert.Equal("OTHER-TENANT", stillThere!.Name);
+        }
+
+        [Fact]
+        public async Task DeleteMany_WithMixedInScopeAndOutOfScopeIds_ShouldOnlyDeleteInScopeRows()
+        {
+            // Arrange
+            var (inTenant, outOfTenant) = await SeedTwoTenantsAsync();
+            var dbSet = Context.Set<Customer>();
+
+            // Act
+            var url = $"api/TenantScopedCustomers?ids={inTenant.Id}&ids={outOfTenant.Id}";
+            var response = await Client.SendAsync(Build(HttpMethod.Delete, url, TenantA));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            var inScopeStillThere = dbSet.AsNoTracking().FirstOrDefault(c => c.Id == inTenant.Id);
+            var outOfScopeStillThere = dbSet.AsNoTracking().FirstOrDefault(c => c.Id == outOfTenant.Id);
+            Assert.Null(inScopeStillThere);
+            Assert.NotNull(outOfScopeStillThere);
+            Assert.Equal("OTHER-TENANT", outOfScopeStillThere!.Name);
+        }
+
+        [Fact]
+        public async Task ListPaged_FromOneTenant_ShouldExcludeOtherTenantsRows()
+        {
+            // Arrange — pinning the pre-existing read-side scoping so a future regression
+            // that rebuilds the filter chain affects writes and reads consistently.
+            var (inTenant, outOfTenant) = await SeedTwoTenantsAsync();
+
+            // Act
+            var response = await Client.SendAsync(
+                Build(HttpMethod.Get, "api/TenantScopedCustomers", TenantA));
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var updatedIds = JsonConvert.DeserializeObject<List<Guid>>(await response.Content.ReadAsStringAsync());
-            Assert.Single(updatedIds);
-            Assert.Contains(existing.Id, updatedIds);
-            Assert.DoesNotContain(nonExistingId, updatedIds);
+            var paginated = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            Assert.NotNull(paginated);
+            Assert.Equal(1, paginated.Count);
+            Assert.Single(paginated.Results);
+            Assert.Equal(inTenant.Id, paginated.Results[0].Id);
+            Assert.DoesNotContain(paginated.Results, c => c.Id == outOfTenant.Id);
+        }
 
-            var updatedEntity = dbSet.AsNoTracking().First(x => x.Id == existing.Id);
-            Assert.Equal("updated", updatedEntity.Name);
-            Assert.Equal("updated", updatedEntity.CNPJ);
+        [Fact]
+        public async Task Put_TargetingOwnTenantRow_ShouldSucceed()
+        {
+            // Arrange — sanity guard that the new query plumbing does not break the in-scope path.
+            var (inTenant, _) = await SeedTwoTenantsAsync();
+            var dbSet = Context.Set<Customer>();
+            var body = new { CNPJ = "updated", Name = "updated", Region = TenantA };
+
+            // Act
+            var response = await Client.SendAsync(
+                Build(HttpMethod.Put, $"api/TenantScopedCustomers/{inTenant.Id}", TenantA, body));
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var updated = dbSet.AsNoTracking().First(c => c.Id == inTenant.Id);
+            Assert.Equal("updated", updated.Name);
+            Assert.Equal("updated", updated.CNPJ);
+            Assert.Equal(TenantA, updated.Region);
         }
     }
 
@@ -2016,29 +2370,14 @@ public class BaseControllerTests
         [Fact]
         public async Task Put_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
         {
-            // Arrange
+            // Arrange — uses ThrowingSerializerOnlyCustomers because the row-scoped queryset
+            // build now runs before the serializer call; ThrowingCustomersController would
+            // fail in GetQuerySet() and never reach the serializer override under test.
             var id = Guid.NewGuid();
             var customer = new CustomerDto { Name = "abc", CNPJ = "123" };
             var content = new StringContent(
                 JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
-            var act = () => Client.PutAsync($"api/ThrowingCustomers/{id}", content);
-
-            // Act
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
-
-            // Assert
-            Assert.Equal("Simulated infrastructure failure", exception.Message);
-        }
-
-        [Fact]
-        public async Task PutMany_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
-        {
-            // Arrange
-            var id = Guid.NewGuid();
-            var customer = new CustomerDto { Name = "abc", CNPJ = "123" };
-            var content = new StringContent(
-                JsonConvert.SerializeObject(customer), Encoding.UTF8, "application/json");
-            var act = () => Client.PutAsync($"api/ThrowingCustomers?ids={id}", content);
+            var act = () => Client.PutAsync($"api/ThrowingSerializerOnlyCustomers/{id}", content);
 
             // Act
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
@@ -2050,11 +2389,11 @@ public class BaseControllerTests
         [Fact]
         public async Task Patch_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
         {
-            // Arrange
+            // Arrange — uses ThrowingSerializerOnlyCustomers; see Put test for rationale.
             var id = Guid.NewGuid();
             var content = new StringContent(
                 JsonConvert.SerializeObject(new { Name = "abc" }), Encoding.UTF8, "application/json-patch+json");
-            var act = () => Client.PatchAsync($"api/ThrowingCustomers/{id}", content);
+            var act = () => Client.PatchAsync($"api/ThrowingSerializerOnlyCustomers/{id}", content);
 
             // Act
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);
@@ -2066,9 +2405,9 @@ public class BaseControllerTests
         [Fact]
         public async Task Delete_WhenSerializerThrowsOperationCanceledException_ShouldPropagateToMiddlewarePipeline()
         {
-            // Arrange
+            // Arrange — uses ThrowingSerializerOnlyCustomers; see Put test for rationale.
             var id = Guid.NewGuid();
-            var act = () => Client.DeleteAsync($"api/ThrowingCustomers/{id}");
+            var act = () => Client.DeleteAsync($"api/ThrowingSerializerOnlyCustomers/{id}");
 
             // Act
             var exception = await Assert.ThrowsAsync<OperationCanceledException>(act);
@@ -2080,9 +2419,9 @@ public class BaseControllerTests
         [Fact]
         public async Task DeleteMany_WhenSerializerThrowsException_ShouldPropagateToMiddlewarePipeline()
         {
-            // Arrange
+            // Arrange — uses ThrowingSerializerOnlyCustomers; see Put test for rationale.
             var id = Guid.NewGuid();
-            var act = () => Client.DeleteAsync($"api/ThrowingCustomers?ids={id}");
+            var act = () => Client.DeleteAsync($"api/ThrowingSerializerOnlyCustomers?ids={id}");
 
             // Act
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(act);

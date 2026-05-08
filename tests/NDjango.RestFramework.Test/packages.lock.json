@@ -1076,7 +1076,8 @@
         "dependencies": {
           "Microsoft.AspNetCore.Http.Abstractions": "[2.*, )",
           "Microsoft.AspNetCore.Mvc.Core": "[2.*, )",
-          "Microsoft.EntityFrameworkCore": "[8.*, )"
+          "Microsoft.EntityFrameworkCore": "[8.*, )",
+          "Microsoft.EntityFrameworkCore.Relational": "[8.*, )"
         }
       }
     }

@@ -15,6 +15,14 @@ public class Customer : BaseModel<Guid>
     public string? CNPJ { get; set; }
     public int Age { get; set; }
 
+    /// <summary>
+    /// Used by tenant-style scoping filters in the integration tests. Drives
+    /// <c>TenantScopedCustomersController</c>'s row-scoping <see cref="Filters.Filter{T}"/>
+    /// chain so a request flagged as one tenant cannot read or mutate another tenant's
+    /// rows (PUT, PATCH, DELETE, DELETE-many).
+    /// </summary>
+    public string? Region { get; set; }
+
     public ICollection<CustomerDocument>? CustomerDocument { get; set; }
 
     public override string[] GetFields()
@@ -25,6 +33,7 @@ public class Customer : BaseModel<Guid>
             "CNPJ",
             "Age",
             "Id",
+            "Region",
             "CustomerDocument",
             "CustomerDocument:DocumentType",
             "CustomerDocument:Document"
