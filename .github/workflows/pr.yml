@@ -28,9 +28,6 @@ jobs:
       - name: Check if the project is well formatted
         run: |
           ./scripts/start-check-formatting.sh
-      - name: Install dotnet-sonarscanner
-        run: |
-          dotnet tool install --global dotnet-sonarscanner
       - name: Build the project, run all tests, and publish the test results
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
