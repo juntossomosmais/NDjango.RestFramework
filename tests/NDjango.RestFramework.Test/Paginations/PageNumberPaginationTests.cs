@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Bogus;
-using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -62,12 +61,12 @@ public class PageNumberPaginationTests
         // Act
         var paginated = await _pagination.PaginateAsync(query, mockHttpRequest.Object);
         // Assert
-        paginated.Count.Should().Be(50);
-        paginated.Results.Should().HaveCount(_defaultPageSize);
-        paginated.Previous.Should().BeNull();
+        Assert.Equal(50, paginated.Count);
+        Assert.Equal(_defaultPageSize, paginated.Results.Count());
+        Assert.Null(paginated.Previous);
         var expectedNextPage = 2;
         var expectedNext = $"{_url}/?page={expectedNextPage}&page_size={_defaultPageSize}";
-        paginated.Next.Should().Be(expectedNext);
+        Assert.Equal(expectedNext, paginated.Next);
     }
 
     [Fact(DisplayName = "When the source queryset is empty, emits the {count:0, next:null, previous:null, results:[]} envelope")]

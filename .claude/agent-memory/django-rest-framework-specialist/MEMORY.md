@@ -8,3 +8,4 @@
 - [Divergence: IQueryable threaded through serializer surface](divergence_iqueryable_serializer_surface.md) — DRF serializer is queryset-naive; recommend DRF-shaped (instance for single-row, queryset only for bulk-execute)
 - [DRF generics.py get_object / filter_queryset anchors](drf_generics_get_object_anchors.md) — load-then-write flow, check_object_permissions, get_serializer_context, get_success_headers
 - [DRF disable-action anchors](drf_disable_action_anchors.md) — composition (ReadOnlyModelViewSet/GenericViewSet+mixins) is canonical; routers.py:226-234 + 278-280 drive 404-vs-405; destroy is not special-cased
+- [DRF 3.17.1 anchors for pagination behavior](drf_pagination_anchors.md) — Pinned DRF 3.17.1 anchors for PageNumberPagination envelope, InvalidPage->NotFound mapping, and generics paginator=None contract
