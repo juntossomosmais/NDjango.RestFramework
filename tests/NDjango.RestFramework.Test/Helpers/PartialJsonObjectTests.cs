@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using FluentAssertions;
 using NDjango.RestFramework.Helpers;
 using NDjango.RestFramework.Test.Support;
 using Newtonsoft.Json;
@@ -24,8 +23,9 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj);
 
             // assert
-            obj.Instance.Should().NotBeNull();
-            obj.JsonObject.Should().NotBeNull();
+            Assert.NotNull(obj);
+            Assert.NotNull(obj.Instance);
+            Assert.NotNull(obj.JsonObject);
         }
 
         [Theory(DisplayName = "Should populate original JSON")]
@@ -37,7 +37,8 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj);
 
             // assert
-            obj.JsonObject.Should().BeEquivalentTo(JToken.Parse(jsonObj));
+            Assert.NotNull(obj);
+            Assert.True(JToken.DeepEquals(JToken.Parse(jsonObj), obj.JsonObject));
         }
 
         [Theory(DisplayName = "Should create a instance object from the original JSON")]
@@ -49,7 +50,8 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj);
 
             // assert
-            obj.Instance.Should().BeEquivalentTo(testObj);
+            Assert.NotNull(obj);
+            Assert.Equivalent(testObj, obj.Instance);
         }
 
         [Fact(DisplayName = "Field should be represented as set if it is populated")]
@@ -67,15 +69,16 @@ public class PartialJsonObjectTests
             TestModel instance = obj;
 
             // assert
-            instance.Should().Be(obj.Instance);
+            Assert.NotNull(obj);
+            Assert.Equal(obj.Instance, instance);
 
-            obj.IsSet(inst => inst.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.Id));
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
+            Assert.True(obj.IsSet(inst => inst.SubObj));
         }
 
         [Fact(DisplayName = "Should represent field as set if it is populated and receive string as parameter")]
@@ -89,40 +92,41 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet("Id").Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet("Id"));
 
-            obj.IsSet("childItemsList").Should().BeTrue();
-            obj.IsSet("ChildItemsList.0").Should().BeTrue();
-            obj.IsSet("childItemsList.0.Id").Should().BeTrue();
-            obj.IsSet("ChildItemsList.$last").Should().BeTrue();
-            obj.IsSet("ChildItemsList.$last.Id").Should().BeTrue();
+            Assert.True(obj.IsSet("childItemsList"));
+            Assert.True(obj.IsSet("ChildItemsList.0"));
+            Assert.True(obj.IsSet("childItemsList.0.Id"));
+            Assert.True(obj.IsSet("ChildItemsList.$last"));
+            Assert.True(obj.IsSet("ChildItemsList.$last.Id"));
 
-            obj.IsSet("ChildItemsArray").Should().BeTrue();
-            obj.IsSet("childItemsArray.0").Should().BeTrue();
-            obj.IsSet("ChildItemsArray.0.id").Should().BeTrue();
-            obj.IsSet("ChildItemsArray.$last").Should().BeTrue();
-            obj.IsSet("ChildItemsArray.$last.Id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildItemsArray"));
+            Assert.True(obj.IsSet("childItemsArray.0"));
+            Assert.True(obj.IsSet("ChildItemsArray.0.id"));
+            Assert.True(obj.IsSet("ChildItemsArray.$last"));
+            Assert.True(obj.IsSet("ChildItemsArray.$last.Id"));
 
-            obj.IsSet("ChildMatrixArray").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.1").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.1.2").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.1.2.Id").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.1.$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray.1.$last.id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildMatrixArray"));
+            Assert.True(obj.IsSet("ChildMatrixArray.1"));
+            Assert.True(obj.IsSet("ChildMatrixArray.1.2"));
+            Assert.True(obj.IsSet("ChildMatrixArray.1.2.Id"));
+            Assert.True(obj.IsSet("ChildMatrixArray.$last"));
+            Assert.True(obj.IsSet("ChildMatrixArray.1.$last"));
+            Assert.True(obj.IsSet("ChildMatrixArray.1.$last.id"));
 
-            obj.IsSet("ChildMatrixList").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.0").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.0.0").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.0.0.Id").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.0.$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixList.0.$last.id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildMatrixList"));
+            Assert.True(obj.IsSet("ChildMatrixList.0"));
+            Assert.True(obj.IsSet("ChildMatrixList.0.0"));
+            Assert.True(obj.IsSet("ChildMatrixList.0.0.Id"));
+            Assert.True(obj.IsSet("ChildMatrixList.$last"));
+            Assert.True(obj.IsSet("ChildMatrixList.0.$last"));
+            Assert.True(obj.IsSet("ChildMatrixList.0.$last.id"));
 
-            obj.IsSet("SubObj").Should().BeTrue();
-            obj.IsSet("SubObj.SubObj").Should().BeTrue();
-            obj.IsSet("SubObj.SubObj.ChildItemsList").Should().BeTrue();
-            obj.IsSet("SubObj.SubObj.ChildItemsList.1.Id").Should().BeTrue();
+            Assert.True(obj.IsSet("SubObj"));
+            Assert.True(obj.IsSet("SubObj.SubObj"));
+            Assert.True(obj.IsSet("SubObj.SubObj.ChildItemsList"));
+            Assert.True(obj.IsSet("SubObj.SubObj.ChildItemsList.1.Id"));
         }
 
         [Fact(DisplayName = "Should represent field as not set if it is not populated and receive string as parameter")]
@@ -136,10 +140,11 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet("NonExistingProp").Should().BeFalse();
-            obj.IsSet("ChildItemsList.2").Should().BeFalse();
-            obj.IsSet("ChildItemsList.$first").Should().BeFalse();
-            obj.IsSet("ChildItemsList.$Last").Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet("NonExistingProp"));
+            Assert.False(obj.IsSet("ChildItemsList.2"));
+            Assert.False(obj.IsSet("ChildItemsList.$first"));
+            Assert.False(obj.IsSet("ChildItemsList.$Last"));
         }
 
         [Fact(DisplayName = "Should represent field as set if it is populated and receive multiple string parameters")]
@@ -153,37 +158,38 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet("ChildItemsList", "0").Should().BeTrue();
-            obj.IsSet("childItemsList", "0", "Id").Should().BeTrue();
-            obj.IsSet("ChildItemsList", "$last").Should().BeTrue();
-            obj.IsSet("ChildItemsList", "$last", "id").Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet("ChildItemsList", "0"));
+            Assert.True(obj.IsSet("childItemsList", "0", "Id"));
+            Assert.True(obj.IsSet("ChildItemsList", "$last"));
+            Assert.True(obj.IsSet("ChildItemsList", "$last", "id"));
 
-            obj.IsSet("ChildItemsArray").Should().BeTrue();
-            obj.IsSet("childItemsArray", "0").Should().BeTrue();
-            obj.IsSet("ChildItemsArray", "0", "id").Should().BeTrue();
-            obj.IsSet("ChildItemsArray", "$last").Should().BeTrue();
-            obj.IsSet("ChildItemsArray", "$last", "id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildItemsArray"));
+            Assert.True(obj.IsSet("childItemsArray", "0"));
+            Assert.True(obj.IsSet("ChildItemsArray", "0", "id"));
+            Assert.True(obj.IsSet("ChildItemsArray", "$last"));
+            Assert.True(obj.IsSet("ChildItemsArray", "$last", "id"));
 
-            obj.IsSet("ChildMatrixArray").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "1").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "1", "2").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "1", "2", "Id").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "1", "$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixArray", "1", "$last", "Id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildMatrixArray"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "1"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "1", "2"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "1", "2", "Id"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "$last"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "1", "$last"));
+            Assert.True(obj.IsSet("ChildMatrixArray", "1", "$last", "Id"));
 
-            obj.IsSet("ChildMatrixList").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "0").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "0", "0").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "0", "0", "Id").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "0", "$last").Should().BeTrue();
-            obj.IsSet("ChildMatrixList", "0", "$last", "Id").Should().BeTrue();
+            Assert.True(obj.IsSet("ChildMatrixList"));
+            Assert.True(obj.IsSet("ChildMatrixList", "0"));
+            Assert.True(obj.IsSet("ChildMatrixList", "0", "0"));
+            Assert.True(obj.IsSet("ChildMatrixList", "0", "0", "Id"));
+            Assert.True(obj.IsSet("ChildMatrixList", "$last"));
+            Assert.True(obj.IsSet("ChildMatrixList", "0", "$last"));
+            Assert.True(obj.IsSet("ChildMatrixList", "0", "$last", "Id"));
 
-            obj.IsSet("SubObj").Should().BeTrue();
-            obj.IsSet("SubObj", "SubObj").Should().BeTrue();
-            obj.IsSet("SubObj", "SubObj", "ChildItemsList").Should().BeTrue();
-            obj.IsSet("SubObj", "SubObj", "ChildItemsList", "1", "Id").Should().BeTrue();
+            Assert.True(obj.IsSet("SubObj"));
+            Assert.True(obj.IsSet("SubObj", "SubObj"));
+            Assert.True(obj.IsSet("SubObj", "SubObj", "ChildItemsList"));
+            Assert.True(obj.IsSet("SubObj", "SubObj", "ChildItemsList", "1", "Id"));
         }
 
         [Fact(DisplayName =
@@ -198,10 +204,11 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet("ChildItemsList", "NonExistingProp").Should().BeFalse();
-            obj.IsSet("ChildItemsList", "2").Should().BeFalse();
-            obj.IsSet("ChildItemsList", "$first").Should().BeFalse();
-            obj.IsSet("ChildItemsList", "$Last").Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet("ChildItemsList", "NonExistingProp"));
+            Assert.False(obj.IsSet("ChildItemsList", "2"));
+            Assert.False(obj.IsSet("ChildItemsList", "$first"));
+            Assert.False(obj.IsSet("ChildItemsList", "$Last"));
         }
 
         [Fact(DisplayName = "All fields should be represented as set")]
@@ -215,13 +222,14 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.Id));
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
+            Assert.True(obj.IsSet(inst => inst.SubObj));
         }
 
         [Fact(DisplayName = "All fields should be represented as not set")]
@@ -234,13 +242,14 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.Id).Should().BeFalse();
-            obj.IsSet(inst => inst.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.Id));
+            Assert.False(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray));
+            Assert.False(obj.IsSet(inst => inst.SubObj));
         }
 
         private readonly int _index1 = 2;
@@ -250,84 +259,52 @@ public class PartialJsonObjectTests
         [Fact(DisplayName = "Field parse expression to path string")]
         public void ShouldParseExpressionToPathString()
         {
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.First()).Should()
-                .Be("ChildItemsList.0");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.Last()).Should()
-                .Be("ChildItemsList.$last");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[1]).Should().Be("ChildItemsList.1");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[1]).Should()
-                .Be("ChildItemsArray.1");
+            Assert.Equal("ChildItemsList.0", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.First()));
+            Assert.Equal("ChildItemsList.$last", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.Last()));
+            Assert.Equal("ChildItemsList.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[1]));
+            Assert.Equal("ChildItemsArray.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[1]));
 
             for (var index = 0; index < 3; index++)
             {
-                PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(index)).Should()
-                    .Be($"ChildItemsList.{index}");
-                PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[index]).Should()
-                    .Be($"ChildItemsList.{index}");
-                PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[index]).Should()
-                    .Be($"ChildItemsArray.{index}");
+                Assert.Equal($"ChildItemsList.{index}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(index)));
+                Assert.Equal($"ChildItemsList.{index}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[index]));
+                Assert.Equal($"ChildItemsArray.{index}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[index]));
             }
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index1)).Should()
-                .Be($"ChildItemsList.{_index1}");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index2)).Should()
-                .Be($"ChildItemsList.{_index2}");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index3)).Should()
-                .Be($"ChildItemsList.{_index3}");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray.ElementAt(1)).Should()
-                .Be("ChildItemsArray.1");
+            Assert.Equal($"ChildItemsList.{_index1}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index1)));
+            Assert.Equal($"ChildItemsList.{_index2}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index2)));
+            Assert.Equal($"ChildItemsList.{_index3}", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(_index3)));
+            Assert.Equal("ChildItemsArray.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray.ElementAt(1)));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[1].Name).Should()
-                .Be("ChildItemsList.1.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[1].Name).Should()
-                .Be("ChildItemsArray.1.Name");
+            Assert.Equal("ChildItemsList.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList[1].Name));
+            Assert.Equal("ChildItemsArray.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray[1].Name));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(1).Name).Should()
-                .Be("ChildItemsList.1.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray.ElementAt(1).Name).Should()
-                .Be("ChildItemsArray.1.Name");
+            Assert.Equal("ChildItemsList.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsList.ElementAt(1).Name));
+            Assert.Equal("ChildItemsArray.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildItemsArray.ElementAt(1).Name));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1]).Should()
-                .Be("ChildMatrixArray.1");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1]).Should()
-                .Be("ChildMatrixList.1");
+            Assert.Equal("ChildMatrixArray.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1]));
+            Assert.Equal("ChildMatrixList.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1]));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1][2]).Should()
-                .Be("ChildMatrixArray.1.2");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1][2]).Should()
-                .Be("ChildMatrixList.1.2");
+            Assert.Equal("ChildMatrixArray.1.2", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1][2]));
+            Assert.Equal("ChildMatrixList.1.2", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1][2]));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1).ElementAt(2)).Should()
-                .Be("ChildMatrixArray.1.2");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1).ElementAt(2)).Should()
-                .Be("ChildMatrixList.1.2");
+            Assert.Equal("ChildMatrixArray.1.2", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1).ElementAt(2)));
+            Assert.Equal("ChildMatrixList.1.2", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1).ElementAt(2)));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1).ElementAt(2).Name)
-                .Should().Be("ChildMatrixArray.1.2.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1).ElementAt(2).Name)
-                .Should()
-                .Be("ChildMatrixList.1.2.Name");
+            Assert.Equal("ChildMatrixArray.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1).ElementAt(2).Name));
+            Assert.Equal("ChildMatrixList.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1).ElementAt(2).Name));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1].ElementAt(2).Name).Should()
-                .Be("ChildMatrixArray.1.2.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1].ElementAt(2).Name).Should()
-                .Be("ChildMatrixList.1.2.Name");
+            Assert.Equal("ChildMatrixArray.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray[1].ElementAt(2).Name));
+            Assert.Equal("ChildMatrixList.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList[1].ElementAt(2).Name));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1)[2].Name).Should()
-                .Be("ChildMatrixArray.1.2.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1)[2].Name).Should()
-                .Be("ChildMatrixList.1.2.Name");
+            Assert.Equal("ChildMatrixArray.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixArray.ElementAt(1)[2].Name));
+            Assert.Equal("ChildMatrixList.1.2.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.ChildMatrixList.ElementAt(1)[2].Name));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList.ElementAt(1)).Should()
-                .Be("SubObj.SubObj.ChildItemsList.1");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList[1]).Should()
-                .Be("SubObj.SubObj.ChildItemsList.1");
+            Assert.Equal("SubObj.SubObj.ChildItemsList.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList.ElementAt(1)));
+            Assert.Equal("SubObj.SubObj.ChildItemsList.1", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList[1]));
 
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList.ElementAt(1).Name)
-                .Should()
-                .Be("SubObj.SubObj.ChildItemsList.1.Name");
-            PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList[1].Name).Should()
-                .Be("SubObj.SubObj.ChildItemsList.1.Name");
+            Assert.Equal("SubObj.SubObj.ChildItemsList.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList.ElementAt(1).Name));
+            Assert.Equal("SubObj.SubObj.ChildItemsList.1.Name", PartialJsonObject<TestModel>.GetMemberPath(inst => inst.SubObj.SubObj.ChildItemsList[1].Name));
         }
 
         [Fact(DisplayName = "Field should be represented as set if it is added manually")]
@@ -340,9 +317,10 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
 
             // act
             obj.Add(inst => inst.Name);
@@ -350,13 +328,13 @@ public class PartialJsonObjectTests
             obj.Add(inst => inst.ChildItemsList);
 
             // assert
-            obj.IsSet(inst => inst.Id).Should().BeFalse();
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.Id));
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray));
+            Assert.False(obj.IsSet(inst => inst.SubObj));
         }
 
         [Fact(DisplayName = "Field should be represented as not set if it is removed manually")]
@@ -370,21 +348,22 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
 
             // act
             obj.Remove(inst => inst.Id);
             obj.Remove(inst => inst.ChildMatrixArray);
 
             // assert
-            obj.IsSet(inst => inst.Id).Should().BeFalse();
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
+            Assert.False(obj.IsSet(inst => inst.Id));
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray));
+            Assert.True(obj.IsSet(inst => inst.SubObj));
         }
 
         [Fact(DisplayName = "Should get JSON Path")]
@@ -396,12 +375,13 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.GetJSONPath(x => x.Id).Should().Be("Id");
-            obj.GetJSONPath(x => x.ChildItemsList[0].Id).Should().Be("ChildItemsList[0].Id");
-            obj.GetJSONPath(x => x.ChildItemsArray[0].Id).Should().Be("ChildItemsArray[0].Id");
-            obj.GetJSONPath(x => x.ChildMatrixArray[0][0].Id).Should().Be("ChildMatrixArray[0][0].Id");
-            obj.GetJSONPath(x => x.ChildMatrixList[0][0].Id).Should().Be("ChildMatrixList[0][0].Id");
-            obj.GetJSONPath(x => x.SubObj.ChildItemsList[0].Name).Should().Be("SubObj.ChildItemsList[0].Name");
+            Assert.NotNull(obj);
+            Assert.Equal("Id", obj.GetJSONPath(x => x.Id));
+            Assert.Equal("ChildItemsList[0].Id", obj.GetJSONPath(x => x.ChildItemsList[0].Id));
+            Assert.Equal("ChildItemsArray[0].Id", obj.GetJSONPath(x => x.ChildItemsArray[0].Id));
+            Assert.Equal("ChildMatrixArray[0][0].Id", obj.GetJSONPath(x => x.ChildMatrixArray[0][0].Id));
+            Assert.Equal("ChildMatrixList[0][0].Id", obj.GetJSONPath(x => x.ChildMatrixList[0][0].Id));
+            Assert.Equal("SubObj.ChildItemsList[0].Name", obj.GetJSONPath(x => x.SubObj.ChildItemsList[0].Name));
         }
 
         [Fact(DisplayName = "Should reset the add configurations if clear the cache")]
@@ -414,9 +394,10 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
 
             // act
             obj.Add(inst => inst.Name);
@@ -424,17 +405,17 @@ public class PartialJsonObjectTests
             obj.Add(inst => inst.ChildItemsList);
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
 
             // act
             obj.ClearCache();
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
         }
 
         [Fact(DisplayName = "Should reset the remove configurations if clear the cache")]
@@ -448,9 +429,10 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
 
             // act
             obj.Remove(inst => inst.Name);
@@ -458,17 +440,17 @@ public class PartialJsonObjectTests
             obj.Remove(inst => inst.ChildItemsList);
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.Name));
+            Assert.False(obj.IsSet(inst => inst.Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
 
             // act
             obj.ClearCache();
 
             // assert
-            obj.IsSet(inst => inst.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.Name));
+            Assert.True(obj.IsSet(inst => inst.Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
         }
 
         [Fact(DisplayName =
@@ -483,8 +465,9 @@ public class PartialJsonObjectTests
             var obj2 = obj1.ToObject();
 
             // assert
-            obj2.Should().NotBeSameAs(obj1.Instance);
-            obj2.Should().BeEquivalentTo(obj1.Instance);
+            Assert.NotNull(obj1);
+            Assert.NotSame(obj1.Instance, obj2);
+            Assert.Equivalent(obj1.Instance, obj2);
         }
 
         [Fact(DisplayName = "Should get property value if it was populated when calling GetIfSet")]
@@ -505,12 +488,13 @@ public class PartialJsonObjectTests
             var subObjChildListItemValueProp = obj.GetIfSet(x => x.SubObj.ChildItemsList[0].Value, 10002);
 
             // assert
-            nameProp.Should().Be(obj.Instance.Name);
-            childItemListItemIdProp.Should().Be(1);
-            childItemArrayItemIdProp.Should().Be(2);
-            childItemMatrixItemNameProp.Should().Be("Child 1");
-            childMatrixListItemDescriptionProp.Should().Be("Description 1");
-            subObjChildListItemValueProp.Should().Be(10);
+            Assert.NotNull(obj);
+            Assert.Equal(obj.Instance.Name, nameProp);
+            Assert.Equal(1, childItemListItemIdProp);
+            Assert.Equal(2, childItemArrayItemIdProp);
+            Assert.Equal("Child 1", childItemMatrixItemNameProp);
+            Assert.Equal("Description 1", childMatrixListItemDescriptionProp);
+            Assert.Equal(10, subObjChildListItemValueProp);
         }
 
         [Fact(DisplayName = "Should get the default value if property was not populated when calling GetIfSet")]
@@ -529,12 +513,13 @@ public class PartialJsonObjectTests
             var subObjChildListItemValueProp = obj.GetIfSet(x => x.SubObj.ChildItemsList[0].Value, 10002);
 
             // assert
-            nameProp.Should().Be("default value");
-            childItemListItemIdProp.Should().Be(10000);
-            childItemArrayItemIdProp.Should().Be(10001);
-            childItemMatrixItemNameProp.Should().Be("default value");
-            childMatrixListItemDescriptionProp.Should().Be("default value");
-            subObjChildListItemValueProp.Should().Be(10002);
+            Assert.NotNull(obj);
+            Assert.Equal("default value", nameProp);
+            Assert.Equal(10000, childItemListItemIdProp);
+            Assert.Equal(10001, childItemArrayItemIdProp);
+            Assert.Equal("default value", childItemMatrixItemNameProp);
+            Assert.Equal("default value", childMatrixListItemDescriptionProp);
+            Assert.Equal(10002, subObjChildListItemValueProp);
         }
     }
 
@@ -554,15 +539,16 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Value));
         }
 
         [Fact(DisplayName = "All fields in array should be represented as set")]
@@ -576,15 +562,16 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Value));
         }
 
         [Fact(DisplayName = "All fields in array should be represented as not set")]
@@ -597,15 +584,16 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Value).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Value));
         }
 
         [Fact(DisplayName = "Field in array should be represented as set if it is added manually")]
@@ -618,23 +606,24 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
 
             // act
             obj.Add(inst => inst.ChildItemsArray[0].Name);
             obj.Add(inst => inst.ChildItemsArray[1].Description);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Value));
         }
 
         [Fact(DisplayName = "Field in array should be represented as not set if it is removed manually")]
@@ -648,23 +637,24 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
 
             // act
             obj.Remove(inst => inst.ChildItemsArray[0].Value);
             obj.Remove(inst => inst.ChildItemsArray[1].Description);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsArray).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsArray[1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsArray[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsArray[1].Value));
         }
     }
 
@@ -687,32 +677,33 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value).Should().BeFalse();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value).Should().BeFalse();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value));
         }
 
         [Fact(DisplayName = "All fields in matrix array should be represented as set")]
@@ -726,32 +717,33 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value));
         }
 
         [Fact(DisplayName = "All fields in matrix array should be represented as not set")]
@@ -764,32 +756,33 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value));
         }
 
         [Fact(DisplayName = "Field in matrix array should be represented as set if it is added manually")]
@@ -802,11 +795,12 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
 
             obj.Add(inst => inst.ChildMatrixArray[0][0].Description);
             obj.Add(inst => inst.ChildMatrixArray[0][1].Id);
@@ -815,32 +809,32 @@ public class PartialJsonObjectTests
             obj.Add(inst => inst.ChildMatrixArray[1][2].Name);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value).Should().BeFalse();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value));
         }
 
         [Fact(DisplayName = "Field in matrix array should be represented as not set if it is removed manually")]
@@ -852,11 +846,12 @@ public class PartialJsonObjectTests
             // act
             var jsonObj = JObject.Parse(JsonConvert.SerializeObject(testObj));
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
 
             obj.Remove(inst => inst.ChildMatrixArray[0][0].Description);
             obj.Remove(inst => inst.ChildMatrixArray[0][1].Id);
@@ -865,32 +860,32 @@ public class PartialJsonObjectTests
             obj.Remove(inst => inst.ChildMatrixArray[1][2].Name);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixArray).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value).Should().BeTrue();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[0][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][0].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][1].Value));
 
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixArray[1][2].Value));
         }
     }
 
@@ -909,15 +904,16 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "All fields in list should be represented as set")]
@@ -931,15 +927,16 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "All fields in list should be represented as not set")]
@@ -950,16 +947,17 @@ public class PartialJsonObjectTests
 
             // assert
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
+            Assert.NotNull(obj);
 
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "Field in list should be represented as set if it is added manually")]
@@ -972,23 +970,24 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Description));
 
             // act
             obj.Add(inst => inst.ChildItemsList[0].Value);
             obj.Add(inst => inst.ChildItemsList[1].Description);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "Field in list should be represented as not set if it is removed manually")]
@@ -1002,9 +1001,10 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Id));
 
             // act
             obj.Remove(inst => inst.ChildItemsList[0].Id);
@@ -1012,15 +1012,15 @@ public class PartialJsonObjectTests
             obj.Remove(inst => inst.ChildItemsList[1].Id);
 
             // assert
-            obj.IsSet(inst => inst.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildItemsList[1].Value));
         }
     }
 
@@ -1039,11 +1039,12 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
         }
 
         [Fact(DisplayName = "All fields in matrix list should be represented as set")]
@@ -1057,11 +1058,12 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
         }
 
         [Fact(DisplayName = "All fields in matrix list should be represented as not set")]
@@ -1074,11 +1076,12 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
         }
 
         [Fact(DisplayName = "Field in list matrix should be represented as set if it is added manually")]
@@ -1091,19 +1094,20 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
 
             // act
             obj.Add(inst => inst.ChildMatrixList[0][0].Id);
             obj.Add(inst => inst.ChildMatrixList[0][0].Name);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
         }
 
         [Fact(DisplayName = "Field in list matrix should be represented as not set if it is removed manually")]
@@ -1117,19 +1121,20 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
 
             // act
             obj.Remove(inst => inst.ChildMatrixList[0][0].Description);
             obj.Remove(inst => inst.ChildMatrixList[0][0].Value);
 
             // assert
-            obj.IsSet(inst => inst.ChildMatrixList).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.ChildMatrixList[0][0].Value).Should().BeFalse();
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Id));
+            Assert.True(obj.IsSet(inst => inst.ChildMatrixList[0][0].Name));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Description));
+            Assert.False(obj.IsSet(inst => inst.ChildMatrixList[0][0].Value));
         }
     }
 
@@ -1151,19 +1156,20 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.SubObj));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "All fields in nested object should be represented as set")]
@@ -1177,19 +1183,20 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.SubObj));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "All fields in nested object should be represented as not set")]
@@ -1200,21 +1207,22 @@ public class PartialJsonObjectTests
 
             // assert
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
+            Assert.NotNull(obj);
 
             // assert
-            obj.IsSet(inst => inst.SubObj).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeFalse();
+            Assert.False(obj.IsSet(inst => inst.SubObj));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "Field in nested object should be represented as set if it is added manually")]
@@ -1227,9 +1235,10 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(json);
 
             // assert
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeFalse();
+            Assert.NotNull(obj);
+            Assert.False(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
 
             // act
             obj.Add(inst => inst.SubObj.Name);
@@ -1237,19 +1246,19 @@ public class PartialJsonObjectTests
             obj.Add(inst => inst.SubObj.ChildItemsList[1].Value);
 
             // assert
-            obj.IsSet(inst => inst.SubObj).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.False(obj.IsSet(inst => inst.SubObj));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
         }
 
         [Fact(DisplayName = "Field in nested object should be represented as not set if it is removed manually")]
@@ -1263,27 +1272,28 @@ public class PartialJsonObjectTests
             var obj = JsonConvert.DeserializeObject<PartialJsonObject<TestModel>>(jsonObj.ToString());
 
             // assert
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeTrue();
+            Assert.NotNull(obj);
+            Assert.True(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
 
             // act
             obj.Remove(inst => inst.SubObj.Description);
             obj.Remove(inst => inst.SubObj.ChildItemsList[0].Id);
 
             // assert
-            obj.IsSet(inst => inst.SubObj).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.Description).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id).Should().BeFalse();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description).Should().BeTrue();
-            obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value).Should().BeTrue();
+            Assert.True(obj.IsSet(inst => inst.SubObj));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.Name));
+            Assert.False(obj.IsSet(inst => inst.SubObj.Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList));
+            Assert.False(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[0].Value));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Id));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Name));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Description));
+            Assert.True(obj.IsSet(inst => inst.SubObj.ChildItemsList[1].Value));
         }
     }
 

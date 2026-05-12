@@ -18,6 +18,7 @@ test.describe('OpenAPI contract', () => {
     'Gifts',
     'Tags',
     'AuditLogs',
+    'TenantNotes',
   ];
 
   test('document is reachable and well-formed', async ({ request }) => {

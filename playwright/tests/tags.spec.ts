@@ -30,6 +30,71 @@ test.describe('Tags — per-field validation hooks', () => {
     expect(tag.name).toBe(name);
   });
 
+  test('PUT: write-back persists trimmed Name and normalized Slug on full update', async ({ request }) => {
+    // Baseline: create a tag with already-normalized values so the PUT round-trip is the
+    // only place the mutating hooks need to run.
+    const baseline = await request.post('/api/Tags', {
+      data: { name: unique('PutBaseline'), slug: unique('put-baseline').toLowerCase() },
+    });
+    expect(baseline.status()).toBe(201);
+    const id = (await baseline.json()).id;
+
+    const replacedName = unique('Replaced');
+    const rawSlug = `Replaced   ${unique('Slug')}!!`;
+    const expectedSlug = rawSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // Padded Name exercises ValidateNameAsync.Trim; raw Slug exercises ValidateSlugAsync.Normalize.
+    const put = await request.put(`/api/Tags/${id}`, {
+      data: { name: `  ${replacedName}  `, slug: rawSlug },
+    });
+    expect(put.status()).toBe(200);
+    const putBody = await put.json();
+    expect(putBody.name).toBe(replacedName);
+    expect(putBody.slug).toBe(expectedSlug);
+
+    // GET confirms the mutated values are what landed in the database — not just what the
+    // PUT response echoed back.
+    const get = await request.get(`/api/Tags/${id}`);
+    expect(get.status()).toBe(200);
+    const getBody = await get.json();
+    expect(getBody.name).toBe(replacedName);
+    expect(getBody.slug).toBe(expectedSlug);
+  });
+
+  test('PATCH: write-back persists normalized Slug via PartialJsonObject on partial update', async ({ request }) => {
+    // Baseline: create with normalized values. The PATCH below only touches Slug, so Name
+    // must remain exactly the baseline value (partial-update semantics) while Slug must
+    // come back normalized — i.e. the hook ran, returned a different value, and the
+    // framework wrote it back onto the PartialJsonObject<T> before applying it.
+    const baselineName = unique('PatchBaseline');
+    const baseline = await request.post('/api/Tags', {
+      data: { name: baselineName, slug: unique('patch-baseline').toLowerCase() },
+    });
+    expect(baseline.status()).toBe(201);
+    const id = (await baseline.json()).id;
+
+    const rawSlug = `Patched   ${unique('Slug')}!!`;
+    const expectedSlug = rawSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const patch = await request.patch(`/api/Tags/${id}`, { data: { slug: rawSlug } });
+    expect(patch.status()).toBe(200);
+    const patchBody = await patch.json();
+    expect(patchBody.slug).toBe(expectedSlug);
+    expect(patchBody.name).toBe(baselineName);
+
+    const get = await request.get(`/api/Tags/${id}`);
+    expect(get.status()).toBe(200);
+    const getBody = await get.json();
+    expect(getBody.slug).toBe(expectedSlug);
+    expect(getBody.name).toBe(baselineName);
+  });
+
   test('ValidateNameAsync rejects empty name with field-level error', async ({ request }) => {
     const response = await request.post('/api/Tags', {
       data: { name: '   ', slug: unique('slug') },

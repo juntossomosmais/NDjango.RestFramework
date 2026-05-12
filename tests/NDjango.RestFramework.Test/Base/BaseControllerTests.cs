@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using Bogus;
-using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NDjango.RestFramework.Errors;
@@ -37,9 +36,9 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/Customers/{customer.Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             var updatedCustomer = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer.Id);
-            updatedCustomer.Should().BeNull();
+            Assert.Null(updatedCustomer);
         }
 
         [Fact]
@@ -49,7 +48,7 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/Customers/{Guid.NewGuid()}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [Fact]
@@ -539,10 +538,10 @@ public class BaseControllerTests
             var response = await Client.DeleteAsync($"api/IntAsIdEntities?ids={entity.Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
 
             var stillExists = dbSet.AsNoTracking().Any(x => x.Id == entity.Id);
-            stillExists.Should().BeTrue();
+            Assert.True(stillExists);
         }
     }
 
@@ -565,11 +564,11 @@ public class BaseControllerTests
             var response = await Client.GetAsync($"api/Customers/{customer1.Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var customer = JsonConvert.DeserializeObject<Customer>(responseData);
-            customer.Should().NotBeNull();
-            customer.Id.Should().Be(customer1.Id);
+            Assert.NotNull(customer);
+            Assert.Equal(customer1.Id, customer.Id);
         }
 
         [Fact]
@@ -588,7 +587,7 @@ public class BaseControllerTests
             var response = await Client.GetAsync($"api/Customers/{Guid.NewGuid()}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [Fact]
@@ -697,14 +696,15 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(3);
-            paginatedResponse.Count.Should().Be(3);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(3, paginatedResponse.Results.Count);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -721,15 +721,16 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?Name=ghi&CNPJ=789");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(1);
-            paginatedResponse.Results.First().Name.Should().Be("ghi");
-            paginatedResponse.Count.Should().Be(1);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Single(paginatedResponse.Results);
+            Assert.Equal("ghi", paginatedResponse.Results.First().Name);
+            Assert.Equal(1, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -747,15 +748,16 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?id=35d948bd-ab3d-4446-912b-2d20c57c4935");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(1);
-            paginatedResponse.Results.First().Name.Should().Be("abc");
-            paginatedResponse.Count.Should().Be(1);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Single(paginatedResponse.Results);
+            Assert.Equal("abc", paginatedResponse.Results.First().Name);
+            Assert.Equal(1, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -778,16 +780,17 @@ public class BaseControllerTests
             var response = await Client.GetAsync(url);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(2);
-            paginatedResponse.Results.ElementAt(0).Name.Should().Be("def");
-            paginatedResponse.Results.ElementAt(1).Name.Should().Be("ghi");
-            paginatedResponse.Count.Should().Be(2);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(2, paginatedResponse.Results.Count);
+            Assert.Equal("def", paginatedResponse.Results.ElementAt(0).Name);
+            Assert.Equal("ghi", paginatedResponse.Results.ElementAt(1).Name);
+            Assert.Equal(2, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -807,16 +810,17 @@ public class BaseControllerTests
             var response = await Client.GetAsync($"api/IntAsIdEntities?ids={entities[0].Id}&ids={entities[1].Id}");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(2);
-            paginatedResponse.Results.ElementAt(0).Name.Should().Be("def");
-            paginatedResponse.Results.ElementAt(1).Name.Should().Be("ghi");
-            paginatedResponse.Count.Should().Be(2);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(2, paginatedResponse.Results.Count);
+            Assert.Equal("def", paginatedResponse.Results.ElementAt(0).Name);
+            Assert.Equal("ghi", paginatedResponse.Results.ElementAt(1).Name);
+            Assert.Equal(2, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -833,14 +837,15 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?Age=20");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(2);
-            paginatedResponse.Count.Should().Be(2);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(2, paginatedResponse.Results.Count);
+            Assert.Equal(2, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -858,26 +863,27 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?Age=20&SortDesc=Name,CNPJ");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(3);
-            paginatedResponse.Count.Should().Be(3);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(3, customers.Count);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
 
             var first = customers.First();
             var second = customers.Skip(1).First();
             var third = customers.Skip(2).First();
 
-            first.Name.Should().Be("def");
-            first.CNPJ.Should().Be("456");
-            second.Name.Should().Be("abc");
-            second.CNPJ.Should().Be("124");
-            third.Name.Should().Be("abc");
-            third.CNPJ.Should().Be("123");
+            Assert.Equal("def", first.Name);
+            Assert.Equal("456", first.CNPJ);
+            Assert.Equal("abc", second.Name);
+            Assert.Equal("124", second.CNPJ);
+            Assert.Equal("abc", third.Name);
+            Assert.Equal("123", third.CNPJ);
         }
 
         [Fact]
@@ -895,26 +901,27 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?Age=20&Sort=Name,CNPJ");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(3);
-            paginatedResponse.Count.Should().Be(3);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(3, customers.Count);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
 
             var first = customers.First();
             var second = customers.Skip(1).First();
             var third = customers.Skip(2).First();
 
-            first.Name.Should().Be("abc");
-            first.CNPJ.Should().Be("123");
-            second.Name.Should().Be("abc");
-            second.CNPJ.Should().Be("124");
-            third.Name.Should().Be("def");
-            third.CNPJ.Should().Be("456");
+            Assert.Equal("abc", first.Name);
+            Assert.Equal("123", first.CNPJ);
+            Assert.Equal("abc", second.Name);
+            Assert.Equal("124", second.CNPJ);
+            Assert.Equal("def", third.Name);
+            Assert.Equal("456", third.CNPJ);
         }
 
         [Theory(DisplayName = "When sorting by ID")]
@@ -941,23 +948,24 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync(requestString);
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
-            paginatedResponse.Count.Should().Be(numberOfEntities);
+            Assert.NotNull(paginatedResponse);
+            Assert.Equal(numberOfEntities, paginatedResponse.Count);
             var sortedEntities = paginatedResponse.Results;
-            sortedEntities.Count.Should().Be(DefaultPageSize);
+            Assert.Equal(DefaultPageSize, sortedEntities.Count);
             if (isDesc)
             {
                 var expectedIds = entities.Select(m => m.Id).OrderByDescending(m => m).Take(DefaultPageSize).ToList();
                 var actualIds = sortedEntities.Select(m => m.Id).ToList();
-                actualIds.Should().BeEquivalentTo(expectedIds);
+                Assert.Equivalent(expectedIds, actualIds);
             }
             else
             {
                 var expectedIds = entities.Select(m => m.Id).OrderBy(m => m).Take(DefaultPageSize).ToList();
                 var actualIds = sortedEntities.Select(m => m.Id).ToList();
-                actualIds.Should().BeEquivalentTo(expectedIds);
+                Assert.Equivalent(expectedIds, actualIds);
             }
         }
 
@@ -986,23 +994,24 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync(requestString);
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<IntAsIdEntity>>>(responseData);
-            paginatedResponse.Count.Should().Be(numberOfEntities);
+            Assert.NotNull(paginatedResponse);
+            Assert.Equal(numberOfEntities, paginatedResponse.Count);
             var sortedEntities = paginatedResponse.Results;
-            sortedEntities.Count.Should().Be(DefaultPageSize);
+            Assert.Equal(DefaultPageSize, sortedEntities.Count);
             if (isDesc)
             {
                 var expectedValues = entities.Select(m => m.CreatedAt).OrderByDescending(m => m.Date).ThenBy(m => m.TimeOfDay).Take(DefaultPageSize).ToList();
                 var actualValues = sortedEntities.Select(m => m.CreatedAt).ToList();
-                actualValues.Should().BeEquivalentTo(expectedValues);
+                Assert.Equivalent(expectedValues, actualValues);
             }
             else
             {
                 var expectedValues = entities.Select(m => m.CreatedAt).OrderBy(m => m.Date).ThenBy(m => m.TimeOfDay).Take(DefaultPageSize).ToList();
                 var actualValues = sortedEntities.Select(m => m.CreatedAt).ToList();
-                actualValues.Should().BeEquivalentTo(expectedValues);
+                Assert.Equivalent(expectedValues, actualValues);
             }
         }
 
@@ -1053,16 +1062,17 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?cpf=1234");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(1);
-            paginatedResponse.Count.Should().Be(1);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
-            customers.First().Name.Should().Be("abc");
+            Assert.Single(customers);
+            Assert.Equal(1, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
+            Assert.Equal("abc", customers.First().Name);
         }
 
         [Fact]
@@ -1112,16 +1122,17 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=abc");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(1);
-            paginatedResponse.Count.Should().Be(1);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
-            customers.First().Name.Should().Be("abc");
+            Assert.Single(customers);
+            Assert.Equal(1, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
+            Assert.Equal("abc", customers.First().Name);
         }
 
         [Fact]
@@ -1170,8 +1181,18 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=ghi");
 
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            Assert.NotNull(paginatedResponse);
+            Assert.Equal(0, paginatedResponse.Count);
+            Assert.Empty(paginatedResponse.Results);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -1220,8 +1241,18 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=5557");
 
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            Assert.NotNull(paginatedResponse);
+            Assert.Equal(0, paginatedResponse.Count);
+            Assert.Empty(paginatedResponse.Results);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -1238,15 +1269,16 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?page_size=3&page=1");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(3);
-            paginatedResponse.Count.Should().Be(3);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(3, customers.Count);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Fact]
@@ -1263,19 +1295,20 @@ public class BaseControllerTests
             var response = await Client.GetAsync("api/Customers?page_size=1&page=3");
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(1);
-            customers.First().Name.Should().Be("ghi");
-            paginatedResponse.Count.Should().Be(3);
-            paginatedResponse.Next.Should().BeNull();
+            Assert.Single(customers);
+            Assert.Equal("ghi", customers.First().Name);
+            Assert.Equal(3, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
             var prevUri = new Uri(paginatedResponse.Previous);
             var prevQuery = HttpUtility.ParseQueryString(prevUri.Query);
-            prevQuery["page"].Should().Be("2");
-            prevQuery["page_size"].Should().Be("1");
+            Assert.Equal("2", prevQuery["page"]);
+            Assert.Equal("1", prevQuery["page_size"]);
         }
 
         [Theory]
@@ -1290,8 +1323,8 @@ public class BaseControllerTests
         [InlineData("Agua Alta", 1)]
         [InlineData("Agua%", 2)]
         [InlineData("% Inc", 2)]
-        [InlineData("aaa", null)]
-        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int? expectedCount)
+        [InlineData("aaa", 0)]
+        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int expectedCount)
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -1335,21 +1368,20 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync($"api/Customers?search={HttpUtility.UrlEncode(term)}");
 
-            // Assert
-            if (expectedCount == null)
-            {
-                response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-                return;
-            }
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             var customers = paginatedResponse.Results;
-            customers.Count.Should().Be(expectedCount);
-            paginatedResponse.Count.Should().Be(expectedCount);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(expectedCount, customers.Count);
+            Assert.Equal(expectedCount, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         [Theory]
@@ -1368,16 +1400,17 @@ public class BaseControllerTests
             var queryString = withBrackets ? $"ids=[{entities[0].Id},{entities[1].Id}]" : $"ids={entities[0].Id},{entities[1].Id}";
             var response = await Client.GetAsync($"api/Customers?{queryString}");
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
-            paginatedResponse.Results.Count.Should().Be(2);
-            paginatedResponse.Results[0].Id.Should().Be(entities[0].Id);
-            paginatedResponse.Results[1].Id.Should().Be(entities[1].Id);
-            paginatedResponse.Count.Should().Be(2);
-            paginatedResponse.Next.Should().BeNull();
-            paginatedResponse.Previous.Should().BeNull();
+            Assert.Equal(2, paginatedResponse.Results.Count);
+            Assert.Equal(entities[0].Id, paginatedResponse.Results[0].Id);
+            Assert.Equal(entities[1].Id, paginatedResponse.Results[1].Id);
+            Assert.Equal(2, paginatedResponse.Count);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         #region Pagination Edge Cases
@@ -1398,6 +1431,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(10, paginatedResponse.Count);
             Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
         }
@@ -1418,6 +1452,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(10, paginatedResponse.Count);
             Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
         }
@@ -1438,6 +1473,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(3, paginatedResponse.Count);
             Assert.True(paginatedResponse.Results.Count > 0, "Should return results from the last page");
         }
@@ -1458,6 +1494,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(10, paginatedResponse.Count);
             Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
         }
@@ -1478,6 +1515,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(60, paginatedResponse.Count);
             // MaxPageSize is 50 by default
             Assert.Equal(50, paginatedResponse.Results.Count);
@@ -1499,6 +1537,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(10, paginatedResponse.Count);
             Assert.Equal(DefaultPageSize, paginatedResponse.Results.Count);
         }
@@ -1524,6 +1563,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(3, paginatedResponse.Results.Count);
         }
 
@@ -1544,6 +1584,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             var customers = paginatedResponse.Results;
             Assert.Equal(3, customers.Count);
             Assert.Equal("alice", customers[0].Name);
@@ -1568,6 +1609,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             var customers = paginatedResponse.Results;
             // Sort (asc) takes priority over SortDesc per SortFilter.Sort()
             Assert.Equal("alice", customers[0].Name);
@@ -1595,11 +1637,12 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
             Assert.Equal(2, paginatedResponse.Results.Count);
         }
 
         [Fact]
-        public async Task ListPaged_WithEmptyDatabase_ShouldReturnNotFound()
+        public async Task ListPaged_WithEmptyDatabase_ShouldReturnEmptyEnvelope()
         {
             // Arrange
             // No data seeded — empty database
@@ -1607,8 +1650,18 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers");
 
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            // Assert — empty result is a legitimate success; mirrors DRF's PageNumberPagination
+            // which builds an empty Page via Django's Paginator.page(1) and renders it through
+            // the same get_paginated_response() branch as a populated page (rest_framework/
+            // pagination.py:220-226 + mixins.py:34-44 at encode/django-rest-framework@3.17.1).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            Assert.NotNull(paginatedResponse);
+            Assert.Equal(0, paginatedResponse.Count);
+            Assert.Empty(paginatedResponse.Results);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         #endregion
@@ -1631,6 +1684,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             // Check next link doesn't have duplicate page/page_size params
             Assert.NotNull(paginatedResponse.Next);
@@ -1671,6 +1725,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
+            Assert.NotNull(paginatedResponse);
 
             // The next link should contain Age=20 exactly once, not duplicated.
             // Bug: PageNumberPagination.cs:39 uses || instead of && in the Where clause,
@@ -1714,10 +1769,10 @@ public class BaseControllerTests
             var response = await Client.PatchAsync($"api/Customers/{customer.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
-            updatedCustomer.Name.Should().Be(customerToUpdate.Name);
-            updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
+            Assert.Equal(customerToUpdate.Name, updatedCustomer.Name);
+            Assert.Equal(customerToUpdate.CNPJ, updatedCustomer.CNPJ);
         }
 
         [Fact]
@@ -1742,10 +1797,10 @@ public class BaseControllerTests
             var response = await Client.PatchAsync($"api/Customers/{customer.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
-            updatedCustomer.Name.Should().Be(customer.Name);
-            updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
+            Assert.Equal(customer.Name, updatedCustomer.Name);
+            Assert.Equal(customerToUpdate.CNPJ, updatedCustomer.CNPJ);
         }
 
         [Fact]
@@ -1765,7 +1820,7 @@ public class BaseControllerTests
             var response = await Client.PatchAsync($"api/Customers/{Guid.NewGuid()}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
 
@@ -1791,10 +1846,10 @@ public class BaseControllerTests
             var response = await Client.PatchAsync($"api/IntAsIdEntities/{entity.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
 
             var notUpdatedEntity = dbSet.AsNoTracking().First(x => x.Id == entity.Id);
-            notUpdatedEntity.Name.Should().Be(entity.Name);
+            Assert.Equal(entity.Name, notUpdatedEntity.Name);
         }
 
         [Fact]
@@ -1889,9 +1944,9 @@ public class BaseControllerTests
 
             // Assert
             var addedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            addedCustomer.Name.Should().Be(customer.Name);
-            addedCustomer.CNPJ.Should().Be(customer.CNPJ);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.Equal(customer.Name, addedCustomer.Name);
+            Assert.Equal(customer.CNPJ, addedCustomer.CNPJ);
         }
 
         [Fact]
@@ -1911,6 +1966,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
+            Assert.NotNull(responseMessages);
 
             Assert.Contains("Name should have at least 3 characters", responseMessages.Error["Name"]);
 
@@ -1935,6 +1991,7 @@ public class BaseControllerTests
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var responseData = await response.Content.ReadAsStringAsync();
             var responseMessages = JsonConvert.DeserializeObject<ValidationErrors>(responseData);
+            Assert.NotNull(responseMessages);
 
             Assert.Contains("CNPJ cannot be 567", responseMessages.Error["CNPJ"]);
 
@@ -2028,10 +2085,10 @@ public class BaseControllerTests
             var response = await Client.PutAsync($"api/Customers/{customer.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var updatedCustomer = dbSet.AsNoTracking().First(x => x.Id == customer.Id);
-            updatedCustomer.Name.Should().Be(customerToUpdate.Name);
-            updatedCustomer.CNPJ.Should().Be(customerToUpdate.CNPJ);
+            Assert.Equal(customerToUpdate.Name, updatedCustomer.Name);
+            Assert.Equal(customerToUpdate.CNPJ, updatedCustomer.CNPJ);
         }
 
         [Fact]
@@ -2051,7 +2108,7 @@ public class BaseControllerTests
             var response = await Client.PutAsync($"api/Customers/{Guid.NewGuid()}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
 
@@ -2077,10 +2134,10 @@ public class BaseControllerTests
             var response = await Client.PutAsync($"api/IntAsIdEntities/{entity.Id}", content);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
 
             var notUpdatedEntity = dbSet.AsNoTracking().First(x => x.Id == entity.Id);
-            notUpdatedEntity.Name.Should().Be(entity.Name);
+            Assert.Equal(entity.Name, notUpdatedEntity.Name);
         }
 
         [Fact]

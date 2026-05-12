@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Bogus;
-using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -62,12 +61,35 @@ public class PageNumberPaginationTests
         // Act
         var paginated = await _pagination.PaginateAsync(query, mockHttpRequest.Object);
         // Assert
-        paginated.Count.Should().Be(50);
-        paginated.Results.Should().HaveCount(_defaultPageSize);
-        paginated.Previous.Should().BeNull();
+        Assert.Equal(50, paginated.Count);
+        Assert.Equal(_defaultPageSize, paginated.Results.Count());
+        Assert.Null(paginated.Previous);
         var expectedNextPage = 2;
         var expectedNext = $"{_url}/?page={expectedNextPage}&page_size={_defaultPageSize}";
-        paginated.Next.Should().Be(expectedNext);
+        Assert.Equal(expectedNext, paginated.Next);
+    }
+
+    [Fact(DisplayName = "When the source queryset is empty, emits the {count:0, next:null, previous:null, results:[]} envelope")]
+    public async Task PaginateAsync_WithEmptySource_ShouldReturnEmptyEnvelope()
+    {
+        // Arrange — no rows added. Mirrors DRF's PageNumberPagination which builds an empty
+        // Page via Django's Paginator.page(1) and renders it through the same
+        // get_paginated_response() branch as a populated page (rest_framework/pagination.py
+        // :220-226 + mixins.py:34-44 at encode/django-rest-framework@3.17.1).
+        var query = _dbContext.Entities.AsNoTracking().OrderBy(p => p.Id);
+        var mockHttpRequest = new Mock<HttpRequest>();
+        var queryParams = Http.RetrieveQueryCollectionFromQueryString(string.Empty);
+        mockHttpRequest.Setup(req => req.Query).Returns(queryParams);
+
+        // Act
+        var paginated = await _pagination.PaginateAsync(query, mockHttpRequest.Object);
+
+        // Assert — payload (not null) with explicit zero count and empty results.
+        Assert.NotNull(paginated);
+        Assert.Equal(0, paginated.Count);
+        Assert.Empty(paginated.Results);
+        Assert.Null(paginated.Next);
+        Assert.Null(paginated.Previous);
     }
 
     private static async Task<IQueryable<Thing>> CreateScenarioWith50Things(DbContextBuilder.TestDbContext<Thing> dbContext)

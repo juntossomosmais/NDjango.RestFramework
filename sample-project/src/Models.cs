@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using NDjango.RestFramework.Base;
 
 namespace SampleProject;
@@ -168,6 +169,29 @@ public class AuditLog : StandardEntity
 }
 
 /// <summary>
+/// Row-scoped resource — every list and write composes a <c>TenantNoteTenantFilter</c> that
+/// scopes by the request's <c>X-Tenant</c> header. Used by the playwright spec to pin the
+/// README's "Queryset scope on writes" contract: out-of-scope ids surface as 404 on GET/PUT
+/// /PATCH/DELETE and silently drop out of bulk DELETE.
+/// </summary>
+public class TenantNote : StandardEntity
+{
+    public string TenantId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
+
+    public override string[] GetFields() =>
+    [
+        nameof(Id),
+        nameof(TenantId),
+        nameof(Title),
+        nameof(Body),
+        nameof(CreatedAt),
+        nameof(UpdatedAt),
+    ];
+}
+
+/// <summary>
 /// Wide primitive type surface — exercises OpenAPI schema generation across every CLR primitive
 /// the library is expected to handle.
 /// </summary>
@@ -261,6 +285,25 @@ public class AuditLogDto : BaseDto<int>
     public string Action { get; set; } = "";
     public string EntityName { get; set; } = "";
     public string? Detail { get; set; }
+}
+
+public class TenantNoteDto : BaseDto<int>
+{
+    /// <summary>
+    /// Body-supplied TenantId is overwritten by <c>TenantNotesController.PerformCreateAsync</c>
+    /// from the request's <c>X-Tenant</c> header — the header is the canonical source of truth.
+    /// Kept on the DTO so responses can echo it back.
+    /// </summary>
+    public string TenantId { get; set; } = "";
+
+    /// <summary>
+    /// Length-bound via <see cref="StringLengthAttribute"/> — proves the model-binding-time
+    /// validation path produces the same <c>ValidationErrors</c> envelope as serializer hooks.
+    /// </summary>
+    [StringLength(50, ErrorMessage = "Title must be at most 50 characters.")]
+    public string Title { get; set; } = "";
+
+    public string Body { get; set; } = "";
 }
 
 public class GiftDto : BaseDto<int>
