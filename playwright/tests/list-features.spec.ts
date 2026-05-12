@@ -83,6 +83,38 @@ test.describe('Sorting — ?sort= ascending, ?sortDesc= descending', () => {
     expect(names).toEqual([`${prefix}-alpha`, `${prefix}-bravo`, `${prefix}-charlie`]);
   });
 
+  test('?sort=Name,Id — comma-separated multi-field form (smoke only; deep coverage lives in C#)', async ({ request }) => {
+    // Deep multi-field-sort coverage (Sort=Name,CNPJ over equal-Age rows, case-insensitive,
+    // SortDesc, sort+sortDesc precedence) lives in BaseControllerTests.cs around
+    // ListPaged_WithIntegerQueryStringAndSortAscParameter (test name ":895") and the
+    // "Sorting Edge Cases" region (:1508). This is a smoke test that the comma-separated
+    // multi-key form survives end-to-end through the sample-project pipeline.
+    //
+    // Tag.Name is unique-indexed (no ties possible), so the secondary key (Id) never breaks
+    // a tie — the assertion is just "comma-separated names parse, primary key sorts asc."
+    const prefix = unique('multisort');
+    const seeds = [
+      { name: `${prefix}-charlie`, slug: `${prefix}-c-s` },
+      { name: `${prefix}-alpha`,   slug: `${prefix}-a-s` },
+      { name: `${prefix}-bravo`,   slug: `${prefix}-b-s` },
+    ];
+    const ids: number[] = [];
+    for (const seed of seeds) {
+      const response = await request.post('/api/Tags', { data: seed });
+      expect(response.status()).toBe(201);
+      ids.push((await response.json()).id);
+    }
+
+    const response = await request.get(`/api/Tags?${idsParam(ids)}&sort=Name,Id`);
+    expect(response.status()).toBe(200);
+    const names: string[] = (await response.json()).results.map((r: any) => r.name);
+    expect(names).toEqual([
+      `${prefix}-alpha`,
+      `${prefix}-bravo`,
+      `${prefix}-charlie`,
+    ]);
+  });
+
   test('?sortDesc=Name reverses the order', async ({ request }) => {
     const prefix = unique('sortdesc');
     const seeds = [

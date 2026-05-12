@@ -10,8 +10,9 @@ import { unique } from '../helpers/data';
  * create their parent inline rather than relying on shared fixtures.
  *
  * Extra assertions per resource cover the library-specific knobs:
- *   - Restaurants: AllowBulkDelete = true → DELETE /api/Restaurants?ids=... → 204
- *   - MenuItems:   AllowDelete     = false → DELETE /api/MenuItems/{id}    → 405
+ *   - Restaurants: AllowBulkDelete = true  → DELETE /api/Restaurants?ids=... → 204
+ *   - MenuItems:   AllowDelete     = false → DELETE /api/MenuItems/{id}     → 405
+ *   - Gifts:       AllowPut        = false → PUT    /api/Gifts/{id}         → 405
  */
 
 async function createRestaurant(request: APIRequestContext): Promise<number> {
@@ -220,6 +221,65 @@ test.describe('MenuItems CRUD', () => {
 });
 
 test.describe('Gifts CRUD', () => {
+  test('PUT returns 405 when AllowPut=false — other verbs still work', async ({ request }) => {
+    // AllowPut=false in isolation: PATCH and DELETE remain open, PUT is gated. Mirrors the
+    // shape of the MenuItems AllowDelete=false test, but for the PUT flag so each gate is
+    // pinned independently rather than only as part of the AuditLogs full-lockdown set.
+    const create = await request.post('/api/Gifts', {
+      data: {
+        name: unique('NoPutGift'),
+        isWrapped: false,
+        trackingCode: '00000000-0000-0000-0000-000000000002',
+        price: 1.0,
+        barcode: 1,
+        weight: 1.0,
+        rating: 1.0,
+        quantityInStock: 1,
+        minAge: 0,
+        shippedAt: '2026-05-12T10:00:00+00:00',
+        preparationTime: '00:10:00',
+        expirationDate: '2027-01-01',
+        availableFrom: '08:00:00',
+        description: '',
+        notes: '',
+      },
+    });
+    expect(create.status()).toBe(201);
+    const created = await create.json();
+
+    const put = await request.put(`/api/Gifts/${created.id}`, {
+      data: {
+        name: 'attempted-rename',
+        isWrapped: true,
+        trackingCode: '00000000-0000-0000-0000-000000000002',
+        price: 2.0,
+        barcode: 2,
+        weight: 2.0,
+        rating: 2.0,
+        quantityInStock: 2,
+        minAge: 0,
+        shippedAt: '2026-05-12T10:00:00+00:00',
+        preparationTime: '00:10:00',
+        expirationDate: '2027-01-01',
+        availableFrom: '08:00:00',
+        description: '',
+        notes: '',
+      },
+    });
+    expect(put.status()).toBe(405);
+
+    // Row is untouched — guard short-circuited before persistence.
+    const stillThere = await request.get(`/api/Gifts/${created.id}`);
+    expect(stillThere.status()).toBe(200);
+    expect((await stillThere.json()).name).toBe(created.name);
+
+    // PATCH (sibling flag still true) keeps working on the same row.
+    const patch = await request.patch(`/api/Gifts/${created.id}`, {
+      data: { isWrapped: true },
+    });
+    expect(patch.status()).toBe(200);
+  });
+
   test('round-trips the wide primitive-type surface', async ({ request }) => {
     const payload = {
       name: unique('gift'),

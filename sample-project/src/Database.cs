@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Gift> Gifts => Set<Gift>();
+    public DbSet<TenantNote> TenantNotes => Set<TenantNote>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -95,6 +96,14 @@ public class AppDbContext : DbContext
             entity.Property(g => g.Price).HasPrecision(12, 2);
             entity.Property(g => g.Description).HasMaxLength(500);
             entity.Property(g => g.Notes).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<TenantNote>(entity =>
+        {
+            entity.Property(n => n.TenantId).IsRequired().HasMaxLength(60);
+            entity.HasIndex(n => n.TenantId);
+            entity.Property(n => n.Title).IsRequired().HasMaxLength(50);
+            entity.Property(n => n.Body).HasMaxLength(2000);
         });
     }
 
