@@ -109,9 +109,11 @@ namespace NDjango.RestFramework.Base
         {
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
             query = SortQuery(AllowedFields, query);
+            // An empty result set is a legitimate success — same posture as DRF's
+            // ListModelMixin (rest_framework/mixins.py:34-44 + pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1). The paginator returns an empty envelope;
+            // the controller renders it through the same path as a populated page.
             var paginated = await _pagination.PaginateAsync(query, HttpContext.Request, cancellationToken);
-            if (paginated == null)
-                return NotFound();
 
             var paginatedResultsAsJson = JsonConvert.SerializeObject(
                 paginated.Results,

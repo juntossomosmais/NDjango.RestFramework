@@ -29,7 +29,7 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         _pageNumberQueryParam = pageNumberQueryParam;
     }
 
-    public override async Task<Paginated<TDestination>?> PaginateAsync(
+    public override async Task<Paginated<TDestination>> PaginateAsync(
         IQueryable<TDestination> source,
         HttpRequest request,
         CancellationToken cancellationToken = default)
@@ -44,10 +44,13 @@ public class PageNumberPagination<TDestination> : Pagination<TDestination>
         // Basic data
         var numberOfRowsToTake = RetrieveConfiguredLimit(limitQueryParam.Value);
         var desiredPageNumber = RetrieveConfiguredPageNumber(pageNumberQueryParam.Value);
-        // Building list
+        // Empty result is a legitimate success — mirrors DRF's PageNumberPagination, which
+        // builds an empty Page via Django's Paginator.page(1) and renders it through the
+        // same get_paginated_response() branch as a populated page (rest_framework/
+        // pagination.py:220-226 + mixins.py:34-44 at encode/django-rest-framework@3.17.1).
         var count = await source.CountAsync(cancellationToken);
         if (count == 0)
-            return null;
+            return new Paginated<TDestination>(0, null, null, []);
         var totalNumberOfPages = (int)Math.Ceiling((double)count / numberOfRowsToTake);
         var actualPageNumber = desiredPageNumber > totalNumberOfPages ? totalNumberOfPages : desiredPageNumber;
         var numberOfRowsToSkip = (actualPageNumber - 1) * numberOfRowsToTake;

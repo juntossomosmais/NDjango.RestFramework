@@ -1170,8 +1170,17 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=1234&Name=ghi");
 
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            paginatedResponse.Count.Should().Be(0);
+            paginatedResponse.Results.Should().BeEmpty();
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -1220,8 +1229,17 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers?cpf=5557");
 
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            paginatedResponse.Count.Should().Be(0);
+            paginatedResponse.Results.Should().BeEmpty();
+            paginatedResponse.Next.Should().BeNull();
+            paginatedResponse.Previous.Should().BeNull();
         }
 
         [Fact]
@@ -1290,8 +1308,8 @@ public class BaseControllerTests
         [InlineData("Agua Alta", 1)]
         [InlineData("Agua%", 2)]
         [InlineData("% Inc", 2)]
-        [InlineData("aaa", null)]
-        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int? expectedCount)
+        [InlineData("aaa", 0)]
+        public async Task ListPaged_WithSearchTerm_ReturnsExpectedCount(string term, int expectedCount)
         {
             // Arrange
             var dbSet = Context.Set<Customer>();
@@ -1335,12 +1353,10 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync($"api/Customers?search={HttpUtility.UrlEncode(term)}");
 
-            // Assert
-            if (expectedCount == null)
-            {
-                response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-                return;
-            }
+            // Assert — empty result is a legitimate success; the paginator emits the
+            // {count:0, next:null, previous:null, results:[]} envelope same as DRF's
+            // PageNumberPagination (rest_framework/pagination.py:220-226 at
+            // encode/django-rest-framework@3.17.1).
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var responseData = await response.Content.ReadAsStringAsync();
             var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(responseData);
@@ -1599,7 +1615,7 @@ public class BaseControllerTests
         }
 
         [Fact]
-        public async Task ListPaged_WithEmptyDatabase_ShouldReturnNotFound()
+        public async Task ListPaged_WithEmptyDatabase_ShouldReturnEmptyEnvelope()
         {
             // Arrange
             // No data seeded — empty database
@@ -1607,8 +1623,17 @@ public class BaseControllerTests
             // Act
             var response = await Client.GetAsync("api/Customers");
 
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            // Assert — empty result is a legitimate success; mirrors DRF's PageNumberPagination
+            // which builds an empty Page via Django's Paginator.page(1) and renders it through
+            // the same get_paginated_response() branch as a populated page (rest_framework/
+            // pagination.py:220-226 + mixins.py:34-44 at encode/django-rest-framework@3.17.1).
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var paginatedResponse = JsonConvert.DeserializeObject<PaginatedResponse<List<Customer>>>(
+                await response.Content.ReadAsStringAsync());
+            Assert.Equal(0, paginatedResponse.Count);
+            Assert.Empty(paginatedResponse.Results);
+            Assert.Null(paginatedResponse.Next);
+            Assert.Null(paginatedResponse.Previous);
         }
 
         #endregion
