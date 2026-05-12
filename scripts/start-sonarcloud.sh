@@ -4,6 +4,7 @@ set -eu -o pipefail
 
 PROJECT_KEY="juntossomosmais_NDjango.RestFramework"
 ORGANIZATION="juntossomosmais"
+SONAR_SETTINGS_PATH="$(pwd)/sonar-project.xml"
 
 # You should start the scanner prior building your project and running your tests
 if [ -n "${PR_SOURCE_BRANCH:-}" ]; then
@@ -12,11 +13,10 @@ if [ -n "${PR_SOURCE_BRANCH:-}" ]; then
     /k:"$PROJECT_KEY" \
     /o:"$ORGANIZATION" \
     /d:sonar.host.url="https://sonarcloud.io" \
-    /d:sonar.cs.opencover.reportsPaths="**/*/coverage.opencover.xml" \
-    /d:sonar.cs.vstest.reportsPaths="**/*/*.trx" \
     /d:sonar.pullrequest.base="$PR_TARGET_BRANCH" \
     /d:sonar.pullrequest.branch="$PR_SOURCE_BRANCH" \
-    /d:sonar.pullrequest.key="$GITHUB_PR_NUMBER"
+    /d:sonar.pullrequest.key="$GITHUB_PR_NUMBER" \
+    /s:"$SONAR_SETTINGS_PATH"
 else
   dotnet sonarscanner begin \
     /d:sonar.login="$SONAR_TOKEN" \
@@ -24,9 +24,8 @@ else
     /k:"$PROJECT_KEY" \
     /o:"$ORGANIZATION" \
     /d:sonar.host.url="https://sonarcloud.io" \
-    /d:sonar.cs.opencover.reportsPaths="**/*/coverage.opencover.xml" \
-    /d:sonar.cs.vstest.reportsPaths="**/*/*.trx" \
-    /d:sonar.branch.name="$SOURCE_BRANCH_NAME"
+    /d:sonar.branch.name="$SOURCE_BRANCH_NAME" \
+    /s:"$SONAR_SETTINGS_PATH"
 fi
 
 # Now we can run our tests as usual

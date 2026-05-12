@@ -382,6 +382,8 @@ namespace NDjango.RestFramework.Base
 
         /// <summary>
         /// Deletes an entity by its primary key. Returns 204 No Content on success.
+        /// Disable this endpoint via <see cref="ActionOptions.AllowDelete"/>; disabled hits
+        /// return <c>405 Method Not Allowed</c>.
         /// </summary>
         /// <param name="id">The primary key of the entity to delete.</param>
         /// <returns>
@@ -395,6 +397,9 @@ namespace NDjango.RestFramework.Base
             [FromRoute] TPrimaryKey id,
             CancellationToken cancellationToken = default)
         {
+            if (!_actionOptions.AllowDelete)
+                return StatusCode(StatusCodes.Status405MethodNotAllowed);
+
             var query = FilterQuery(GetQuerySet(), HttpContext.Request);
             var instance = await _serializer.GetObjectAsync(query, id, cancellationToken);
             if (instance is null)

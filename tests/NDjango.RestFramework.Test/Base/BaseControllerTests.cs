@@ -93,6 +93,26 @@ public class BaseControllerTests
             var deleted = dbSet.AsNoTracking().FirstOrDefault(x => x.Id == customer2.Id);
             Assert.Null(deleted);
         }
+
+        [Fact]
+        public async Task Delete_WhenDeleteIsNotAllowedByActionOptions_ShouldReturnMethodNotAllowed()
+        {
+            // Arrange — IntAsIdEntitiesController is configured with AllowDelete = false
+            // so the single-resource DELETE returns 405 without touching the database.
+            var dbSet = Context.Set<IntAsIdEntity>();
+            var entity = new IntAsIdEntity() { Name = "abc" };
+            dbSet.Add(entity);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var response = await Client.DeleteAsync($"api/IntAsIdEntities/{entity.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+
+            var stillExists = dbSet.AsNoTracking().Any(x => x.Id == entity.Id);
+            Assert.True(stillExists);
+        }
     }
 
     public class ValidateDestroy : IntegrationTests

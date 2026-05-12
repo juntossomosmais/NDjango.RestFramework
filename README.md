@@ -338,7 +338,7 @@ Only `Name` is updated; `CreatedAt`, `UpdatedAt`, etc. remain untouched.
 
 ### Disabling endpoints
 
-Use `ActionOptions` to disable PUT, PATCH, or the bulk-delete endpoint:
+Use `ActionOptions` to disable PUT, PATCH, DELETE, or the bulk-delete endpoint:
 
 ```csharp
 public PersonsController(...)
@@ -350,6 +350,7 @@ public PersonsController(...)
 |---|---|---|
 | `AllowPatch` | `true` | `PATCH /{id}` |
 | `AllowPut` | `true` | `PUT /{id}` |
+| `AllowDelete` | `true` | `DELETE /{id}` |
 | `AllowBulkDelete` | `false` | `DELETE ?ids=` (the bulk-delete endpoint, opt-in) |
 
 Disabled endpoints return `405 Method Not Allowed`. **Bulk delete is opt-in** — set `AllowBulkDelete = true` to expose `DELETE ?ids=`. The opt-in default is intentional: the bulk path runs a single `ExecuteDeleteAsync` SQL statement and silently bypasses `ValidateDestroyAsync`, any override of `Serializer.DestroyAsync(instance, ct)`, EF Core `SaveChanges` interceptors, audit-on-delete hooks, and soft-delete logic. Enable it only when those seams either don't exist on this resource or carry rules the bulk path is allowed to skip.

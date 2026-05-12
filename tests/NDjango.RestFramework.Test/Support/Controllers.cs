@@ -51,7 +51,7 @@ public class IntAsIdEntitiesController : BaseController<IntAsIdEntityDto, IntAsI
         : base(
             serializer,
             context,
-            new ActionOptions() { AllowPatch = false, AllowPut = false, AllowBulkDelete = false },
+            new ActionOptions() { AllowPatch = false, AllowPut = false, AllowDelete = false, AllowBulkDelete = false },
             logger)
     {
         AllowedFields =

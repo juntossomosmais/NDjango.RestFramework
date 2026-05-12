@@ -5,8 +5,8 @@ namespace NDjango.RestFramework.Base;
 
 internal interface IFieldConfigurableController
 {
-    string[] GetFieldsConfiguration();
-    string[] GetAllowedFieldsConfiguration();
-    Type GetDestinationType();
-    IReadOnlyList<string> GetMisnamedValidationHooks();
+    public string[] GetFieldsConfiguration();
+    public string[] GetAllowedFieldsConfiguration();
+    public Type GetDestinationType();
+    public IReadOnlyList<string> GetMisnamedValidationHooks();
 }

@@ -1,0 +1,22 @@
+{
+  "name": "ndjango-restframework-playwright",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end CRUD + OpenAPI contract tests for NDjango.RestFramework, driven through sample-project.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "install-browsers": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

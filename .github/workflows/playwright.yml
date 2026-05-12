@@ -1,0 +1,93 @@
+name: Playwright E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - 'src/**'
+      - 'sample-project/**'
+      - 'playwright/**'
+      - '.github/workflows/playwright.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright tests (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: playwright/package-lock.json
+
+      - name: Start SQL Server
+        run: docker compose up --detach --wait --wait-timeout 180 db
+
+      - name: Build sample-project
+        run: dotnet build sample-project/src/SampleProject.csproj --configuration Debug
+
+      - name: Install Playwright dependencies
+        working-directory: playwright
+        run: |
+          npm ci --ignore-scripts
+          npm run install-browsers -- chromium
+
+      - name: Start sample-project (:8000) in background
+        working-directory: sample-project/src
+        run: |
+          nohup dotnet run --no-build --no-launch-profile > /tmp/sample-project.log 2>&1 &
+          echo $! > /tmp/sample-project.pid
+
+      - name: Wait for sample-project to be ready
+        run: |
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://localhost:8000/swagger/v1/swagger.json > /dev/null; then
+              echo "sample-project (:8000) is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "sample-project failed to start within 180s"
+          echo "----- /tmp/sample-project.log -----"
+          tail -200 /tmp/sample-project.log || true
+          exit 1
+
+      - name: Run Playwright tests
+        working-directory: playwright
+        env:
+          CI: 'true'
+        run: npm test -- --project=chromium
+
+      - name: Stop sample-project
+        if: always()
+        run: |
+          if [ -f /tmp/sample-project.pid ]; then
+            kill "$(cat /tmp/sample-project.pid)" || true
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright/playwright-report
+          retention-days: 14
+
+      - name: Upload sample-project log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-project-log
+          path: /tmp/sample-project.log
+          retention-days: 14
