@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <!-- Version is configured in the build pipeline -->
     <PackageId>NDjango.RestFramework</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -22,8 +22,27 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.*" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.*" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[8.0.27, 9.0.0)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="[8.0.27, 9.0.0)" />
+    <!-- Declared explicitly: the code has always used Newtonsoft, but it arrived only as a
+         transitive of Microsoft.Extensions.DependencyModel 2.1.0 (via Mvc.Core 2.*). Any
+         consumer whose graph floats Microsoft.Extensions.* to 9.x or later loses that
+         transitive and fails to compile against this package. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- One EF major per target framework, and that is the whole reason this package
+         multi-targets. EF Core 10 drops
+         RelationalQueryableExtensions.ExecuteDeleteAsync(IQueryable<T>, CancellationToken), the
+         overload the bulk-delete path in Serializer.cs calls. The break is binary, not source: a
+         consumer on EF 10 restores clean, builds clean, and then throws MissingMethodException
+         the first time DELETE ?ids= runs. Compiling a net10.0 asset rebinds that call, with no
+         source change anywhere in the library.
+         net8.0 serves .NET 8 and .NET 9 consumers alike, because EF Core 9 still publishes a
+         net8.0 asset — only EF 10 (which targets net10.0) needs a target of its own.
+         Within each target both EF packages share one range, so they can never resolve to
+         different majors. That mixed graph is what caused the ExecuteDeleteAsync ambiguity in
+         bc4dc42, and it is what the original 9.0.0 ceiling was really guarding against. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[8.0.27, 10.0.0)" Condition="'$(TargetFramework)' == 'net8.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="[8.0.27, 10.0.0)" Condition="'$(TargetFramework)' == 'net8.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[10.0.0, 11.0.0)" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="[10.0.0, 11.0.0)" Condition="'$(TargetFramework)' == 'net10.0'" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
