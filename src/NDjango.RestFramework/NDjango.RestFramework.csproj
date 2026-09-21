@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <!-- Version is configured in the build pipeline -->
     <PackageId>NDjango.RestFramework</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -20,10 +20,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Declared, not inherited. Newtonsoft is used directly across the library — BaseController,
+      Serializer, JsonTransform, PartialJsonObject and the error types all reference it — but it
+      used to arrive only as a transitive of Microsoft.AspNetCore.Mvc.Core. That package dropped
+      the dependency in 2.3.13, so the first re-resolution of the floating 2.* stopped the library
+      compiling. It was also pulling Newtonsoft.Json 9.0.1 (2016) into every consumer.
+    -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.*" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.*" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.*" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="[8.0.27, 9.0.0)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="[8.0.27, 9.0.0)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(EntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EntityFrameworkCoreVersion)" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
