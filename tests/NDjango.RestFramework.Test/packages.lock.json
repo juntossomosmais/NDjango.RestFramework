@@ -927,7 +927,7 @@
       },
       "Microsoft.EntityFrameworkCore.InMemory": {
         "type": "Direct",
-        "requested": "[8.0.27, 9.0.0)",
+        "requested": "[8.0.27, 10.0.0)",
         "resolved": "8.0.27",
         "contentHash": "PAlgm3IMMA4Zl88+S2myea91RlNBU/w7hAxfMFjQw+bFHwknzf1JFcSr0peBkler6Mm1knkmuwJCPBJYtcKVKw==",
         "dependencies": {
@@ -936,7 +936,7 @@
       },
       "Microsoft.EntityFrameworkCore.SqlServer": {
         "type": "Direct",
-        "requested": "[8.0.27, 9.0.0)",
+        "requested": "[8.0.27, 10.0.0)",
         "resolved": "8.0.27",
         "contentHash": "zOjIHog/Irl4rhNfJ8oH9javl/P5WH8xp152ETEQ3CW+8i7btG4+kGk0pasVGlArAuiGUtXDmRmj4k+NTGzRcA==",
         "dependencies": {
@@ -1805,8 +1805,8 @@
         "dependencies": {
           "Microsoft.AspNetCore.Http.Abstractions": "[2.*, )",
           "Microsoft.AspNetCore.Mvc.Core": "[2.*, )",
-          "Microsoft.EntityFrameworkCore": "[8.0.27, 9.0.0)",
-          "Microsoft.EntityFrameworkCore.Relational": "[8.0.27, 9.0.0)",
+          "Microsoft.EntityFrameworkCore": "[8.0.27, 10.0.0)",
+          "Microsoft.EntityFrameworkCore.Relational": "[8.0.27, 10.0.0)",
           "Newtonsoft.Json": "[13.*, )"
         }
       }

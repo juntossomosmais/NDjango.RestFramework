@@ -17,14 +17,21 @@
         Shipping EF Core 8 to a net10.0 app would drag the whole EF 8 assembly set into it and
         displace whatever the app had already resolved.
 
+        The net8.0 asset deliberately spans two EF majors. EF Core 9 still publishes a net8.0
+        asset, so an app that stays on .NET 8 and moves to EF Core 9 is a real combination; a
+        ceiling at 9.0.0 turns it into NU1608, which TreatWarningsAsErrors makes a failed restore.
+        Nothing binary breaks there — EF Core 10 is the release that dropped the
+        ExecuteDeleteAsync(IQueryable<T>, CancellationToken) overload Serializer.DestroyManyAsync
+        calls, which is why 10 is where the ceiling belongs and why net10.0 needs its own asset.
+
         TargetFramework is empty during the outer (multi-targeting) pass, which never restores
         packages — the fallbacks only keep that pass from evaluating an empty version.
     -->
     <PropertyGroup>
-        <EntityFrameworkCoreVersion Condition="'$(TargetFramework)' == 'net8.0'">[8.0.27, 9.0.0)</EntityFrameworkCoreVersion>
+        <EntityFrameworkCoreVersion Condition="'$(TargetFramework)' == 'net8.0'">[8.0.27, 10.0.0)</EntityFrameworkCoreVersion>
         <EntityFrameworkCoreVersion Condition="'$(TargetFramework)' == 'net9.0'">[9.0.0, 10.0.0)</EntityFrameworkCoreVersion>
         <EntityFrameworkCoreVersion Condition="'$(TargetFramework)' == 'net10.0'">[10.0.0, 11.0.0)</EntityFrameworkCoreVersion>
-        <EntityFrameworkCoreVersion Condition="'$(EntityFrameworkCoreVersion)' == ''">[8.0.27, 9.0.0)</EntityFrameworkCoreVersion>
+        <EntityFrameworkCoreVersion Condition="'$(EntityFrameworkCoreVersion)' == ''">[8.0.27, 10.0.0)</EntityFrameworkCoreVersion>
 
         <AspNetCoreVersion Condition="'$(TargetFramework)' == 'net8.0'">8.*</AspNetCoreVersion>
         <AspNetCoreVersion Condition="'$(TargetFramework)' == 'net9.0'">9.*</AspNetCoreVersion>
