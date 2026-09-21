@@ -7,3 +7,4 @@
 !scripts/*.sh
 !runsettings.xml
 !dotnet-tools.json
+!Directory.Build.props

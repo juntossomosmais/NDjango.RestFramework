@@ -7,6 +7,11 @@ NDjango Rest Framework makes you focus on business, not on boilerplate code. It'
 
 This is a copy of the convention established by [Django REST framework](https://github.com/encode/django-rest-framework), though translated to C# and adapted to the .NET Core framework.
 
+**Supported frameworks:** `net8.0`, `net9.0` and `net10.0`. The package ships one build per
+framework, each pinned to the matching Entity Framework Core major (8, 9 and 10), so referencing it
+from a .NET 10 app does not hold the app back to an older EF Core. The whole test suite runs
+against all three.
+
 ## Quickstart
 
 We'll build a CRUD API for `Person` and `TodoItem` entities step by step.

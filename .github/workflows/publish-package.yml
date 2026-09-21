@@ -18,7 +18,12 @@ jobs:
           fetch-depth: 1
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '8.0.x'
+          # All three, not just the newest: the SDK that builds every target framework is 10, but
+          # running the net8.0 and net9.0 test runs needs their runtimes on the agent as well.
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
       - name: Generate package
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
